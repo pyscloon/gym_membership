@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { syncProfile } from "../lib/profile";
 
 export default function Register() {
     const navigate = useNavigate();
@@ -30,6 +31,7 @@ export default function Register() {
 
         try {
             setLoading(true);
+            const full_name = `${firstName} ${lastName}`.trim();
 
             const { data, error } = await supabase.auth.signUp({
                 email,
@@ -48,6 +50,16 @@ export default function Register() {
             }
 
             if (data.user) {
+                const { error: profileError } = await syncProfile({
+                    user: data.user,
+                    full_name,
+                });
+
+                if (profileError) {
+                    setErrorMessage(profileError);
+                    return;
+                }
+
                 navigate("/dashboard");
                 return;
             }
