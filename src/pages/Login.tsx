@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { setLocalAuthenticated } from "../lib/localAuth";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { syncProfile } from "../lib/profile";
 
@@ -15,15 +16,14 @@ export default function Login() {
         event.preventDefault();
         setErrorMessage("");
 
-        if (!isSupabaseConfigured || !supabase) {
-            setErrorMessage(
-                "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in a .env file."
-            );
+        if (!email || !password) {
+            setErrorMessage("Please enter your email and password.");
             return;
         }
 
-        if (!email || !password) {
-            setErrorMessage("Please enter your email and password.");
+        if (!isSupabaseConfigured || !supabase) {
+            setLocalAuthenticated(true);
+            navigate("/dashboard");
             return;
         }
 
@@ -76,7 +76,7 @@ export default function Login() {
 
                         {!isSupabaseConfigured ? (
                             <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                Missing Supabase setup. Create a <code>.env</code> file with <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>.
+                                Supabase is not configured. Login works in local demo mode so you can continue to Dashboard.
                             </p>
                         ) : null}
 
