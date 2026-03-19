@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { NavLink, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
 
 type MembershipStatus = "Active" | "Cancelled" | "Expired";
 
@@ -11,9 +12,24 @@ const menuItemBaseClass =
     "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition";
 
 export default function Dashboard() {
+    const navigate = useNavigate();
     const notifications = ["Welcome to Flex Republic"];
     const unreadCount = notifications.length;
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+    const [firstName, setFirstName] = useState("User");
+
+    useEffect(() => {
+        const fetchUserFirstName = async () => {
+            if (!supabase) return;
+
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.user_metadata?.first_name) {
+                setFirstName(user.user_metadata.first_name);
+            }
+        };
+
+        void fetchUserFirstName();
+    }, []);
 
     return (
         <main
@@ -28,12 +44,16 @@ export default function Dashboard() {
         >
             <section className="grid min-h-screen w-full overflow-hidden bg-flexWhite/92 shadow-2xl ring-1 ring-flexBlack/20 md:grid-cols-[260px_1fr]">
                 <aside className="border-b border-flexNavy/15 bg-flexBlack p-4 text-flexWhite md:border-b-0 md:border-r md:border-flexNavy/20 md:p-5">
-                    <div className="inline-flex items-center rounded-xl bg-flexWhite px-3 py-2 shadow-md ring-1 ring-flexNavy/20">
+                    <button
+                        type="button"
+                        onClick={() => navigate("/dashboard")}
+                        className="inline-flex items-center rounded-xl bg-flexWhite px-3 py-2 shadow-md ring-1 ring-flexNavy/20 transition hover:bg-flexWhite/90"
+                    >
                         <h1 className="text-xl font-black italic tracking-wide sm:text-2xl">
                             <span className="text-black">Flex</span>{" "}
                             <span className="text-flexBlue">Republic</span>
                         </h1>
-                    </div>
+                    </button>
 
                     <nav className="mt-5 flex gap-2 md:flex-col">
                         <NavLink
@@ -154,7 +174,7 @@ export default function Dashboard() {
                     <section className="mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-5 sm:p-6">
                         <p className="text-base text-flexBlack sm:text-lg">
                             Welcome back,
-                            <span className="ml-2 font-semibold text-blue-600">red</span>
+                            <span className="ml-2 font-semibold text-blue-600">{firstName}</span>
                         </p>
                         <p className="mt-1 text-sm text-flexNavy">
                             Here is your current membership overview.
