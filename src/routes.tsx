@@ -2,7 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/Login.tsx";
 import RegisterPage from "./pages/Register.tsx";
 import DashboardPage from "./pages/Dashboard.tsx";
-import ProfilePage from "./pages/Profile.tsx";
+import ProfilePage from "./pages/Profile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function AppRoutes() {
