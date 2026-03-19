@@ -5,14 +5,6 @@ import { setLocalAuthenticated } from "../lib/localAuth";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { syncProfile } from "../lib/profile";
 
-function mapAuthErrorMessage(message: string) {
-    if (/failed to fetch/i.test(message)) {
-        return "Cannot reach auth server right now. Restart your Vite server and check your internet connection.";
-    }
-
-    return message;
-}
-
 export default function Login() {
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
@@ -40,24 +32,21 @@ export default function Login() {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
             if (error) {
-                setErrorMessage(mapAuthErrorMessage(error.message));
+                setErrorMessage(error.message);
                 return;
             }
 
             if (data.user) {
                 const { error: profileError } = await syncProfile({ user: data.user });
+
                 if (profileError) {
-                    console.warn("Profile sync failed on login:", profileError);
+                    setErrorMessage(profileError);
+                    return;
                 }
             }
 
             navigate("/dashboard");
-        } catch (error) {
-            if (error instanceof Error) {
-                setErrorMessage(mapAuthErrorMessage(error.message));
-                return;
-            }
-
+        } catch {
             setErrorMessage("Something went wrong while signing in.");
         } finally {
             setLoading(false);
