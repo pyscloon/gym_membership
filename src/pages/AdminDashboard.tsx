@@ -61,14 +61,6 @@ export default function AdminDashboard() {
             <p className="mt-2 text-3xl font-bold text-flexBlack">0</p>
           </article>
         </section>
-
-        <section className="mt-6 rounded-xl border border-dashed border-flexNavy/25 bg-flexWhite/60 p-5">
-          <h2 className="text-lg font-semibold text-flexBlack">Next Step</h2>
-          <p className="mt-2 text-sm text-flexNavy">
-            You now have a protected admin area without an admin table. When you are ready, this page
-            can be connected to real analytics and management actions.
-          </p>
-        </section>
       </section>
     </main>
   );
