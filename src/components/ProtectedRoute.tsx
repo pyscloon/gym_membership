@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
-import { isLocalAuthenticated } from "../lib/localAuth";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 type ProtectedRouteProps = {
@@ -18,7 +17,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     const checkSession = async () => {
       if (!isSupabaseConfigured || !supabase) {
         if (isMounted) {
-          setIsAuthenticated(isLocalAuthenticated());
+          setIsAuthenticated(false);
           setIsChecking(false);
         }
         return;

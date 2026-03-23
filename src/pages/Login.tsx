@@ -1,7 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { setLocalAuthenticated } from "../lib/localAuth";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { syncProfile } from "../lib/profile";
 
@@ -22,8 +21,7 @@ export default function Login() {
         }
 
         if (!isSupabaseConfigured || !supabase) {
-            setLocalAuthenticated(true);
-            navigate("/dashboard");
+            setErrorMessage("Supabase is not configured. Please check your .env settings.");
             return;
         }
 
@@ -76,7 +74,7 @@ export default function Login() {
 
                         {!isSupabaseConfigured ? (
                             <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                Supabase is not configured. Login works in local demo mode so you can continue to Dashboard.
+                                Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.
                             </p>
                         ) : null}
 
@@ -120,10 +118,14 @@ export default function Login() {
                             </button>
                         </form>
 
-                        <div className="mt-5 flex items-center justify-center gap-2 text-sm text-flexNavy">
+                        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm text-flexNavy">
                             <span>Don't have an account?</span>
                             <Link to="/register" className="font-semibold text-flexBlue hover:underline">
                                 Go to Register
+                            </Link>
+                            <span className="text-flexNavy/60">|</span>
+                            <Link to="/admin/login" className="font-semibold text-flexNavy hover:underline">
+                                Admin Login
                             </Link>
                         </div>
                     </div>
