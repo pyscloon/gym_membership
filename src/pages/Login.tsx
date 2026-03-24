@@ -15,15 +15,13 @@ export default function Login() {
         event.preventDefault();
         setErrorMessage("");
 
-        if (!isSupabaseConfigured || !supabase) {
-            setErrorMessage(
-                "Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in a .env file."
-            );
+        if (!email || !password) {
+            setErrorMessage("Please enter your email and password.");
             return;
         }
 
-        if (!email || !password) {
-            setErrorMessage("Please enter your email and password.");
+        if (!isSupabaseConfigured || !supabase) {
+            setErrorMessage("Supabase is not configured. Please check your .env settings.");
             return;
         }
 
@@ -76,7 +74,7 @@ export default function Login() {
 
                         {!isSupabaseConfigured ? (
                             <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                                Missing Supabase setup. Create a <code>.env</code> file with <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code>.
+                                Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.
                             </p>
                         ) : null}
 
@@ -120,10 +118,14 @@ export default function Login() {
                             </button>
                         </form>
 
-                        <div className="mt-5 flex items-center justify-center gap-2 text-sm text-flexNavy">
+                        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-sm text-flexNavy">
                             <span>Don't have an account?</span>
                             <Link to="/register" className="font-semibold text-flexBlue hover:underline">
                                 Go to Register
+                            </Link>
+                            <span className="text-flexNavy/60">|</span>
+                            <Link to="/admin/login" className="font-semibold text-flexNavy hover:underline">
+                                Admin Login
                             </Link>
                         </div>
                     </div>
