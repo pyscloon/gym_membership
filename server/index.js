@@ -1,6 +1,7 @@
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
+import { fileURLToPath } from "url";
 
 dotenv.config();
 
@@ -24,6 +25,13 @@ app.get("/api/health", (_request, response) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`API server listening on http://localhost:${port}`);
-});
+const currentFilePath = fileURLToPath(import.meta.url);
+const isDirectRun = process.argv[1] === currentFilePath;
+
+if (isDirectRun) {
+  app.listen(port, () => {
+    console.log(`API server listening on http://localhost:${port}`);
+  });
+}
+
+export default app;
