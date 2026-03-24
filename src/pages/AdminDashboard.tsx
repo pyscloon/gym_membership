@@ -27,12 +27,6 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <Link
-              to="/dashboard"
-              className="rounded-lg border border-flexNavy/25 px-4 py-2 text-sm font-semibold text-flexNavy transition hover:border-flexBlue hover:text-flexBlue"
-            >
-              Member Area
-            </Link>
             <button
               type="button"
               onClick={handleLogout}
