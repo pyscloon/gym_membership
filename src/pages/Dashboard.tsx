@@ -1,19 +1,23 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
-
-type MembershipStatus = "Active" | "Cancelled" | "Expired";
-
-const membershipStatus: MembershipStatus = "Active";
-const membershipStartDate = "March 1, 2026";
-const membershipExpiryDate = "March 1, 2027";
+import { NavLink, useNavigate } from "react-router-dom";
+import { supabase } from "../lib/supabaseClient";
+import MembershipDashboard from "../components/MembershipDashboard";
 
 const menuItemBaseClass =
     "flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition";
 
 export default function Dashboard() {
+    const navigate = useNavigate();
     const notifications = ["Welcome to Flex Republic"];
     const unreadCount = notifications.length;
     const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+
+    const handleLogout = async () => {
+        if (supabase) {
+            await supabase.auth.signOut();
+        }
+        navigate("/login");
+    };
 
     return (
         <main
@@ -84,6 +88,26 @@ export default function Dashboard() {
                             </svg>
                             <span>Profile</span>
                         </NavLink>
+
+                        <button
+                            onClick={handleLogout}
+                            className={`${menuItemBaseClass} w-full mt-auto justify-items-start bg-flexWhite/10 text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors`}
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                className="h-5 w-5"
+                                aria-hidden="true"
+                            >
+                                <path
+                                    fillRule="evenodd"
+                                    d="M7.5 3.75A1.5 1.5 0 0 0 6 5.25v13.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5V15a.75.75 0 0 1 1.5 0v3.75a3 3 0 0 1-3 3h-6a3 3 0 0 1-3-3V5.25a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3V9A.75.75 0 0 1 15 9V5.25a1.5 1.5 0 0 0-1.5-1.5h-6Zm10.72 4.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 1 1-1.06-1.06l1.72-1.72H9a.75.75 0 0 1 0-1.5h10.94l-1.72-1.72a.75.75 0 0 1 0-1.06Z"
+                                    clipRule="evenodd"
+                                />
+                            </svg>
+                            <span>Logout</span>
+                        </button>
                     </nav>
                 </aside>
 
@@ -161,33 +185,8 @@ export default function Dashboard() {
                         </p>
                     </section>
 
-                    <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                        <article className="rounded-2xl border border-flexNavy/20 bg-white p-5 shadow-sm">
-                            <p className="text-xs uppercase tracking-[0.18em] text-flexNavy">
-                                Membership Status
-                            </p>
-                            <p className="mt-3 inline-flex rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
-                                {membershipStatus}
-                            </p>
-                        </article>
-
-                        <article className="rounded-2xl border border-flexNavy/20 bg-white p-5 shadow-sm">
-                            <p className="text-xs uppercase tracking-[0.18em] text-flexNavy">
-                                Membership Start Date
-                            </p>
-                            <p className="mt-3 text-lg font-semibold text-flexBlack">
-                                {membershipStartDate}
-                            </p>
-                        </article>
-
-                        <article className="rounded-2xl border border-flexNavy/20 bg-white p-5 shadow-sm sm:col-span-2 xl:col-span-1">
-                            <p className="text-xs uppercase tracking-[0.18em] text-flexNavy">
-                                Membership Expiry Date
-                            </p>
-                            <p className="mt-3 text-lg font-semibold text-flexBlack">
-                                {membershipExpiryDate}
-                            </p>
-                        </article>
+                    <section className="mt-6">
+                        <MembershipDashboard />
                     </section>
                 </div>
             </section>
