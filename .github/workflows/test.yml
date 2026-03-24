@@ -26,6 +26,8 @@ jobs:
       - name: Run Tests
         run: npm test
         env:
-          MONGODB_URI: ${{ secrets.MONGODB_URI }}
-          JWT_SECRET: secret-key
-          PORT: 5000
+          VITE_SUPABASE_URL: https://tujamqbbbfnoaladidjn.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1amFtcWJiYmZub2FsYWRpZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzI5NjIsImV4cCI6MjA4ODcwODk2Mn0.3wfCRRpMl-vZ3YJN8yJ2eRskr_Ac3oKLGARk4x_-zhw
+          PORT: 4000
+          CLIENT_ORIGIN: http://localhost:5173
+          VITE_ADMIN_EMAIL: admin@gmail.com
