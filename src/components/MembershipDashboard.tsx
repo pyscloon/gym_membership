@@ -226,74 +226,109 @@ export default function MembershipDashboard() {
           </button>
         )}
         <section className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6">
-          <p className="text-xs uppercase tracking-[0.18em] text-flexNavy mb-4">
-            Get Started
-          </p>
-          <p className="text-flexBlack mb-4">
-            You don't have an active membership. Choose a plan to get started!
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <button
-              onClick={() => handleApply("monthly")}
-              disabled={actionLoading}
-              className="flex items-center justify-center gap-2 rounded-xl bg-flexBlue px-4 py-3 font-semibold text-white transition hover:bg-flexBlue/90 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              {actionLoading ? "Applying..." : "Monthly Plan - ₱499/mo"}
-            </button>
-            <button
-              onClick={() => handleApply("annual")}
-              disabled={actionLoading}
-              className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              <svg
-                className="h-5 w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              {actionLoading ? "Applying..." : "Annual Plan - ₱1,199/yr"}
-            </button>
+          <div className="mb-6 text-center">
+            <p className="text-xs uppercase tracking-[0.18em] text-flexNavy/75">
+              Membership Plans
+            </p>
+            <p className="mt-2 text-sm text-flexNavy/70">
+              You currently do not have an active membership. Choose a plan below to get started!
+            </p>
           </div>
-          <button
-            onClick={handleWalkInApply}
-            disabled={actionLoading}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-flexBlue/30 bg-flexBlue/10 px-4 py-3 font-semibold text-flexNavy transition hover:bg-flexBlue/20 hover:border-flexBlue/50 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            <svg
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-              />
-            </svg>
-            {actionLoading ? "Starting..." : "Walk-In Pass - ₱60/session"}
-          </button>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <article className="rounded-2xl border border-flexNavy/15 bg-gradient-to-b from-white to-flexBlue/5 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-xl font-bold text-flexNavy">Monthly</p>
+                  <p className="text-sm font-semibold text-flexBlack">₱499 / month</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleApply("monthly")}
+                disabled={actionLoading}
+                className="mt-6 w-full rounded-xl bg-flexBlue px-4 py-3 font-semibold text-white transition hover:bg-flexNavy disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {actionLoading ? "Applying..." : "Choose Monthly"}
+              </button>
+            </article>
+
+            <article className="rounded-2xl border border-flexBlue/35 bg-gradient-to-b from-flexBlue/10 to-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-flexNavy/15 text-flexNavy">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 4v16m8-8H4"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-xl font-bold text-flexNavy">Annual</p>
+                  <p className="text-sm font-semibold text-flexBlack">₱1,199 / year</p>
+                </div>
+              </div>
+              <button
+                onClick={() => handleApply("annual")}
+                disabled={actionLoading}
+                className="mt-6 w-full rounded-xl bg-flexNavy px-4 py-3 font-semibold text-white transition hover:bg-flexBlue disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {actionLoading ? "Applying..." : "Choose Annual"}
+              </button>
+            </article>
+
+            <article className="rounded-2xl border border-flexNavy/15 bg-gradient-to-b from-white to-flexNavy/5 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy">
+                  <svg
+                    className="h-5 w-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+                    />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-xl font-bold text-flexNavy">Walk-In Pass</p>
+                  <p className="text-sm font-semibold text-flexBlack">₱60 / session</p>
+                </div>
+              </div>
+              <button
+                onClick={handleWalkInApply}
+                disabled={actionLoading}
+                className="mt-6 w-full rounded-xl border border-flexBlue/35 bg-flexBlue/10 px-4 py-3 font-semibold text-flexNavy transition hover:border-flexNavy/40 hover:bg-flexBlue/20 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {actionLoading ? "Starting..." : "Start Walk-In"}
+              </button>
+            </article>
+          </div>
         </section>
       </div>
     );
