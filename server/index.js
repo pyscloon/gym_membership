@@ -65,6 +65,31 @@ app.post("/api/admin/login", (request, response) => {
   });
 });
 
+app.get("/api/dashboard", (_request, response) => {
+  response.status(200).json({
+    status: "ok",
+    message: "Dashboard data retrieved.",
+    data: {
+      user: {
+        name: "John Doe",
+        email: "member@example.com",
+      },
+      membership: {
+        status: "active",
+        expiryDate: "2026-12-31",
+        plan: "Premium",
+      },
+      notifications: [
+        {
+          id: 1,
+          message: "Welcome to Flex Republic",
+        },
+      ],
+      streakCounter: 0,
+    },
+  });
+});
+
 const currentFilePath = fileURLToPath(import.meta.url);
 const isDirectRun = process.argv[1] === currentFilePath;
 
