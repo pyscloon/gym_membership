@@ -1,6 +1,13 @@
+import { QRCodeSVG } from "qrcode.react";
 import MembershipDashboard from "../components/MembershipDashboard";
 
 export default function WalkInPage() {
+  const walkInQR = JSON.stringify({
+    type: "walkin",
+    date: new Date().toISOString().split("T")[0],
+    access: "day-pass",
+  });
+
   return (
     <main
       className="min-h-screen p-0"
@@ -13,7 +20,6 @@ export default function WalkInPage() {
       }}
     >
       <section className="grid min-h-screen w-full overflow-hidden bg-flexWhite/92 shadow-2xl ring-1 ring-flexBlack/20 md:grid-cols-[260px_1fr]">
-        {/* Sidebar */}
         <aside className="border-b border-flexNavy/15 bg-flexBlack p-4 text-flexWhite md:border-b-0 md:border-r md:border-flexNavy/20 md:p-5">
           <div className="inline-flex items-center rounded-xl bg-flexWhite px-3 py-2 shadow-md ring-1 ring-flexNavy/20">
             <h1 className="text-xl font-black italic tracking-wide sm:text-2xl">
@@ -35,7 +41,6 @@ export default function WalkInPage() {
           </nav>
         </aside>
 
-        {/* Main Content */}
         <div className="overflow-y-auto">
           <section className="relative p-4 sm:p-6 md:p-10">
             <header className="flex flex-wrap items-center justify-between gap-4">
@@ -54,8 +59,20 @@ export default function WalkInPage() {
                 Welcome to Flex Republic!
               </p>
               <p className="mt-1 text-sm text-flexNavy">
-                Get instant access to our gym facilities with a walk-in pass. No
-                registration required.
+                Get instant access to our gym facilities with a walk-in pass. No registration required.
+              </p>
+            </section>
+
+            <section className="mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-5 sm:p-6 flex flex-col items-center gap-4">
+              <div className="w-full">
+                <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Guest Pass QR Code</p>
+                <p className="text-sm text-flexNavy/60 mt-1">Show this at the front desk for your day pass</p>
+              </div>
+              <div className="bg-white p-4 rounded-2xl shadow-sm border border-flexNavy/10">
+                <QRCodeSVG value={walkInQR} size={180} bgColor="#ffffff" fgColor="#0a0a2e" level="H" />
+              </div>
+              <p className="text-xs text-flexNavy/50">
+                Valid for: {new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
               </p>
             </section>
 
