@@ -10,6 +10,7 @@ import {
 } from "../lib/membershipService";
 import {
   type Membership,
+  type MembershipTier,
   calculateMembershipStats,
 } from "../types/membership";
 import WalkInCard from "./WalkInCard";
@@ -18,6 +19,13 @@ type Toast = {
   id: string;
   message: string;
   type: "success" | "error";
+};
+
+const TIER_LABELS: Record<MembershipTier, string> = {
+  monthly: "Monthly",
+  "semi-yearly": "Semi-Yearly",
+  annual: "Annual",
+  "walk-in": "Walk-In",
 };
 
 export default function MembershipDashboard() {
@@ -76,7 +84,7 @@ export default function MembershipDashboard() {
     loadMembership();
   }, [user?.id]);
 
-  const handleApply = async (tier: "monthly" | "annual" = "monthly") => {
+  const handleApply = async (tier: MembershipTier = "monthly") => {
     if (!user) return;
 
     setActionLoading(true);
@@ -225,39 +233,47 @@ export default function MembershipDashboard() {
             🔧 Dev: Toggle Membership State
           </button>
         )}
-        <section className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6">
-          <div className="mb-6 text-center">
-            <p className="text-xs uppercase tracking-[0.18em] text-flexNavy/75">
-              Membership Plans
-            </p>
-            <p className="mt-2 text-sm text-flexNavy/70">
-              You currently do not have an active membership. Choose a plan below to get started!
-            </p>
+        <section className="relative overflow-hidden rounded-3xl border border-flexNavy/20 bg-gradient-to-br from-white via-flexWhite to-flexBlue/10 p-6 shadow-[0_18px_60px_-30px_rgba(0,102,204,0.45)]">
+          <div className="pointer-events-none absolute -right-14 -top-14 h-40 w-40 rounded-full bg-flexBlue/15 blur-2xl" />
+          <div className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full bg-flexNavy/10 blur-2xl" />
+
+          <div className="relative mb-7 text-center">
+            <div className="inline-flex items-center gap-2 rounded-full border border-flexNavy/15 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-flexNavy/75">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy">
+                <svg
+                  className="h-3.5 w-3.5"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <rect x="3" y="6" width="18" height="12" rx="2" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18" />
+                  <circle cx="17" cy="14" r="1" />
+                </svg>
+              </span>
+              Payment Plans
+            </div>
+            <h3 className="mt-2 text-2xl font-bold text-flexBlack sm:text-3xl">
+              Choose your membership option
+            </h3>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-            <article className="rounded-2xl border border-flexNavy/15 bg-gradient-to-b from-white to-flexBlue/5 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+          <div className="relative grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <article className="group rounded-2xl border border-flexNavy/15 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexBlue/40 hover:shadow-lg">
               <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy">
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy ring-1 ring-flexBlue/25">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h4" />
                   </svg>
                 </span>
                 <div>
-                  <p className="text-xl font-bold text-flexNavy">Monthly</p>
+                  <p className="text-lg font-bold text-flexNavy">Monthly</p>
                   <p className="text-sm font-semibold text-flexBlack">₱499 / month</p>
                 </div>
               </div>
+              <p className="text-xs text-flexNavy/65">Best for trying the gym with flexible billing.</p>
               <button
                 onClick={() => handleApply("monthly")}
                 disabled={actionLoading}
@@ -267,28 +283,42 @@ export default function MembershipDashboard() {
               </button>
             </article>
 
-            <article className="rounded-2xl border border-flexBlue/35 bg-gradient-to-b from-flexBlue/10 to-white p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+            <article className="group rounded-2xl border border-flexNavy/20 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexNavy/40 hover:shadow-lg">
               <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-flexNavy/15 text-flexNavy">
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexNavy/15 text-flexNavy ring-1 ring-flexNavy/20">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+                    <circle cx="12" cy="12" r="9" />
                   </svg>
                 </span>
                 <div>
-                  <p className="text-xl font-bold text-flexNavy">Annual</p>
+                  <p className="text-lg font-bold text-flexNavy">Semi-Yearly</p>
+                  <p className="text-sm font-semibold text-flexBlack">₱699 / 6 months</p>
+                </div>
+              </div>
+              <p className="text-xs text-flexNavy/65">Balanced commitment with better long-term value.</p>
+              <button
+                onClick={() => handleApply("semi-yearly")}
+                disabled={actionLoading}
+                className="mt-6 w-full rounded-xl border border-flexNavy/20 bg-flexWhite px-4 py-3 font-semibold text-flexNavy transition hover:bg-flexNavy hover:text-white disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {actionLoading ? "Applying..." : "Choose Semi-Yearly"}
+              </button>
+            </article>
+
+            <article className="group rounded-2xl border border-flexBlue/35 bg-gradient-to-b from-flexBlue/10 to-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexBlue/60 hover:shadow-lg">
+              <div className="mb-4 flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexNavy/15 text-flexNavy ring-1 ring-flexNavy/20">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l4 4L19 6" />
+                  </svg>
+                </span>
+                <div>
+                  <p className="text-lg font-bold text-flexNavy">Annual</p>
                   <p className="text-sm font-semibold text-flexBlack">₱1,199 / year</p>
                 </div>
               </div>
+              <p className="text-xs text-flexNavy/65">Most cost-effective plan for consistent training.</p>
               <button
                 onClick={() => handleApply("annual")}
                 disabled={actionLoading}
@@ -298,28 +328,20 @@ export default function MembershipDashboard() {
               </button>
             </article>
 
-            <article className="rounded-2xl border border-flexNavy/15 bg-gradient-to-b from-white to-flexNavy/5 p-4 shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+            <article className="group rounded-2xl border border-flexNavy/15 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexBlue/40 hover:shadow-lg">
               <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy">
-                  <svg
-                    className="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-                    />
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy ring-1 ring-flexBlue/25">
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14L21 3" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 3l-7 18-4-7-7-4 18-7z" />
                   </svg>
                 </span>
                 <div>
-                  <p className="text-xl font-bold text-flexNavy">Walk-In Pass</p>
+                  <p className="text-lg font-bold text-flexNavy">Walk-In Pass</p>
                   <p className="text-sm font-semibold text-flexBlack">₱60 / session</p>
                 </div>
               </div>
+              <p className="text-xs text-flexNavy/65">One-time access for quick sessions with no commitment.</p>
               <button
                 onClick={handleWalkInApply}
                 disabled={actionLoading}
@@ -394,7 +416,7 @@ export default function MembershipDashboard() {
                   days until {displayStats.isCanceled ? "expiration" : "renewal"}
                 </p>
                 <p className="mt-1 text-xs text-flexNavy/60">
-                  {displayStats.daysActive} days active • {displayMembership.tier} plan
+                  {displayStats.daysActive} days active • {TIER_LABELS[displayMembership.tier]} plan
                 </p>
               </>
             )}
@@ -416,7 +438,7 @@ export default function MembershipDashboard() {
               Plan
             </p>
             <p className="mt-2 font-semibold text-flexBlack capitalize">
-              {displayMembership.tier === "monthly" ? "Monthly" : "Annual"}
+              {TIER_LABELS[displayMembership.tier]}
             </p>
           </div>
           <div>

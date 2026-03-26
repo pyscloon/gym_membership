@@ -10,10 +10,16 @@ import type {
   MembershipTier,
 } from "../types/membership";
 
+function getRenewalDays(tier: MembershipTier): number {
+  if (tier === "annual") return 365;
+  if (tier === "semi-yearly") return 182;
+  return 30;
+}
+
 /**
  * Apply for membership - Creates a new membership record
  * @param userId - User's ID from auth
- * @param tier - 'monthly' or 'annual'
+ * @param tier - membership tier selection
  * @returns MembershipResponse with success status
  */
 export async function applyMembership(
@@ -42,7 +48,7 @@ export async function applyMembership(
 
     // Calculate renewal date based on tier
     const now = new Date();
-    const renewalDays = tier === "annual" ? 365 : 30;
+    const renewalDays = getRenewalDays(tier);
     const renewalDate = new Date(
       now.getTime() + renewalDays * 24 * 60 * 60 * 1000
     );
@@ -107,7 +113,7 @@ export async function renewMembership(
 
     // Calculate new renewal date based on tier
     const now = new Date();
-    const renewalDays = membership.tier === "annual" ? 365 : 30;
+    const renewalDays = getRenewalDays(membership.tier as MembershipTier);
     const newRenewalDate = new Date(
       now.getTime() + renewalDays * 24 * 60 * 60 * 1000
     );
@@ -269,7 +275,7 @@ export async function reactivateMembership(
 
     // Reactivate by resetting cancel flag and extending renewal date
     const now = new Date();
-    const renewalDays = membership.tier === "annual" ? 365 : 30;
+    const renewalDays = getRenewalDays(membership.tier as MembershipTier);
     const newRenewalDate = new Date(
       now.getTime() + renewalDays * 24 * 60 * 60 * 1000
     );
