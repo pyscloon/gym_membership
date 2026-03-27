@@ -1,8 +1,44 @@
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import {
+  fetchActivePlansCount,
+  fetchExpiringSoonCount,
+  fetchTotalMembersCount,
+} from "../lib/membershipService";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [activePlans, setActivePlans] = useState(0);
+  const [expiringSoon, setExpiringSoon] = useState(0);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTotalMembers = async () => {
+      setIsLoadingMembers(true);
+      const [membersCount, activePlansCount, expiringSoonCount] = await Promise.all([
+        fetchTotalMembersCount(),
+        fetchActivePlansCount(),
+        fetchExpiringSoonCount(),
+      ]);
+
+      if (isMounted) {
+        setTotalMembers(membersCount);
+        setActivePlans(activePlansCount);
+        setExpiringSoon(expiringSoonCount);
+        setIsLoadingMembers(false);
+      }
+    };
+
+    loadTotalMembers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleLogout = async () => {
     if (supabase) {
@@ -40,15 +76,21 @@ export default function AdminDashboard() {
         <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-xl border border-flexNavy/15 bg-flexWhite p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Total Members</p>
-            <p className="mt-2 text-3xl font-bold text-flexBlack">0</p>
+            <p className="mt-2 text-3xl font-bold text-flexBlack">
+              {isLoadingMembers ? "..." : totalMembers}
+            </p>
           </article>
           <article className="rounded-xl border border-flexNavy/15 bg-flexWhite p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Active Plans</p>
-            <p className="mt-2 text-3xl font-bold text-flexBlack">0</p>
+            <p className="mt-2 text-3xl font-bold text-flexBlack">
+              {isLoadingMembers ? "..." : activePlans}
+            </p>
           </article>
           <article className="rounded-xl border border-flexNavy/15 bg-flexWhite p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Expiring Soon</p>
-            <p className="mt-2 text-3xl font-bold text-flexBlack">0</p>
+            <p className="mt-2 text-3xl font-bold text-flexBlack">
+              {isLoadingMembers ? "..." : expiringSoon}
+            </p>
           </article>
           <article className="rounded-xl border border-flexNavy/15 bg-flexWhite p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Pending Tickets</p>

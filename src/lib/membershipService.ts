@@ -329,3 +329,92 @@ export function createWalkInSession(): Membership {
     updated_at: now.toISOString(),
   };
 }
+
+/**
+ * Fetch current total number of active members.
+ * @returns Count of active memberships
+ */
+export async function fetchTotalMembersCount(): Promise<number> {
+  if (!supabase) {
+    console.error("Supabase client not initialized");
+    return 0;
+  }
+
+  try {
+    const { count, error } = await supabase
+      .from("memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active");
+
+    if (error) {
+      console.error("Error fetching total members count:", error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (err) {
+    console.error("Error in fetchTotalMembersCount:", err);
+    return 0;
+  }
+}
+
+/**
+ * Fetch total number of active plans.
+ * @returns Count of active memberships
+ */
+export async function fetchActivePlansCount(): Promise<number> {
+  if (!supabase) {
+    console.error("Supabase client not initialized");
+    return 0;
+  }
+
+  try {
+    const { count, error } = await supabase
+      .from("memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active");
+
+    if (error) {
+      console.error("Error fetching active plans count:", error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (err) {
+    console.error("Error in fetchActivePlansCount:", err);
+    return 0;
+  }
+}
+
+/**
+ * Fetch number of active memberships that will expire in the next 7 days.
+ * @returns Count of memberships expiring soon
+ */
+export async function fetchExpiringSoonCount(): Promise<number> {
+  if (!supabase) {
+    console.error("Supabase client not initialized");
+    return 0;
+  }
+
+  try {
+    const now = new Date();
+    const inSevenDays = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    const { count, error } = await supabase
+      .from("memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active")
+      .gte("renewal_date", now.toISOString())
+      .lte("renewal_date", inSevenDays.toISOString());
+
+    if (error) {
+      console.error("Error fetching expiring soon count:", error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (err) {
+    console.error("Error in fetchExpiringSoonCount:", err);
+    return 0;
+  }
+}
