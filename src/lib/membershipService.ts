@@ -329,3 +329,31 @@ export function createWalkInSession(): Membership {
     updated_at: now.toISOString(),
   };
 }
+
+/**
+ * Fetch current total number of active members.
+ * @returns Count of active memberships
+ */
+export async function fetchTotalMembersCount(): Promise<number> {
+  if (!supabase) {
+    console.error("Supabase client not initialized");
+    return 0;
+  }
+
+  try {
+    const { count, error } = await supabase
+      .from("memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "active");
+
+    if (error) {
+      console.error("Error fetching total members count:", error);
+      return 0;
+    }
+
+    return count ?? 0;
+  } catch (err) {
+    console.error("Error in fetchTotalMembersCount:", err);
+    return 0;
+  }
+}
