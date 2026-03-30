@@ -41,25 +41,28 @@ export default function Dashboard() {
       </div>
 
       <header className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="inline-flex rounded-full bg-flexBlue/10 px-3 py-1 text-sm font-semibold uppercase tracking-[0.14em] text-flexNavy ring-1 ring-flexBlue/20">
+
+        <p className="inline-flex rounded-full bg-flexBlue/10 px-3 py-1 text-sm font-semibold uppercase tracking-[0.14em] text-flexNavy ring-1 ring-flexBlue/20">
             Dashboard
-          </p>
+        </p>
+
+        <div>
           <h2 className="mt-1 text-2xl font-semibold text-flexBlack sm:text-3xl">
             Home Dashboard
           </h2>
         </div>
 
-        <div className="rounded-xl border border-flexNavy/20 bg-flexWhite px-4 py-3">
+      <div className="rounded-xl border border-flexNavy/20 bg-flexWhite px-4 py-3">
           <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Streak Counter</p>
           <p className="text-2xl font-bold text-flexBlack">🔥 0</p>
         </div>
+        
       </header>
 
       <section className="mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-5 sm:p-6">
         <p className="text-base text-flexBlack sm:text-lg">
-          Welcome back,
-          <span className="ml-2 font-semibold text-blue-600">red</span>
+          Welcome,
+          <span className="ml-2 font-semibold text-blue-600">RED</span>
         </p>
         <p className="mt-1 text-sm text-flexNavy">
           Here is your current membership overview.

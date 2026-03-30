@@ -37,7 +37,7 @@ export default function Sidebar() {
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-5 w-5" aria-hidden="true">
             <path d="M12 3.8 3.25 11a.75.75 0 0 0 .95 1.16L5.5 11.1V18a3 3 0 0 0 3 3H10a.75.75 0 0 0 .75-.75v-4.5a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 0 .75.75h1.5a3 3 0 0 0 3-3v-6.9l1.3 1.06a.75.75 0 1 0 .95-1.16L12 3.8Z" />
           </svg>
-          <span>Dashboard</span>
+          <span>Home</span>
         </NavLink>
  
         <NavLink

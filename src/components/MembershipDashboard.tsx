@@ -14,6 +14,7 @@ import {
   type MembershipTier,
   calculateMembershipStats,
 } from "../types/membership";
+import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
 
 type Toast = {
@@ -182,6 +183,80 @@ export default function MembershipDashboard() {
     addToast("Walk-in session ended. Thank you for visiting!", "success");
   };
 
+  const plans = [
+    {
+      badge: "Starter",
+      title: "Monthly",
+      amount: "₱499",
+      interval: "/ month",
+      quote: "Train on your schedule.",
+      description: "Best for trying the gym with flexible billing.",
+      features: ["Flexible monthly billing", "Full gym floor access", "Cancel anytime"],
+      isActive: false,
+      tier: "monthly" as const,
+      ctaLabel: "Choose Monthly",
+      icon: (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h4" />
+        </svg>
+      ),
+    },
+    {
+      badge: "Value",
+      title: "Semi-Yearly",
+      amount: "₱699",
+      interval: "/ 6months",
+      quote: "Commit a little longer and save more.",
+      description: "Balanced commitment with better long-term value.",
+      features: ["Lower effective monthly cost", "Priority class slots", "Consistent progress window"],
+      isActive: false,
+      tier: "semi-yearly" as const,
+      ctaLabel: "Choose Semi-Yearly",
+      icon: (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
+          <circle cx="12" cy="12" r="9" />
+        </svg>
+      ),
+    },
+    {
+      badge: "Best Plan",
+      title: "Annual",
+      amount: "₱1,199",
+      interval: "/ year",
+      quote: "Maximum savings for year-round training.",
+      description: "Most cost-effective plan for consistent training.",
+      features: ["Best yearly value", "Locked-in lower rate", "Built for long-term goals"],
+      isActive: true,
+      tier: "annual" as const,
+      ctaLabel: "Choose Yearly",
+      icon: (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l4 4L19 6" />
+        </svg>
+      ),
+    },
+    {
+      badge: "One-Time",
+      title: "Walk-In Pass",
+      amount: "₱60",
+      interval: "/ session",
+      quote: "Quick access when you need a single workout.",
+      description: "One-time access for quick sessions with no commitment.",
+      features: ["No subscription required", "24-hour pass validity", "Fast entry for single visit"],
+      isActive: false,
+      tier: "walk-in" as const,
+      ctaLabel: "Start Walk-In",
+      icon: (
+        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10 14L21 3" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M21 3l-7 18-4-7-7-4 18-7z" />
+        </svg>
+      ),
+    },
+  ];
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6 animate-pulse">
@@ -231,105 +306,17 @@ export default function MembershipDashboard() {
             🔧 Dev: Toggle Membership State
           </button>
         )}
-        <section className="relative overflow-hidden rounded-3xl border border-flexNavy/20 bg-gradient-to-br from-white via-flexWhite to-flexBlue/10 p-6 shadow-[0_18px_60px_-30px_rgba(0,102,204,0.45)]">
-          <div className="pointer-events-none absolute -right-14 -top-14 h-40 w-40 rounded-full bg-flexBlue/15 blur-2xl" />
-          <div className="pointer-events-none absolute -bottom-14 -left-10 h-36 w-36 rounded-full bg-flexNavy/10 blur-2xl" />
-
-          <div className="relative mb-7 text-center">
-            <div className="inline-flex items-center gap-2 rounded-full border border-flexNavy/15 bg-white/80 px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-flexNavy/75">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy">
-                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <rect x="3" y="6" width="18" height="12" rx="2" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18" />
-                  <circle cx="17" cy="14" r="1" />
-                </svg>
-              </span>
-              Payment Plans
-            </div>
-            <h3 className="mt-2 text-2xl font-bold text-flexBlack sm:text-3xl">Choose your membership option</h3>
-          </div>
-
-          <div className="relative grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {/* Monthly */}
-            <article className="group rounded-2xl border border-flexNavy/15 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexBlue/40 hover:shadow-lg">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy ring-1 ring-flexBlue/25">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h8M7 3h10a2 2 0 012 2v14a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h4" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-lg font-bold text-flexNavy">Monthly</p>
-                  <p className="text-sm font-semibold text-flexBlack">₱499 / month</p>
-                </div>
-              </div>
-              <p className="text-xs text-flexNavy/65">Best for trying the gym with flexible billing.</p>
-              <button onClick={() => handleApply("monthly")} disabled={actionLoading} className="mt-6 w-full rounded-xl bg-flexBlue px-4 py-3 font-semibold text-white transition hover:bg-flexNavy disabled:cursor-not-allowed disabled:opacity-70">
-                {actionLoading ? "Applying..." : "Choose Monthly"}
-              </button>
-            </article>
-
-            {/* Semi-Yearly */}
-            <article className="group rounded-2xl border border-flexNavy/20 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexNavy/40 hover:shadow-lg">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexNavy/15 text-flexNavy ring-1 ring-flexNavy/20">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3" />
-                    <circle cx="12" cy="12" r="9" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-lg font-bold text-flexNavy">Semi-Yearly</p>
-                  <p className="text-sm font-semibold text-flexBlack">₱699 / 6 months</p>
-                </div>
-              </div>
-              <p className="text-xs text-flexNavy/65">Balanced commitment with better long-term value.</p>
-              <button onClick={() => handleApply("semi-yearly")} disabled={actionLoading} className="mt-6 w-full rounded-xl border border-flexNavy/20 bg-flexWhite px-4 py-3 font-semibold text-flexNavy transition hover:bg-flexNavy hover:text-white disabled:cursor-not-allowed disabled:opacity-70">
-                {actionLoading ? "Applying..." : "Choose Semi-Yearly"}
-              </button>
-            </article>
-
-            {/* Annual */}
-            <article className="group rounded-2xl border border-flexBlue/35 bg-gradient-to-b from-flexBlue/10 to-white p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexBlue/60 hover:shadow-lg">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexNavy/15 text-flexNavy ring-1 ring-flexNavy/20">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 12l4 4L19 6" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-lg font-bold text-flexNavy">Annual</p>
-                  <p className="text-sm font-semibold text-flexBlack">₱1,199 / year</p>
-                </div>
-              </div>
-              <p className="text-xs text-flexNavy/65">Most cost-effective plan for consistent training.</p>
-              <button onClick={() => handleApply("annual")} disabled={actionLoading} className="mt-6 w-full rounded-xl bg-flexNavy px-4 py-3 font-semibold text-white transition hover:bg-flexBlue disabled:cursor-not-allowed disabled:opacity-70">
-                {actionLoading ? "Applying..." : "Choose Annual"}
-              </button>
-            </article>
-
-            {/* Walk-In */}
-            <article className="group rounded-2xl border border-flexNavy/15 bg-white/90 p-4 shadow-sm transition hover:-translate-y-1 hover:border-flexBlue/40 hover:shadow-lg">
-              <div className="mb-4 flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-flexBlue/15 text-flexNavy ring-1 ring-flexBlue/25">
-                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 14L21 3" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 3l-7 18-4-7-7-4 18-7z" />
-                  </svg>
-                </span>
-                <div>
-                  <p className="text-lg font-bold text-flexNavy">Walk-In Pass</p>
-                  <p className="text-sm font-semibold text-flexBlack">₱60 / session</p>
-                </div>
-              </div>
-              <p className="text-xs text-flexNavy/65">One-time access for quick sessions with no commitment.</p>
-              <button onClick={handleWalkInApply} disabled={actionLoading} className="mt-6 w-full rounded-xl border border-flexBlue/35 bg-flexBlue/10 px-4 py-3 font-semibold text-flexNavy transition hover:border-flexNavy/40 hover:bg-flexBlue/20 disabled:cursor-not-allowed disabled:opacity-70">
-                {actionLoading ? "Starting..." : "Start Walk-In"}
-              </button>
-            </article>
-          </div>
-        </section>
+        <PricingSection
+          plans={plans}
+          isLoading={actionLoading}
+          onSelectPlan={(plan) => {
+            if (plan.tier === "walk-in") {
+              handleWalkInApply();
+              return;
+            }
+            handleApply(plan.tier);
+          }}
+        />
       </div>
     );
   }
