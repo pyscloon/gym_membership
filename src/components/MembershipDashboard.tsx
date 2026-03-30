@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks";
 import { useWalkIn } from "../hooks/useWalkIn";
+import { usePayment } from "../hooks/usePayment";
 import {
   applyMembership,
   cancelMembership,
@@ -14,8 +16,12 @@ import {
   type MembershipTier,
   calculateMembershipStats,
 } from "../types/membership";
+import { MEMBERSHIP_PRICES, type UserType, type PaymentMethod } from "../types/payment";
 import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
+import PaymentModal from "./PaymentModal";
+import PaymentConfirmation from "./PaymentConfirmation";
+import AdminPaymentPanel from "./AdminPaymentPanel";
 
 type Toast = {
   id: string;
@@ -33,8 +39,10 @@ const TIER_LABELS: Record<MembershipTier, string> = {
 };
 
 export default function MembershipDashboard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { session: walkInSession, startSession: startWalkIn, clearSession: clearWalkIn } = useWalkIn();
+  const paymentHook = usePayment(user?.id || "");
   const [membership, setMembership] = useState<Membership | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -43,6 +51,13 @@ export default function MembershipDashboard() {
   const [devShowMembership, setDevShowMembership] = useState(false);
   const [checkInStatus, setCheckInStatus] = useState<CheckInStatus>("idle");
   const [showQR, setShowQR] = useState(false);
+  
+  // Payment state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<UserType | null>(null);
+  const [completedTransactionId, setCompletedTransactionId] = useState<string | null>(null);
 
   // Mock membership for testing
   const mockMembership: Membership = {
@@ -183,6 +198,56 @@ export default function MembershipDashboard() {
     addToast("Walk-in session ended. Thank you for visiting!", "success");
   };
 
+  // Payment handlers
+  const handleInitiatePayment = async (method: PaymentMethod) => {
+    if (!user || !selectedTier) return;
+    try {
+      setCompletedTransactionId(null);
+      await paymentHook.initializePayment(user.id, selectedTier, MEMBERSHIP_PRICES[selectedTier], method);
+      setShowPaymentModal(false);
+      setShowPaymentConfirmation(true);
+    } catch (err) {
+      console.error("Payment error:", err);
+    }
+  };
+
+  const handlePaymentComplete = async () => {
+    const transaction = paymentHook.state.currentTransaction;
+    if (!transaction || completedTransactionId === transaction.id) {
+      return;
+    }
+
+    setCompletedTransactionId(transaction.id);
+    setShowPaymentConfirmation(false);
+
+    if (transaction.userType === "walk-in") {
+      handleWalkInApply();
+      navigate("/walk-in");
+      return;
+    }
+
+    await handleApply(transaction.userType);
+    addToast("Payment completed! Your membership is now active.", "success");
+    navigate("/dashboard");
+  };
+
+  useEffect(() => {
+    const transaction = paymentHook.state.currentTransaction;
+    if (
+      transaction?.method === "cash" &&
+      transaction.status === "paid" &&
+      completedTransactionId !== transaction.id
+    ) {
+      void handlePaymentComplete();
+    }
+  }, [paymentHook.state.currentTransaction, completedTransactionId]);
+
+  // Demo toggle for admin view
+  const toggleAdminView = () => {
+    setIsAdmin(!isAdmin);
+    addToast(isAdmin ? "Switched to user view" : "Switched to admin view", "success");
+  };
+
   const plans = [
     {
       badge: "Starter",
@@ -302,21 +367,49 @@ export default function MembershipDashboard() {
     return (
       <div className="space-y-4">
         {isDev && (
-          <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
-            🔧 Dev: Toggle Membership State
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
+              🔧 Dev: Toggle Membership State
+            </button>
+            <button onClick={toggleAdminView} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded border border-indigo-200 font-semibold hover:bg-indigo-200 transition">
+              🔧 Dev: {isAdmin ? "User" : "Admin"} View
+            </button>
+          </div>
         )}
-        <PricingSection
-          plans={plans}
-          isLoading={actionLoading}
-          onSelectPlan={(plan) => {
-            if (plan.tier === "walk-in") {
-              handleWalkInApply();
-              return;
-            }
-            handleApply(plan.tier);
-          }}
-        />
+        {isAdmin ? (
+          <AdminPaymentPanel onConfirmPayment={paymentHook.confirmPayment} />
+        ) : (
+          <>
+            <PricingSection
+              plans={plans}
+              isLoading={actionLoading}
+              onSelectPlan={(plan) => {
+                setSelectedTier(plan.tier);
+                setShowPaymentModal(true);
+              }}
+            />
+            {selectedTier && (
+              <PaymentModal
+                isOpen={showPaymentModal}
+                selectedUserType={selectedTier}
+                onClose={() => {
+                  setShowPaymentModal(false);
+                  paymentHook.clearError();
+                }}
+                onInitiatePayment={handleInitiatePayment}
+                isLoading={paymentHook.state.status === "processing"}
+                error={paymentHook.state.error}
+                onClearError={paymentHook.clearError}
+              />
+            )}
+            <PaymentConfirmation
+              transaction={paymentHook.state.currentTransaction}
+              isOpen={showPaymentConfirmation}
+              onClose={() => setShowPaymentConfirmation(false)}
+              onComplete={handlePaymentComplete}
+            />
+          </>
+        )}
       </div>
     );
   }
@@ -325,9 +418,17 @@ export default function MembershipDashboard() {
   return (
     <div className="space-y-6">
       {isDev && (
-        <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
-          🔧 Dev: Toggle Membership State (Showing Membership)
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
+            🔧 Dev: Toggle Membership State (Showing Membership)
+          </button>
+          <button onClick={toggleAdminView} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded border border-indigo-200 font-semibold hover:bg-indigo-200 transition">
+            🔧 Dev: {isAdmin ? "User" : "Admin"} View
+          </button>
+        </div>
+      )}
+      {isAdmin && (
+        <AdminPaymentPanel onConfirmPayment={paymentHook.confirmPayment} />
       )}
       {error && (
         <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-700 text-sm">{error}</div>
