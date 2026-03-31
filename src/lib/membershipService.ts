@@ -331,33 +331,34 @@ export function createWalkInSession(): Membership {
 }
 
 /**
- * Fetch current total number of active members.
- * @returns Count of active memberships
+ * Fetch current total number of members (all memberships).
+ * @returns Count of all memberships
  */
-export async function fetchTotalMembersCount(): Promise<number> {
-  if (!supabase) {
-    console.error("Supabase client not initialized");
-    return 0;
-  }
+export async function fetchDashboardStats(): Promise<{
+  totalMembers: number;
+  activePlans: number;
+  expiringSoon: number;
+}> {
+  if (!supabase) return { totalMembers: 0, activePlans: 0, expiringSoon: 0 };
 
   try {
-    const { count, error } = await supabase
-      .from("memberships")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "active");
+    const { data, error } = await supabase.rpc("get_membership_stats");
 
     if (error) {
-      console.error("Error fetching total members count:", error);
-      return 0;
+      console.error("Error fetching dashboard stats:", error);
+      return { totalMembers: 0, activePlans: 0, expiringSoon: 0 };
     }
 
-    return count ?? 0;
+    return {
+      totalMembers: data.total_active ?? 0,
+      activePlans: data.total_active ?? 0,
+      expiringSoon: data.expiring_soon ?? 0,
+    };
   } catch (err) {
-    console.error("Error in fetchTotalMembersCount:", err);
-    return 0;
+    console.error("Error in fetchDashboardStats:", err);
+    return { totalMembers: 0, activePlans: 0, expiringSoon: 0 };
   }
 }
-
 /**
  * Fetch total number of active plans.
  * @returns Count of active memberships
