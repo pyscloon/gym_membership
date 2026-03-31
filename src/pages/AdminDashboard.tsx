@@ -108,6 +108,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleAdminVerifyOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier
+  ) => {
+    try {
+      await paymentHook.verifyOnlinePaymentProof(transactionId);
+      // Apply membership to user once payment is verified
+      await applyMembership(userId, userType);
+      console.log(`Online payment for user ${userId} verified and membership applied for ${userType}.`);
+    } catch (err) {
+      console.error("Failed to verify online payment:", err);
+    }
+  };
+
+  const handleAdminRejectOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier,
+    reason: string
+  ) => {
+    try {
+      await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
+      console.log(`Online payment for user ${userId} rejected. Reason: ${reason}`);
+    } catch (err) {
+      console.error("Failed to reject online payment:", err);
+    }
+  };
+
   const handleLogout = async () => {
     if (supabase) {
       await supabase.auth.signOut();
@@ -173,6 +202,8 @@ export default function AdminDashboard() {
           <AdminPaymentPanel
             onConfirmPayment={handleAdminConfirmPayment}
             onDeclinePayment={handleAdminDeclinePayment}
+            onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
+            onRejectOnlinePayment={handleAdminRejectOnlinePayment}
           />
         </section>
 

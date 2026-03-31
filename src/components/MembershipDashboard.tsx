@@ -224,19 +224,53 @@ export default function MembershipDashboard() {
   ) => {
     try {
       await paymentHook.failPayment(transactionId, "Declined by admin");
-      addToast(`Payment ${transactionId} declined for ${userId}.`, "error");
+      addToast(`Payment ${transactionId} declined for user ${userId} (${userType}).`, "error");
     } catch (err) {
       console.error("Admin decline error:", err);
       addToast("Failed to decline payment.", "error");
     }
   };
 
+  const handleAdminVerifyOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType
+  ) => {
+    try {
+      await paymentHook.verifyOnlinePaymentProof(transactionId);
+      const result = await applyMembership(userId, userType);
+      if (result.success) {
+        addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
+      } else {
+        addToast(`Membership apply warning: ${result.error}`, "error");
+      }
+    } catch (err) {
+      console.error("Admin verify online payment error:", err);
+      addToast("Failed to verify online payment or apply membership.", "error");
+    }
+  };
+
+  const handleAdminRejectOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType,
+    reason: string
+  ) => {
+    try {
+      await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
+      addToast(`Online payment rejected for user ${userId} (${userType}). Reason: ${reason}`, "error");
+    } catch (err) {
+      console.error("Admin reject online payment error:", err);
+      addToast("Failed to reject online payment.", "error");
+    }
+  };
+
   // Payment handlers
-  const handleInitiatePayment = async (method: PaymentMethod) => {
+  const handleInitiatePayment = async (method: PaymentMethod, proofOfPayment?: string) => {
     if (!user || !selectedTier) return;
     try {
       setCompletedTransactionId(null);
-      await paymentHook.initializePayment(user.id, selectedTier, MEMBERSHIP_PRICES[selectedTier], method);
+      await paymentHook.initializePayment(user.id, selectedTier, MEMBERSHIP_PRICES[selectedTier], method, proofOfPayment);
       setShowPaymentModal(false);
       setShowPaymentConfirmation(true);
     } catch (err) {
@@ -413,6 +447,8 @@ export default function MembershipDashboard() {
           <AdminPaymentPanel
             onConfirmPayment={handleAdminConfirmPayment}
             onDeclinePayment={handleAdminDeclinePayment}
+            onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
+            onRejectOnlinePayment={handleAdminRejectOnlinePayment}
           />
         ) : (
           <>
@@ -467,6 +503,8 @@ export default function MembershipDashboard() {
         <AdminPaymentPanel
           onConfirmPayment={handleAdminConfirmPayment}
           onDeclinePayment={handleAdminDeclinePayment}
+          onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
+          onRejectOnlinePayment={handleAdminRejectOnlinePayment}
         />
       )}
       {error && (
