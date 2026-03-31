@@ -21,7 +21,6 @@ import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
 import PaymentModal from "./PaymentModal";
 import PaymentConfirmation from "./PaymentConfirmation";
-import AdminPaymentPanel from "./AdminPaymentPanel";
 
 type Toast = {
   id: string;
@@ -48,31 +47,16 @@ export default function MembershipDashboard() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const [devShowMembership, setDevShowMembership] = useState(false);
   const [checkInStatus, setCheckInStatus] = useState<CheckInStatus>("idle");
   const [showQR, setShowQR] = useState(false);
   
   // Payment state
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [selectedTier, setSelectedTier] = useState<UserType | null>(null);
   const [completedTransactionId, setCompletedTransactionId] = useState<string | null>(null);
 
-  // Mock membership for testing
-  const mockMembership: Membership = {
-    id: "test-1",
-    user_id: user?.id || "test-user",
-    status: "active",
-    tier: "monthly",
-    start_date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-    renewal_date: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-    cancel_at_period_end: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-
-  const displayMembership = devShowMembership ? mockMembership : membership;
+  const displayMembership = membership;
   const displayStats = displayMembership ? calculateMembershipStats(displayMembership) : null;
 
   const addToast = (message: string, type: "success" | "error" = "success") => {
@@ -242,12 +226,6 @@ export default function MembershipDashboard() {
     }
   }, [paymentHook.state.currentTransaction, completedTransactionId]);
 
-  // Demo toggle for admin view
-  const toggleAdminView = () => {
-    setIsAdmin(!isAdmin);
-    addToast(isAdmin ? "Switched to user view" : "Switched to admin view", "success");
-  };
-
   const plans = [
     {
       badge: "Starter",
@@ -343,21 +321,9 @@ export default function MembershipDashboard() {
     );
   }
 
-  const isDev = import.meta.env.DEV;
-
   if (walkInSession) {
     return (
       <div className="space-y-4">
-        {isDev && (
-          <div className="flex gap-2">
-            <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
-              🔧 Dev: Toggle Membership State
-            </button>
-            <button onClick={() => clearWalkIn()} className="text-xs bg-orange-100 text-orange-700 px-3 py-1 rounded border border-orange-200 font-semibold hover:bg-orange-200 transition">
-              🔧 Dev: End Walk-In (Test)
-            </button>
-          </div>
-        )}
         <WalkInCard membership={walkInSession} onEndSession={handleEndWalkInSession} isLoading={actionLoading} />
       </div>
     );
@@ -366,50 +332,36 @@ export default function MembershipDashboard() {
   if (!displayMembership) {
     return (
       <div className="space-y-4">
-        {isDev && (
-          <div className="flex gap-2">
-            <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
-              🔧 Dev: Toggle Membership State
-            </button>
-            <button onClick={toggleAdminView} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded border border-indigo-200 font-semibold hover:bg-indigo-200 transition">
-              🔧 Dev: {isAdmin ? "User" : "Admin"} View
-            </button>
-          </div>
-        )}
-        {isAdmin ? (
-          <AdminPaymentPanel onConfirmPayment={paymentHook.confirmPayment} />
-        ) : (
-          <>
-            <PricingSection
-              plans={plans}
-              isLoading={actionLoading}
-              onSelectPlan={(plan) => {
-                setSelectedTier(plan.tier);
-                setShowPaymentModal(true);
+        <>
+          <PricingSection
+            plans={plans}
+            isLoading={actionLoading}
+            onSelectPlan={(plan) => {
+              setSelectedTier(plan.tier);
+              setShowPaymentModal(true);
+            }}
+          />
+          {selectedTier && (
+            <PaymentModal
+              isOpen={showPaymentModal}
+              selectedUserType={selectedTier}
+              onClose={() => {
+                setShowPaymentModal(false);
+                paymentHook.clearError();
               }}
+              onInitiatePayment={handleInitiatePayment}
+              isLoading={paymentHook.state.status === "processing"}
+              error={paymentHook.state.error}
+              onClearError={paymentHook.clearError}
             />
-            {selectedTier && (
-              <PaymentModal
-                isOpen={showPaymentModal}
-                selectedUserType={selectedTier}
-                onClose={() => {
-                  setShowPaymentModal(false);
-                  paymentHook.clearError();
-                }}
-                onInitiatePayment={handleInitiatePayment}
-                isLoading={paymentHook.state.status === "processing"}
-                error={paymentHook.state.error}
-                onClearError={paymentHook.clearError}
-              />
-            )}
-            <PaymentConfirmation
-              transaction={paymentHook.state.currentTransaction}
-              isOpen={showPaymentConfirmation}
-              onClose={() => setShowPaymentConfirmation(false)}
-              onComplete={handlePaymentComplete}
-            />
-          </>
-        )}
+          )}
+          <PaymentConfirmation
+            transaction={paymentHook.state.currentTransaction}
+            isOpen={showPaymentConfirmation}
+            onClose={() => setShowPaymentConfirmation(false)}
+            onComplete={handlePaymentComplete}
+          />
+        </>
       </div>
     );
   }
@@ -417,19 +369,6 @@ export default function MembershipDashboard() {
   // Has membership: show status, actions, and check-in/out QR
   return (
     <div className="space-y-6">
-      {isDev && (
-        <div className="flex gap-2">
-          <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
-            🔧 Dev: Toggle Membership State (Showing Membership)
-          </button>
-          <button onClick={toggleAdminView} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded border border-indigo-200 font-semibold hover:bg-indigo-200 transition">
-            🔧 Dev: {isAdmin ? "User" : "Admin"} View
-          </button>
-        </div>
-      )}
-      {isAdmin && (
-        <AdminPaymentPanel onConfirmPayment={paymentHook.confirmPayment} />
-      )}
       {error && (
         <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-700 text-sm">{error}</div>
       )}
