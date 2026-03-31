@@ -7,7 +7,7 @@ on:
     branches: [ "Dev" ]
 
 jobs:
-  build-and-test:
+  unit-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,8 +23,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Tests
-        run: npm test -- --runInBand
+      - name: Run Unit Tests
+        run: npm test -- --runInBand tests/paymentSimulator.test.ts
+
+  api-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run API Tests
+        run: npm test -- --runInBand --testPathIgnorePatterns=paymentSimulator.test.ts
         env:
           VITE_SUPABASE_URL: https://tujamqbbbfnoaladidjn.supabase.co
           VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR1amFtcWJiYmZub2FsYWRpZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxMzI5NjIsImV4cCI6MjA4ODcwODk2Mn0.3wfCRRpMl-vZ3YJN8yJ2eRskr_Ac3oKLGARk4x_-zhw
