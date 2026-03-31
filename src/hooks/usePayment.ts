@@ -231,7 +231,9 @@ export function usePayment(userId: string) {
   }, [state.pendingPayments]);
 
   const getTransactionHistory = useCallback(() => {
-    return getAllTransactions().filter((t) => t.userId === userId);
+    // If userId is "admin", return ALL transactions (admin view)
+    // Otherwise, return only transactions for this user
+    return userId === "admin" ? getAllTransactions() : getAllTransactions().filter((t) => t.userId === userId);
   }, [userId]);
 
   const clearError = useCallback(() => {
