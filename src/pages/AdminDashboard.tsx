@@ -22,6 +22,10 @@ export default function AdminDashboard() {
   const [recentCheckIns, setRecentCheckIns] = useState<any[]>([]);
   const [todayCheckInCount, setTodayCheckInCount] = useState(0);
   const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [isTransactionHistoryExpanded, setIsTransactionHistoryExpanded] = useState(false);
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
+  const paymentHook = usePayment("admin");
+  const transactionHistory = paymentHook.getTransactionHistory();
 
   useEffect(() => {
     let isMounted = true;
@@ -62,6 +66,63 @@ export default function AdminDashboard() {
     };
   }, []);
 
+  // Load member names for transactions
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadMemberNames = async () => {
+      if (transactionHistory.length === 0 || !supabase) {
+        console.log("Skipping member names load:", { historyLength: transactionHistory.length, hasSupabase: !!supabase });
+        return;
+      }
+
+      // Get unique user IDs from transaction history
+      const uniqueUserIds = [...new Set(transactionHistory.map((t) => t.userId))];
+      console.log("Loading member names for userIds:", uniqueUserIds);
+
+      try {
+        // Query profiles table for full_name and email
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", uniqueUserIds);
+
+        console.log("Profiles query result:", { error, dataLength: data?.length, data });
+
+        if (isMounted && data) {
+          const names: Record<string, string> = {};
+          
+          // Map profiles to names
+          data.forEach((profile: any) => {
+            const name = profile.full_name?.trim() || profile.email || profile.id;
+            names[profile.id] = name;
+            console.log(`Mapped ${profile.id} -> ${name}`);
+          });
+          
+          // For any missing IDs, use email from auth users or just the ID
+          for (const userId of uniqueUserIds) {
+            if (!names[userId]) {
+              names[userId] = userId; // Fallback to ID if not found
+            }
+          }
+          
+          console.log("Final mapped names:", names);
+          setMemberNames(names);
+        } else if (error) {
+          console.error("Supabase error:", error);
+        }
+      } catch (err) {
+        console.error("Error loading member names:", err);
+      }
+    };
+
+    loadMemberNames();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [transactionHistory]);
+
   const handleScanSuccess = (result: CheckInResponse) => {
     setScanMessage({ text: result.message, type: "success" });
     setTodayCheckInCount((prev) => prev + 1);
@@ -76,8 +137,6 @@ export default function AdminDashboard() {
     setScanMessage({ text: `Scan Error: ${error}`, type: "error" });
     setTimeout(() => setScanMessage(null), 4000);
   };
-
-  const paymentHook = usePayment("admin")
 
   const handleAdminConfirmPayment = async (
     transactionId: string,
@@ -131,7 +190,7 @@ export default function AdminDashboard() {
   ) => {
     try {
       await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
-      console.log(`Online payment for user ${userId} rejected. Reason: ${reason}`);
+      console.log(`Online payment for user ${userId} (${userType}) rejected. Reason: ${reason}`);
     } catch (err) {
       console.error("Failed to reject online payment:", err);
     }
@@ -195,6 +254,74 @@ export default function AdminDashboard() {
               {isLoadingMembers ? "..." : todayCheckInCount}
             </p>
           </article>
+        </section>
+
+        {/* Transaction History Section */}
+        <section className="mt-6">
+          <button
+            onClick={() => setIsTransactionHistoryExpanded(!isTransactionHistoryExpanded)}
+            className="w-full rounded-xl border border-flexNavy/15 bg-flexWhite p-4 hover:bg-flexWhite/80 transition text-left"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Total Transactions</p>
+                <p className="mt-2 text-3xl font-bold text-flexBlack">
+                  {transactionHistory.length}
+                </p>
+              </div>
+              <svg
+                className={`h-6 w-6 text-flexNavy transition-transform ${isTransactionHistoryExpanded ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </div>
+          </button>
+
+          {isTransactionHistoryExpanded && (
+            <div className="mt-4 rounded-xl border border-flexNavy/15 bg-flexWhite/70 p-6">
+              {transactionHistory.length === 0 ? (
+                <p className="text-center text-sm text-flexNavy/60 py-8">No transactions yet</p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-5 gap-4 pb-3 border-b border-flexNavy/10">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-flexNavy">Member Name</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-flexNavy">Membership</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-flexNavy">Amount</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-flexNavy">Method</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-flexNavy">Date & Time</p>
+                  </div>
+                  {transactionHistory.map((transaction) => (
+                    <div
+                      key={transaction.id}
+                      className="grid grid-cols-5 gap-4 p-3 rounded-lg bg-flexWhite/50 border border-flexNavy/10 hover:bg-flexWhite transition"
+                    >
+                      <p className="text-sm text-flexBlack font-semibold truncate">{memberNames[transaction.userId] || transaction.userId}</p>
+                      <p className="text-sm text-flexBlack capitalize">{transaction.userType}</p>
+                      <p className="text-sm text-flexBlack font-semibold">₱{transaction.amount.toLocaleString()}</p>
+                      <div className="flex items-center">
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                          transaction.method === "cash"
+                            ? "bg-flexNavy text-flexWhite"
+                            : transaction.method === "online"
+                              ? "bg-flexBlue text-flexBlack"
+                              : "bg-flexBlack text-flexBlue"
+                        }`}>
+                          {transaction.method}
+                        </span>
+                      </div>
+                      <p className="text-sm text-flexNavy/60">
+                        {new Date(transaction.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </section>
 
         {/* Pending Payments Panel */}
