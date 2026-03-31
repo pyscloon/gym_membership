@@ -16,10 +16,10 @@ import {
   type MembershipTier,
   calculateMembershipStats,
 } from "../types/membership";
-import { MEMBERSHIP_PRICES, type UserType, type PaymentMethod } from "../types/payment";
+import { type UserType } from "../types/payment";
+import AdminPaymentPanel from "./AdminPaymentPanel";
 import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
-import PaymentModal from "./PaymentModal";
 import PaymentConfirmation from "./PaymentConfirmation";
 
 type Toast = {
@@ -49,15 +49,20 @@ export default function MembershipDashboard() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [checkInStatus, setCheckInStatus] = useState<CheckInStatus>("idle");
   const [showQR, setShowQR] = useState(false);
+  const [isDev] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [devShowMembership, setDevShowMembership] = useState(false);
   
   // Payment state
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
-  const [selectedTier, setSelectedTier] = useState<UserType | null>(null);
   const [completedTransactionId, setCompletedTransactionId] = useState<string | null>(null);
 
   const displayMembership = membership;
   const displayStats = displayMembership ? calculateMembershipStats(displayMembership) : null;
+
+  const toggleAdminView = () => {
+    setIsAdmin(!isAdmin);
+  };
 
   const addToast = (message: string, type: "success" | "error" = "success") => {
     const id = Date.now().toString();
@@ -250,17 +255,6 @@ export default function MembershipDashboard() {
   };
 
   // Payment handlers
-  const handleInitiatePayment = async (method: PaymentMethod, proofOfPayment?: string) => {
-    if (!user || !selectedTier) return;
-    try {
-      setCompletedTransactionId(null);
-      await paymentHook.initializePayment(user.id, selectedTier, MEMBERSHIP_PRICES[selectedTier], method, proofOfPayment);
-      setShowPaymentModal(false);
-      setShowPaymentConfirmation(true);
-    } catch (err) {
-      console.error("Payment error:", err);
-    }
-  };
 
   const handlePaymentComplete = async () => {
     const transaction = paymentHook.state.currentTransaction;
@@ -421,23 +415,16 @@ export default function MembershipDashboard() {
             <PricingSection
               plans={plans}
               isLoading={actionLoading}
-              onSelectPlan={(plan) => {
-                setSelectedTier(plan.tier);
-                setShowPaymentModal(true);
-              }}
-              onInitiatePayment={handleInitiatePayment}
-              isLoading={paymentHook.state.status === "processing"}
-              error={paymentHook.state.error}
-              onClearError={paymentHook.clearError}
+              onSelectPlan={() => {}}
             />
-          )}
-          <PaymentConfirmation
-            transaction={paymentHook.state.currentTransaction}
-            isOpen={showPaymentConfirmation}
-            onClose={() => setShowPaymentConfirmation(false)}
-            onComplete={handlePaymentComplete}
-          />
-        </>
+            <PaymentConfirmation
+              transaction={paymentHook.state.currentTransaction}
+              isOpen={showPaymentConfirmation}
+              onClose={() => setShowPaymentConfirmation(false)}
+              onComplete={handlePaymentComplete}
+            />
+          </>
+        )}
       </div>
     );
   }
