@@ -198,6 +198,39 @@ export default function MembershipDashboard() {
     addToast("Walk-in session ended. Thank you for visiting!", "success");
   };
 
+  const handleAdminConfirmPayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType
+  ) => {
+    try {
+      await paymentHook.confirmPayment(transactionId);
+      const result = await applyMembership(userId, userType);
+      if (result.success) {
+        addToast(`Member ${userId} approved on ${userType} plan.`, "success");
+      } else {
+        addToast(`Membership apply warning: ${result.error}`, "error");
+      }
+    } catch (err) {
+      console.error("Admin confirm error:", err);
+      addToast("Failed to confirm payment or apply membership.", "error");
+    }
+  };
+
+  const handleAdminDeclinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType
+  ) => {
+    try {
+      await paymentHook.failPayment(transactionId, "Declined by admin");
+      addToast(`Payment ${transactionId} declined for ${userId}.`, "error");
+    } catch (err) {
+      console.error("Admin decline error:", err);
+      addToast("Failed to decline payment.", "error");
+    }
+  };
+
   // Payment handlers
   const handleInitiatePayment = async (method: PaymentMethod) => {
     if (!user || !selectedTier) return;
@@ -377,7 +410,10 @@ export default function MembershipDashboard() {
           </div>
         )}
         {isAdmin ? (
-          <AdminPaymentPanel onConfirmPayment={paymentHook.confirmPayment} />
+          <AdminPaymentPanel
+            onConfirmPayment={handleAdminConfirmPayment}
+            onDeclinePayment={handleAdminDeclinePayment}
+          />
         ) : (
           <>
             <PricingSection
@@ -428,7 +464,10 @@ export default function MembershipDashboard() {
         </div>
       )}
       {isAdmin && (
-        <AdminPaymentPanel onConfirmPayment={paymentHook.confirmPayment} />
+        <AdminPaymentPanel
+          onConfirmPayment={handleAdminConfirmPayment}
+          onDeclinePayment={handleAdminDeclinePayment}
+        />
       )}
       {error && (
         <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-700 text-sm">{error}</div>

@@ -2,12 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import {
+  applyMembership,
   fetchActivePlansCount,
   fetchExpiringSoonCount,
   fetchTotalMembersCount,
 } from "../lib/membershipService";
+import type { MembershipTier } from "../types/membership";
 import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
+import AdminPaymentPanel from "../components/AdminPaymentPanel";
+import { usePayment } from "../hooks/usePayment";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -73,6 +77,37 @@ export default function AdminDashboard() {
     setTimeout(() => setScanMessage(null), 4000);
   };
 
+  const paymentHook = usePayment("admin")
+
+  const handleAdminConfirmPayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier
+  ) => {
+    try {
+      await paymentHook.confirmPayment(transactionId);
+      // Apply membership to user once admin confirms payment
+      await applyMembership(userId, userType);
+      // optional: show a toast or log (could integrate more UI feedback)
+      console.log(`Membership for user ${userId} applied for ${userType} after admin confirmation.`);
+    } catch (err) {
+      console.error("Failed to apply membership after confirmation:", err);
+    }
+  };
+
+  const handleAdminDeclinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier
+  ) => {
+    try {
+      await paymentHook.failPayment(transactionId, "Declined by admin");
+      console.log(`Payment ${transactionId} declined by admin for user ${userId}, tier ${userType}.`);
+    } catch (err) {
+      console.error("Failed to decline payment:", err);
+    }
+  };
+
   const handleLogout = async () => {
     if (supabase) {
       await supabase.auth.signOut();
@@ -131,6 +166,14 @@ export default function AdminDashboard() {
               {isLoadingMembers ? "..." : todayCheckInCount}
             </p>
           </article>
+        </section>
+
+        {/* Pending Payments Panel */}
+        <section className="mt-6">
+          <AdminPaymentPanel
+            onConfirmPayment={handleAdminConfirmPayment}
+            onDeclinePayment={handleAdminDeclinePayment}
+          />
         </section>
 
         {/* Scan Status Message */}

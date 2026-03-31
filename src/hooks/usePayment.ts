@@ -147,6 +147,11 @@ export function usePayment(userId: string) {
           saveTransaction(transaction);
           dispatch({ type: "SET_TRANSACTION", transaction });
           dispatch({ type: "SET_STATUS", status: "failed" });
+          // Remove from pending payments when declined/failed
+          dispatch({
+            type: "SET_PENDING_PAYMENTS",
+            payments: state.pendingPayments.filter((p) => p.transactionId !== transactionId),
+          });
           dispatch({
             type: "SET_ERROR",
             error: `Payment failed: ${reason}`,

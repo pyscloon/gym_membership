@@ -3,18 +3,21 @@
  */
 
 import { useEffect, useState } from "react";
-import type { PendingPayment } from "../types/payment";
+import type { PendingPayment, UserType } from "../types/payment";
 import { getAllTransactions } from "../lib/paymentSimulator";
 
 interface AdminPaymentPanelProps {
-  onConfirmPayment: (transactionId: string) => Promise<void>;
+  onConfirmPayment: (transactionId: string, userId: string, userType: UserType) => Promise<void>;
+  onDeclinePayment: (transactionId: string, userId: string, userType: UserType) => Promise<void>;
 }
 
 export default function AdminPaymentPanel({
   onConfirmPayment,
+  onDeclinePayment,
 }: AdminPaymentPanelProps) {
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [decliningId, setDecliningId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Poll for pending payments every 2 seconds
@@ -39,10 +42,10 @@ export default function AdminPaymentPanel({
     return () => clearInterval(interval);
   }, [refreshTrigger]);
 
-  const handleConfirm = async (transactionId: string) => {
+  const handleConfirm = async (transactionId: string, userId: string, userType: UserType) => {
     setConfirmingId(transactionId);
     try {
-      await onConfirmPayment(transactionId);
+      await onConfirmPayment(transactionId, userId, userType);
       // Trigger refresh after confirmation
       setTimeout(() => {
         setRefreshTrigger((prev) => prev + 1);
@@ -51,6 +54,20 @@ export default function AdminPaymentPanel({
       console.error("Failed to confirm payment:", error);
     } finally {
       setConfirmingId(null);
+    }
+  };
+
+  const handleDecline = async (transactionId: string, userId: string, userType: UserType) => {
+    setDecliningId(transactionId);
+    try {
+      await onDeclinePayment(transactionId, userId, userType);
+      setTimeout(() => {
+        setRefreshTrigger((prev) => prev + 1);
+      }, 500);
+    } catch (error) {
+      console.error("Failed to decline payment:", error);
+    } finally {
+      setDecliningId(null);
     }
   };
 
@@ -133,11 +150,16 @@ export default function AdminPaymentPanel({
                 TXN: {payment.transactionId}
               </p>
 
+              {/* Membership Note */}
+              <p className="text-xs text-blue-600 mb-3">
+                Accepting this payment will activate a <strong>{payment.userType}</strong> membership for user <strong>{payment.userId}</strong>.
+              </p>
+
               {/* Action Buttons */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => handleConfirm(payment.transactionId)}
-                  disabled={confirmingId === payment.transactionId}
+                  onClick={() => handleConfirm(payment.transactionId, payment.userId, payment.userType)}
+                  disabled={confirmingId === payment.transactionId || decliningId === payment.transactionId}
                   className="flex-1 rounded-lg bg-green-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {confirmingId === payment.transactionId ? (
@@ -162,10 +184,11 @@ export default function AdminPaymentPanel({
                   )}
                 </button>
                 <button
-                  disabled={confirmingId === payment.transactionId}
+                  onClick={() => handleDecline(payment.transactionId, payment.userId, payment.userType)}
+                  disabled={confirmingId === payment.transactionId || decliningId === payment.transactionId}
                   className="rounded-lg border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                 >
-                  Decline
+                  {decliningId === payment.transactionId ? "Declining..." : "Decline"}
                 </button>
               </div>
             </div>
