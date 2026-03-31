@@ -7,6 +7,8 @@ import type { PaymentState, PaymentTransaction, UserType, PaymentMethod, Pending
 import {
   simulatePaymentTransaction,
   simulateAdminConfirmation,
+  verifyOnlinePayment,
+  rejectOnlinePayment,
   saveTransaction,
   getStoredTransaction,
   getAllTransactions,
@@ -70,7 +72,8 @@ export function usePayment(userId: string) {
       paramUserId: string,
       userType: UserType,
       amount: number,
-      method: PaymentMethod
+      method: PaymentMethod,
+      proofOfPayment?: string
     ) => {
       try {
         dispatch({ type: "SET_STATUS", status: "processing" });
@@ -82,7 +85,8 @@ export function usePayment(userId: string) {
           paramUserId,
           userType,
           amount,
-          method
+          method,
+          proofOfPayment
         );
 
         // Save to local storage
@@ -90,8 +94,8 @@ export function usePayment(userId: string) {
         dispatch({ type: "SET_TRANSACTION", transaction });
         dispatch({ type: "SET_STATUS", status: transaction.status });
 
-        // If cash payment, add to pending payments
-        if (method === "cash") {
+        // If cash or online payment, add to pending payments
+        if (method === "cash" || method === "online") {
           const pending: PendingPayment = {
             transactionId: transaction.id,
             userId: paramUserId,
@@ -147,6 +151,11 @@ export function usePayment(userId: string) {
           saveTransaction(transaction);
           dispatch({ type: "SET_TRANSACTION", transaction });
           dispatch({ type: "SET_STATUS", status: "failed" });
+          // Remove from pending payments when declined/failed
+          dispatch({
+            type: "SET_PENDING_PAYMENTS",
+            payments: state.pendingPayments.filter((p) => p.transactionId !== transactionId),
+          });
           dispatch({
             type: "SET_ERROR",
             error: `Payment failed: ${reason}`,
@@ -164,6 +173,58 @@ export function usePayment(userId: string) {
     // Trigger confirmation without await for real-time update
     confirmPayment(transactionId);
   }, [confirmPayment]);
+
+  const verifyOnlinePaymentProof = useCallback(async (transactionId: string) => {
+    try {
+      const transaction = getStoredTransaction(transactionId);
+      if (!transaction) {
+        throw new Error("Transaction not found");
+      }
+
+      dispatch({ type: "SET_STATUS", status: "processing" });
+      const verified = await verifyOnlinePayment(transactionId);
+
+      if (verified) {
+        dispatch({ type: "SET_TRANSACTION", transaction: verified });
+        dispatch({ type: "SET_STATUS", status: "paid" });
+
+        // Remove from pending payments
+        const updated = state.pendingPayments.filter(
+          (p) => p.transactionId !== transactionId
+        );
+        dispatch({ type: "SET_PENDING_PAYMENTS", payments: updated });
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Verification failed";
+      dispatch({ type: "SET_ERROR", error: errorMsg });
+    }
+  }, [state.pendingPayments]);
+
+  const rejectOnlinePaymentProof = useCallback(async (transactionId: string, reason: string) => {
+    try {
+      const transaction = getStoredTransaction(transactionId);
+      if (!transaction) {
+        throw new Error("Transaction not found");
+      }
+
+      dispatch({ type: "SET_STATUS", status: "processing" });
+      const rejected = await rejectOnlinePayment(transactionId, reason);
+
+      if (rejected) {
+        dispatch({ type: "SET_TRANSACTION", transaction: rejected });
+        dispatch({ type: "SET_STATUS", status: "failed" });
+
+        // Remove from pending payments
+        const updated = state.pendingPayments.filter(
+          (p) => p.transactionId !== transactionId
+        );
+        dispatch({ type: "SET_PENDING_PAYMENTS", payments: updated });
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : "Rejection failed";
+      dispatch({ type: "SET_ERROR", error: errorMsg });
+    }
+  }, [state.pendingPayments]);
 
   const getPendingPayments = useCallback(() => {
     return state.pendingPayments;
@@ -183,6 +244,8 @@ export function usePayment(userId: string) {
     confirmPayment,
     failPayment,
     confirmCashPayment,
+    verifyOnlinePaymentProof,
+    rejectOnlinePaymentProof,
     getPendingPayments,
     getTransactionHistory,
     clearError,

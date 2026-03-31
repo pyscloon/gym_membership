@@ -4,9 +4,9 @@
 
 import type { MembershipTier } from "./membership";
 
-export type PaymentMethod = "cash" | "digital-wallet" | "card";
+export type PaymentMethod = "cash" | "card" | "online";
 
-export type PaymentStatus = "idle" | "processing" | "awaiting-confirmation" | "paid" | "failed";
+export type PaymentStatus = "idle" | "processing" | "awaiting-confirmation" | "awaiting-verification" | "paid" | "failed";
 
 export type UserType = MembershipTier;
 
@@ -21,6 +21,10 @@ export interface PaymentTransaction {
   updatedAt: string;
   confirmedAt?: string;
   failureReason?: string;
+  // Online payment proof
+  proofOfPaymentUrl?: string; // base64 encoded image
+  paymentProofStatus?: "pending" | "verified" | "rejected";
+  rejectionReason?: string;
 }
 
 export interface PendingPayment {
@@ -67,6 +71,6 @@ export const MEMBERSHIP_PRICES: Record<UserType, number> = {
 // Display labels for payment methods
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: "Cash (Admin Confirmation Required)",
-  "digital-wallet": "Digital Wallet",
   card: "Card",
+  online: "Online Transfer (Photo Proof Required)",
 };

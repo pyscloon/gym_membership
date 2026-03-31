@@ -182,12 +182,79 @@ export default function MembershipDashboard() {
     addToast("Walk-in session ended. Thank you for visiting!", "success");
   };
 
+  const handleAdminConfirmPayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType
+  ) => {
+    try {
+      await paymentHook.confirmPayment(transactionId);
+      const result = await applyMembership(userId, userType);
+      if (result.success) {
+        addToast(`Member ${userId} approved on ${userType} plan.`, "success");
+      } else {
+        addToast(`Membership apply warning: ${result.error}`, "error");
+      }
+    } catch (err) {
+      console.error("Admin confirm error:", err);
+      addToast("Failed to confirm payment or apply membership.", "error");
+    }
+  };
+
+  const handleAdminDeclinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType
+  ) => {
+    try {
+      await paymentHook.failPayment(transactionId, "Declined by admin");
+      addToast(`Payment ${transactionId} declined for user ${userId} (${userType}).`, "error");
+    } catch (err) {
+      console.error("Admin decline error:", err);
+      addToast("Failed to decline payment.", "error");
+    }
+  };
+
+  const handleAdminVerifyOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType
+  ) => {
+    try {
+      await paymentHook.verifyOnlinePaymentProof(transactionId);
+      const result = await applyMembership(userId, userType);
+      if (result.success) {
+        addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
+      } else {
+        addToast(`Membership apply warning: ${result.error}`, "error");
+      }
+    } catch (err) {
+      console.error("Admin verify online payment error:", err);
+      addToast("Failed to verify online payment or apply membership.", "error");
+    }
+  };
+
+  const handleAdminRejectOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: UserType,
+    reason: string
+  ) => {
+    try {
+      await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
+      addToast(`Online payment rejected for user ${userId} (${userType}). Reason: ${reason}`, "error");
+    } catch (err) {
+      console.error("Admin reject online payment error:", err);
+      addToast("Failed to reject online payment.", "error");
+    }
+  };
+
   // Payment handlers
-  const handleInitiatePayment = async (method: PaymentMethod) => {
+  const handleInitiatePayment = async (method: PaymentMethod, proofOfPayment?: string) => {
     if (!user || !selectedTier) return;
     try {
       setCompletedTransactionId(null);
-      await paymentHook.initializePayment(user.id, selectedTier, MEMBERSHIP_PRICES[selectedTier], method);
+      await paymentHook.initializePayment(user.id, selectedTier, MEMBERSHIP_PRICES[selectedTier], method, proofOfPayment);
       setShowPaymentModal(false);
       setShowPaymentConfirmation(true);
     } catch (err) {
@@ -332,22 +399,31 @@ export default function MembershipDashboard() {
   if (!displayMembership) {
     return (
       <div className="space-y-4">
-        <>
-          <PricingSection
-            plans={plans}
-            isLoading={actionLoading}
-            onSelectPlan={(plan) => {
-              setSelectedTier(plan.tier);
-              setShowPaymentModal(true);
-            }}
+        {isDev && (
+          <div className="flex gap-2">
+            <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
+              🔧 Dev: Toggle Membership State
+            </button>
+            <button onClick={toggleAdminView} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded border border-indigo-200 font-semibold hover:bg-indigo-200 transition">
+              🔧 Dev: {isAdmin ? "User" : "Admin"} View
+            </button>
+          </div>
+        )}
+        {isAdmin ? (
+          <AdminPaymentPanel
+            onConfirmPayment={handleAdminConfirmPayment}
+            onDeclinePayment={handleAdminDeclinePayment}
+            onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
+            onRejectOnlinePayment={handleAdminRejectOnlinePayment}
           />
-          {selectedTier && (
-            <PaymentModal
-              isOpen={showPaymentModal}
-              selectedUserType={selectedTier}
-              onClose={() => {
-                setShowPaymentModal(false);
-                paymentHook.clearError();
+        ) : (
+          <>
+            <PricingSection
+              plans={plans}
+              isLoading={actionLoading}
+              onSelectPlan={(plan) => {
+                setSelectedTier(plan.tier);
+                setShowPaymentModal(true);
               }}
               onInitiatePayment={handleInitiatePayment}
               isLoading={paymentHook.state.status === "processing"}
@@ -369,6 +445,24 @@ export default function MembershipDashboard() {
   // Has membership: show status, actions, and check-in/out QR
   return (
     <div className="space-y-6">
+      {isDev && (
+        <div className="flex gap-2">
+          <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
+            🔧 Dev: Toggle Membership State (Showing Membership)
+          </button>
+          <button onClick={toggleAdminView} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded border border-indigo-200 font-semibold hover:bg-indigo-200 transition">
+            🔧 Dev: {isAdmin ? "User" : "Admin"} View
+          </button>
+        </div>
+      )}
+      {isAdmin && (
+        <AdminPaymentPanel
+          onConfirmPayment={handleAdminConfirmPayment}
+          onDeclinePayment={handleAdminDeclinePayment}
+          onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
+          onRejectOnlinePayment={handleAdminRejectOnlinePayment}
+        />
+      )}
       {error && (
         <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-700 text-sm">{error}</div>
       )}

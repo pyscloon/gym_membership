@@ -2,12 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import {
+  applyMembership,
   fetchActivePlansCount,
   fetchExpiringSoonCount,
   fetchTotalMembersCount,
 } from "../lib/membershipService";
+import type { MembershipTier } from "../types/membership";
 import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
+import AdminPaymentPanel from "../components/AdminPaymentPanel";
+import { usePayment } from "../hooks/usePayment";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -73,6 +77,66 @@ export default function AdminDashboard() {
     setTimeout(() => setScanMessage(null), 4000);
   };
 
+  const paymentHook = usePayment("admin")
+
+  const handleAdminConfirmPayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier
+  ) => {
+    try {
+      await paymentHook.confirmPayment(transactionId);
+      // Apply membership to user once admin confirms payment
+      await applyMembership(userId, userType);
+      // optional: show a toast or log (could integrate more UI feedback)
+      console.log(`Membership for user ${userId} applied for ${userType} after admin confirmation.`);
+    } catch (err) {
+      console.error("Failed to apply membership after confirmation:", err);
+    }
+  };
+
+  const handleAdminDeclinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier
+  ) => {
+    try {
+      await paymentHook.failPayment(transactionId, "Declined by admin");
+      console.log(`Payment ${transactionId} declined by admin for user ${userId}, tier ${userType}.`);
+    } catch (err) {
+      console.error("Failed to decline payment:", err);
+    }
+  };
+
+  const handleAdminVerifyOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier
+  ) => {
+    try {
+      await paymentHook.verifyOnlinePaymentProof(transactionId);
+      // Apply membership to user once payment is verified
+      await applyMembership(userId, userType);
+      console.log(`Online payment for user ${userId} verified and membership applied for ${userType}.`);
+    } catch (err) {
+      console.error("Failed to verify online payment:", err);
+    }
+  };
+
+  const handleAdminRejectOnlinePayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier,
+    reason: string
+  ) => {
+    try {
+      await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
+      console.log(`Online payment for user ${userId} rejected. Reason: ${reason}`);
+    } catch (err) {
+      console.error("Failed to reject online payment:", err);
+    }
+  };
+
   const handleLogout = async () => {
     if (supabase) {
       await supabase.auth.signOut();
@@ -131,6 +195,16 @@ export default function AdminDashboard() {
               {isLoadingMembers ? "..." : todayCheckInCount}
             </p>
           </article>
+        </section>
+
+        {/* Pending Payments Panel */}
+        <section className="mt-6">
+          <AdminPaymentPanel
+            onConfirmPayment={handleAdminConfirmPayment}
+            onDeclinePayment={handleAdminDeclinePayment}
+            onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
+            onRejectOnlinePayment={handleAdminRejectOnlinePayment}
+          />
         </section>
 
         {/* Scan Status Message */}
