@@ -39,7 +39,7 @@ export default function PaymentConfirmation({
   if (!isOpen || !transaction) return null;
 
   const isPaid = transaction.status === "paid";
-  const isAwaiting = transaction.status === "awaiting-confirmation";
+  const isAwaiting = transaction.status === "awaiting-confirmation" || transaction.status === "awaiting-verification";
   const isFailed = transaction.status === "failed";
 
   const statusConfig = {
@@ -56,6 +56,13 @@ export default function PaymentConfirmation({
       color: "bg-amber-50 border-amber-200",
       textColor: "text-amber-800",
       iconBg: "bg-amber-100 text-amber-600",
+    },
+    "awaiting-verification": {
+      icon: "⏳",
+      title: "Awaiting Payment Verification",
+      color: "bg-purple-50 border-purple-200",
+      textColor: "text-purple-800",
+      iconBg: "bg-purple-100 text-purple-600",
     },
     failed: {
       icon: "✕",
@@ -136,11 +143,20 @@ export default function PaymentConfirmation({
         </div>
 
         {/* Status Message */}
-        {isAwaiting && (
+        {transaction.status === "awaiting-confirmation" && (
           <div className={`mb-6 p-3 rounded-lg ${config.color} text-sm`}>
             <p className="font-semibold mb-1">What happens next?</p>
             <p className="text-xs">
               An admin will review your payment request and confirm it shortly. You'll receive a notification once confirmed.
+            </p>
+          </div>
+        )}
+
+        {transaction.status === "awaiting-verification" && (
+          <div className={`mb-6 p-3 rounded-lg ${config.color} text-sm`}>
+            <p className="font-semibold mb-1">Payment Under Review</p>
+            <p className="text-xs">
+              An admin will verify your payment proof and confirm it shortly. You'll receive a notification once verified.
             </p>
           </div>
         )}
@@ -161,11 +177,11 @@ export default function PaymentConfirmation({
           </div>
         )}
 
-        {/* Loading spinner for awaiting confirmation */}
+        {/* Loading spinner for awaiting confirmation/verification */}
         {isAwaiting && (
           <div className="mb-6 flex justify-center">
             <div className="relative h-8 w-8">
-              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-amber-400 animate-spin"></div>
+              <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-current animate-spin"></div>
             </div>
           </div>
         )}
