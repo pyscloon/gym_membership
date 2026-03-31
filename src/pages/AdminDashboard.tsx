@@ -3,9 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import {
   applyMembership,
-  fetchActivePlansCount,
-  fetchExpiringSoonCount,
-  fetchTotalMembersCount,
+  fetchDashboardStats,
 } from "../lib/membershipService";
 import type { MembershipTier } from "../types/membership";
 import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
@@ -32,13 +30,11 @@ export default function AdminDashboard() {
 
     const loadDashboardData = async () => {
       setIsLoadingMembers(true);
-      const [membersCount, activePlansCount, expiringSoonCount, checkIns] = await Promise.all([
-        fetchTotalMembersCount(),
-        fetchActivePlansCount(),
-        fetchExpiringSoonCount(),
-        getRecentCheckIns(5),
-      ]);
-
+const [stats, checkIns] = await Promise.all([
+  fetchDashboardStats(),
+  getRecentCheckIns(5),
+]);
+const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon: expiringSoonCount } = stats;
       if (isMounted) {
         setTotalMembers(membersCount);
         setActivePlans(activePlansCount);
@@ -72,13 +68,13 @@ export default function AdminDashboard() {
 
     const loadMemberNames = async () => {
       if (transactionHistory.length === 0 || !supabase) {
-        console.log("Skipping member names load:", { historyLength: transactionHistory.length, hasSupabase: !!supabase });
+        // console.log("Skipping member names load:", { historyLength: transactionHistory.length, hasSupabase: !!supabase });
         return;
       }
 
       // Get unique user IDs from transaction history
       const uniqueUserIds = [...new Set(transactionHistory.map((t) => t.userId))];
-      console.log("Loading member names for userIds:", uniqueUserIds);
+      // console.log("Loading member names for userIds:", uniqueUserIds);
 
       try {
         // Query profiles table for full_name and email
@@ -87,7 +83,7 @@ export default function AdminDashboard() {
           .select("id, full_name, email")
           .in("id", uniqueUserIds);
 
-        console.log("Profiles query result:", { error, dataLength: data?.length, data });
+        // console.log("Profiles query result:", { error, dataLength: data?.length, data });
 
         if (isMounted && data) {
           const names: Record<string, string> = {};
@@ -96,7 +92,7 @@ export default function AdminDashboard() {
           data.forEach((profile: any) => {
             const name = profile.full_name?.trim() || profile.email || profile.id;
             names[profile.id] = name;
-            console.log(`Mapped ${profile.id} -> ${name}`);
+            // console.log(`Mapped ${profile.id} -> ${name}`);
           });
           
           // For any missing IDs, use email from auth users or just the ID
@@ -106,13 +102,13 @@ export default function AdminDashboard() {
             }
           }
           
-          console.log("Final mapped names:", names);
+          // console.log("Final mapped names:", names);
           setMemberNames(names);
         } else if (error) {
-          console.error("Supabase error:", error);
+          // console.error("Supabase error:", error);
         }
       } catch (err) {
-        console.error("Error loading member names:", err);
+        // console.error("Error loading member names:", err);
       }
     };
 
@@ -148,9 +144,9 @@ export default function AdminDashboard() {
       // Apply membership to user once admin confirms payment
       await applyMembership(userId, userType);
       // optional: show a toast or log (could integrate more UI feedback)
-      console.log(`Membership for user ${userId} applied for ${userType} after admin confirmation.`);
+      // console.log(`Membership for user ${userId} applied for ${userType} after admin confirmation.`);
     } catch (err) {
-      console.error("Failed to apply membership after confirmation:", err);
+      // console.error("Failed to apply membership after confirmation:", err);
     }
   };
 
@@ -161,9 +157,9 @@ export default function AdminDashboard() {
   ) => {
     try {
       await paymentHook.failPayment(transactionId, "Declined by admin");
-      console.log(`Payment ${transactionId} declined by admin for user ${userId}, tier ${userType}.`);
+      // console.log(`Payment ${transactionId} declined by admin for user ${userId}, tier ${userType}.`);
     } catch (err) {
-      console.error("Failed to decline payment:", err);
+      // console.error("Failed to decline payment:", err);
     }
   };
 
@@ -176,9 +172,9 @@ export default function AdminDashboard() {
       await paymentHook.verifyOnlinePaymentProof(transactionId);
       // Apply membership to user once payment is verified
       await applyMembership(userId, userType);
-      console.log(`Online payment for user ${userId} verified and membership applied for ${userType}.`);
+      // console.log(`Online payment for user ${userId} verified and membership applied for ${userType}.`);
     } catch (err) {
-      console.error("Failed to verify online payment:", err);
+      // console.error("Failed to verify online payment:", err);
     }
   };
 
@@ -190,9 +186,9 @@ export default function AdminDashboard() {
   ) => {
     try {
       await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
-      console.log(`Online payment for user ${userId} (${userType}) rejected. Reason: ${reason}`);
+      // console.log(`Online payment for user ${userId} (${userType}) rejected. Reason: ${reason}`);
     } catch (err) {
-      console.error("Failed to reject online payment:", err);
+      // console.error("Failed to reject online payment:", err);
     }
   };
 
