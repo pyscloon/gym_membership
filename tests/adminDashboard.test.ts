@@ -2,7 +2,7 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import { spawn } from "child_process";
 
-const port = process.env.PORT || "4002";
+const port = process.env.PORT || "4003";
 const baseUrl = `http://127.0.0.1:${port}`;
 const client = request(baseUrl);
 const adminEmail = "admin@example.com";
