@@ -9,6 +9,7 @@ import type { MembershipTier } from "../types/membership";
 import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
+import AnalyticsDashboard from "../components/AnalyticsDashboard";
 import { usePayment } from "../hooks/usePayment";
 
 export default function AdminDashboard() {
@@ -152,12 +153,12 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
   const handleAdminDeclinePayment = async (
     transactionId: string,
-    userId: string,
-    userType: MembershipTier
+    _userId: string,
+    _userType: MembershipTier
   ) => {
     try {
       await paymentHook.failPayment(transactionId, "Declined by admin");
-      // console.log(`Payment ${transactionId} declined by admin for user ${userId}, tier ${userType}.`);
+      // console.log(`Payment ${transactionId} declined by admin for user ${_userId}, tier ${_userType}.`);
     } catch (err) {
       // console.error("Failed to decline payment:", err);
     }
@@ -165,14 +166,14 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
   const handleAdminVerifyOnlinePayment = async (
     transactionId: string,
-    userId: string,
-    userType: MembershipTier
+    _userId: string,
+    _userType: MembershipTier
   ) => {
     try {
       await paymentHook.verifyOnlinePaymentProof(transactionId);
       // Apply membership to user once payment is verified
-      await applyMembership(userId, userType);
-      // console.log(`Online payment for user ${userId} verified and membership applied for ${userType}.`);
+      await applyMembership(_userId, _userType);
+      // console.log(`Online payment for user ${_userId} verified and membership applied for ${_userType}.`);
     } catch (err) {
       // console.error("Failed to verify online payment:", err);
     }
@@ -180,13 +181,13 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
   const handleAdminRejectOnlinePayment = async (
     transactionId: string,
-    userId: string,
-    userType: MembershipTier,
+    _userId: string,
+    _userType: MembershipTier,
     reason: string
   ) => {
     try {
       await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
-      // console.log(`Online payment for user ${userId} (${userType}) rejected. Reason: ${reason}`);
+      // console.log(`Online payment for user ${_userId} (${_userType}) rejected. Reason: ${reason}`);
     } catch (err) {
       // console.error("Failed to reject online payment:", err);
     }
@@ -319,6 +320,9 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
             </div>
           )}
         </section>
+
+        {/* Analytics Dashboard */}
+        <AnalyticsDashboard />
 
         {/* Pending Payments Panel */}
         <section className="mt-6">
