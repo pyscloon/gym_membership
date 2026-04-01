@@ -11,6 +11,7 @@ import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
 import { usePayment } from "../hooks/usePayment";
+import { PaymentStateContext } from "../design-patterns";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -25,6 +26,9 @@ export default function AdminDashboard() {
   const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const paymentHook = usePayment("admin");
   const transactionHistory = paymentHook.getTransactionHistory();
+  
+  // Payment state tracking - to enforce state machine transitions
+  const [paymentStateContexts, setPaymentStateContexts] = useState<Map<string, PaymentStateContext>>(new Map());
 
   useEffect(() => {
     let isMounted = true;
@@ -141,13 +145,24 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
     userType: MembershipTier
   ) => {
     try {
-      await paymentHook.confirmPayment(transactionId);
-      // Apply membership to user once admin confirms payment
-      await applyMembership(userId, userType);
-      // optional: show a toast or log (could integrate more UI feedback)
-      // console.log(`Membership for user ${userId} applied for ${userType} after admin confirmation.`);
+      // Get or create payment state context
+      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
+      
+      // Verify we can perform this action in the current state
+      if (stateContext.canPerformAction("confirm")) {
+        stateContext.confirm();
+        
+        await paymentHook.confirmPayment(transactionId);
+        // Apply membership to user once admin confirms payment
+        await applyMembership(userId, userType);
+        
+        // Update state contexts
+        const newContexts = new Map(paymentStateContexts);
+        newContexts.set(transactionId, stateContext);
+        setPaymentStateContexts(newContexts);
+      }
     } catch (err) {
-      // console.error("Failed to apply membership after confirmation:", err);
+      console.error("Failed to apply membership after confirmation:", err);
     }
   };
 
@@ -157,10 +172,22 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
     _userType: MembershipTier
   ) => {
     try {
-      await paymentHook.failPayment(transactionId, "Declined by admin");
-      // console.log(`Payment ${transactionId} declined by admin for user ${_userId}, tier ${_userType}.`);
+      // Get or create payment state context
+      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
+      
+      // Verify we can perform this action
+      if (stateContext.canPerformAction("reject")) {
+        stateContext.reject("Declined by admin");
+        
+        await paymentHook.failPayment(transactionId, "Declined by admin");
+        
+        // Update state contexts
+        const newContexts = new Map(paymentStateContexts);
+        newContexts.set(transactionId, stateContext);
+        setPaymentStateContexts(newContexts);
+      }
     } catch (err) {
-      // console.error("Failed to decline payment:", err);
+      console.error("Failed to decline payment:", err);
     }
   };
 
@@ -170,12 +197,24 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
     _userType: MembershipTier
   ) => {
     try {
-      await paymentHook.verifyOnlinePaymentProof(transactionId);
-      // Apply membership to user once payment is verified
-      await applyMembership(_userId, _userType);
-      // console.log(`Online payment for user ${_userId} verified and membership applied for ${_userType}.`);
+      // Get or create payment state context
+      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
+      
+      // Verify we can perform this action
+      if (stateContext.canPerformAction("confirm")) {
+        stateContext.confirm();
+        
+        await paymentHook.verifyOnlinePaymentProof(transactionId);
+        // Apply membership to user once payment is verified
+        await applyMembership(_userId, _userType);
+        
+        // Update state contexts
+        const newContexts = new Map(paymentStateContexts);
+        newContexts.set(transactionId, stateContext);
+        setPaymentStateContexts(newContexts);
+      }
     } catch (err) {
-      // console.error("Failed to verify online payment:", err);
+      console.error("Failed to verify online payment:", err);
     }
   };
 
@@ -186,10 +225,22 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
     reason: string
   ) => {
     try {
-      await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
-      // console.log(`Online payment for user ${_userId} (${_userType}) rejected. Reason: ${reason}`);
+      // Get or create payment state context
+      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
+      
+      // Verify we can perform this action
+      if (stateContext.canPerformAction("reject")) {
+        stateContext.reject(reason);
+        
+        await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
+        
+        // Update state contexts
+        const newContexts = new Map(paymentStateContexts);
+        newContexts.set(transactionId, stateContext);
+        setPaymentStateContexts(newContexts);
+      }
     } catch (err) {
-      // console.error("Failed to reject online payment:", err);
+      console.error("Failed to reject online payment:", err);
     }
   };
 
