@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import Layout from "../components/Layout";
@@ -25,6 +25,8 @@ const membershipColor: Record<string, string> = {
   "6 Months": "bg-violet-50 text-violet-600 border-violet-200",
   "1 Year":   "bg-amber-50 text-amber-600 border-amber-200",
 };
+
+type MembershipStatus = "active" | "expired" | "none";
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -78,6 +80,53 @@ export default function Profile() {
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
+  const daysLeft = useMemo(() => {
+    if (!profile.membershipEnd) return 0;
+    const diff = new Date(profile.membershipEnd).getTime() - new Date().getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [profile.membershipEnd]);
+
+  const membershipStatus = useMemo((): MembershipStatus => {
+    if (!profile.membershipEnd) return "none";
+    return new Date(profile.membershipEnd) >= new Date() ? "active" : "expired";
+  }, [profile.membershipEnd]);
+
+  const statusConfig = {
+    active: {
+      banner: "bg-green-50 border-green-200",
+      label: "text-green-700",
+      sub: "text-green-600",
+      badge: "bg-green-100 text-green-700 border-green-300",
+      cardBadge: "bg-green-50 text-green-600 border-green-200",
+      dot: "● ",
+      text: "Active",
+      badgeText: "ACTIVE",
+      subText: `${daysLeft} days remaining`,
+    },
+    expired: {
+      banner: "bg-red-50 border-red-200",
+      label: "text-red-700",
+      sub: "text-red-500",
+      badge: "bg-red-100 text-red-700 border-red-300",
+      cardBadge: "bg-red-50 text-red-600 border-red-200",
+      dot: "● ",
+      text: "Expired",
+      badgeText: "EXPIRED",
+      subText: "Your membership has ended",
+    },
+    none: {
+      banner: "bg-gray-50 border-gray-200",
+      label: "text-gray-600",
+      sub: "text-gray-400",
+      badge: "bg-gray-100 text-gray-600 border-gray-200",
+      cardBadge: "bg-gray-50 text-gray-500 border-gray-200",
+      dot: "○ ",
+      text: "No Membership",
+      badgeText: "NO MEMBERSHIP",
+      subText: "No active membership on record",
+    },
+  }[membershipStatus];
+
   const handleSave = async () => {
     if (!supabase) return;
     const { data: { user } } = await supabase.auth.getUser();
@@ -108,16 +157,6 @@ export default function Profile() {
     return new Date(dateStr).toLocaleDateString("en-US", {
       year: "numeric", month: "long", day: "numeric",
     });
-  };
-
-  const isActive = profile.membershipEnd
-    ? new Date(profile.membershipEnd) >= new Date()
-    : false;
-
-  const daysLeft = () => {
-    if (!profile.membershipEnd) return 0;
-    const diff = new Date(profile.membershipEnd).getTime() - new Date().getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   };
 
   if (loading) {
@@ -153,6 +192,7 @@ export default function Profile() {
           )}
         </div>
 
+        {/* Profile Card */}
         <div className="flex items-center gap-5 rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-5 sm:p-6 mb-5">
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-flexBlue/10 border-2 border-flexBlue/30 flex items-center justify-center shrink-0">
             <span className="text-xl sm:text-2xl font-black text-flexBlue">{getInitials(profile.name)}</span>
@@ -160,26 +200,28 @@ export default function Profile() {
           <div>
             <h3 className="text-lg sm:text-xl font-bold text-flexBlack">{profile.name}</h3>
             <p className="text-flexNavy text-sm mt-0.5">{profile.email}</p>
-            <span className={`inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full border ${isActive ? "bg-green-50 text-green-600 border-green-200" : "bg-red-50 text-red-600 border-red-200"}`}>
-              {isActive ? "● Active" : "● Expired"}
+            <span className={`inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full border ${statusConfig.cardBadge}`}>
+              {statusConfig.dot}{statusConfig.text}
             </span>
           </div>
         </div>
 
-        <div className={`rounded-2xl px-5 py-4 mb-5 flex items-center justify-between border ${isActive ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
+        {/* Status Banner */}
+        <div className={`rounded-2xl px-5 py-4 mb-5 flex items-center justify-between border ${statusConfig.banner}`}>
           <div>
-            <p className={`text-sm font-bold ${isActive ? "text-green-700" : "text-red-700"}`}>
-              Membership {isActive ? "Active" : "Expired"}
+            <p className={`text-sm font-bold ${statusConfig.label}`}>
+              Membership {statusConfig.text}
             </p>
-            <p className={`text-xs mt-0.5 ${isActive ? "text-green-600" : "text-red-500"}`}>
-              {isActive ? `${daysLeft()} days remaining` : "Your membership has ended"}
+            <p className={`text-xs mt-0.5 ${statusConfig.sub}`}>
+              {statusConfig.subText}
             </p>
           </div>
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${isActive ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>
-            {isActive ? "ACTIVE" : "EXPIRED"}
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${statusConfig.badge}`}>
+            {statusConfig.badgeText}
           </span>
         </div>
 
+        {/* Personal Info */}
         <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden mb-5">
           <div className="px-5 py-3.5 border-b border-flexNavy/10">
             <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Personal Info</p>
@@ -206,6 +248,7 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Membership Period */}
         <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden mb-5">
           <div className="px-5 py-3.5 border-b border-flexNavy/10">
             <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Membership Period</p>
@@ -257,6 +300,7 @@ export default function Profile() {
           </button>
         )}
 
+        {/* Transaction History */}
         <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden">
           <div className="px-5 py-3.5 border-b border-flexNavy/10 flex items-center justify-between">
             <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Transaction History</p>
