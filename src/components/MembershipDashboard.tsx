@@ -25,6 +25,8 @@ import AdminPaymentPanel from "./AdminPaymentPanel";
 import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
 import PaymentConfirmation from "./PaymentConfirmation";
+import PaymentModal from "./PaymentModal";
+import { MEMBERSHIP_PRICES } from "../types/payment";
 
 type Toast = {
   id: string;
@@ -62,6 +64,8 @@ export default function MembershipDashboard() {
   );
 
   // Payment state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPlanTier, setSelectedPlanTier] = useState<UserType>("monthly");
   const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
   const [completedTransactionId, setCompletedTransactionId] = useState<string | null>(null);
 
@@ -315,6 +319,30 @@ export default function MembershipDashboard() {
 
   // Payment handlers
 
+  const handleSelectPlan = (tier: UserType) => {
+    setSelectedPlanTier(tier);
+    paymentHook.clearError();
+    setShowPaymentModal(true);
+  };
+
+  const handleInitiatePayment = async (method: "cash" | "card" | "online", proofOfPayment?: string) => {
+    if (!user) {
+      addToast("Please log in first to continue payment.", "error");
+      return;
+    }
+
+    await paymentHook.initializePayment(
+      user.id,
+      selectedPlanTier,
+      MEMBERSHIP_PRICES[selectedPlanTier],
+      method,
+      proofOfPayment
+    );
+
+    setShowPaymentModal(false);
+    setShowPaymentConfirmation(true);
+  };
+
   const handlePaymentComplete = async () => {
     const transaction = paymentHook.state.currentTransaction;
     if (!transaction || completedTransactionId === transaction.id) {
@@ -474,7 +502,16 @@ export default function MembershipDashboard() {
             <PricingSection
               plans={plans}
               isLoading={actionLoading}
-              onSelectPlan={() => {}}
+              onSelectPlan={(plan) => handleSelectPlan(plan.tier)}
+            />
+            <PaymentModal
+              isOpen={showPaymentModal}
+              selectedUserType={selectedPlanTier}
+              onClose={() => setShowPaymentModal(false)}
+              onInitiatePayment={handleInitiatePayment}
+              isLoading={paymentHook.state.status === "processing"}
+              error={paymentHook.state.error}
+              onClearError={paymentHook.clearError}
             />
             <PaymentConfirmation
               transaction={paymentHook.state.currentTransaction}
