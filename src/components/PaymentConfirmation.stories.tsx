@@ -149,7 +149,7 @@ export const AwaitingPaymentVerification: Story = {
  */
 export const PaymentFailed: Story = {
   args: {
-    transaction: createPaymentTransaction('failed', 'annual', 'cash'),
+    transaction: createPaymentTransaction('failed', 'yearly', 'cash'),
     isOpen: true,
     onClose: mockOnClose,
     onComplete: mockOnComplete,
@@ -244,12 +244,12 @@ export const SuccessfulSemiYearlyMembership: Story = {
 };
 
 /**
- * Successful Annual Membership
- * Shows successful payment for annual tier
+ * Successful Yearly Membership
+ * Shows successful payment for yearly tier
  */
-export const SuccessfulAnnualMembership: Story = {
+export const SuccessfulYearlyMembership: Story = {
   args: {
-    transaction: createPaymentTransaction('paid', 'annual', 'cash'),
+    transaction: createPaymentTransaction('paid', 'yearly', 'cash'),
     isOpen: true,
     onClose: mockOnClose,
     onComplete: mockOnComplete,
@@ -257,7 +257,7 @@ export const SuccessfulAnnualMembership: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Displays successful payment confirmation for an annual membership tier (₱1,199) - the most expensive tier.',
+        story: 'Displays successful payment confirmation for a yearly membership tier (₱1,199) - the most expensive tier.',
       },
     },
   },
@@ -335,7 +335,7 @@ export const MobileViewAwaitingConfirmation: Story = {
  */
 export const TabletViewSuccessful: Story = {
   args: {
-    transaction: createPaymentTransaction('paid', 'annual', 'online'),
+    transaction: createPaymentTransaction('paid', 'yearly', 'online'),
     isOpen: true,
     onClose: mockOnClose,
     onComplete: mockOnComplete,
@@ -404,7 +404,7 @@ export const DesktopViewSuccessful: Story = {
  */
 export const DesktopViewAwaitingVerification: Story = {
   args: {
-    transaction: createPaymentTransaction('awaiting-verification', 'annual', 'online'),
+    transaction: createPaymentTransaction('awaiting-verification', 'yearly', 'online'),
     isOpen: true,
     onClose: mockOnClose,
     onComplete: mockOnComplete,
@@ -473,7 +473,7 @@ export const InteractiveDemoFailure: Story = {
  */
 export const InteractiveDemoVerification: Story = {
   args: {
-    transaction: createPaymentTransaction('awaiting-verification', 'annual', 'online', 'user_demo_alex'),
+    transaction: createPaymentTransaction('awaiting-verification', 'yearly', 'online', 'user_demo_alex'),
     isOpen: true,
     onClose: mockOnClose,
     onComplete: mockOnComplete,
@@ -499,7 +499,7 @@ export const LongTransactionId: Story = {
     transaction: {
       id: 'TXN-2024-04-02-ABC123DEF456GHI789JKL012',
       userId: 'user_long_id_demo',
-      userType: 'annual',
+      userType: 'yearly',
       amount: 1299,
       method: 'cash',
       status: 'paid',
@@ -561,7 +561,7 @@ export const DetailedFailureReason: Story = {
     transaction: {
       id: 'TXN-FAIL-002',
       userId: 'user_failed',
-      userType: 'annual',
+      userType: 'yearly',
       amount: 1299,
       method: 'online',
       status: 'failed',

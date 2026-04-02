@@ -11,7 +11,7 @@ import type {
 } from "../types/membership";
 
 function getRenewalDays(tier: MembershipTier): number {
-  if (tier === "annual") return 365;
+  if (tier === "yearly") return 365;
   if (tier === "semi-yearly") return 182;
   return 30;
 }

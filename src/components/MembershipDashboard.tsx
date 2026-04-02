@@ -37,7 +37,7 @@ type Toast = {
 const TIER_LABELS: Record<MembershipTier, string> = {
   monthly: "Monthly",
   "semi-yearly": "Semi-Yearly",
-  annual: "Annual",
+  yearly: "Yearly",
   "walk-in": "Walk-In",
 };
 
@@ -413,14 +413,14 @@ export default function MembershipDashboard() {
     },
     {
       badge: "Best Plan",
-      title: "Annual",
+      title: "Yearly",
       amount: "₱1,199",
       interval: "/ year",
       quote: "Maximum savings for year-round training.",
       description: "Most cost-effective plan for consistent training.",
       features: ["Best yearly value", "Locked-in lower rate", "Built for long-term goals"],
       isActive: true,
-      tier: "annual" as const,
+      tier: "yearly" as const,
       ctaLabel: "Choose Yearly",
       icon: (
         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>

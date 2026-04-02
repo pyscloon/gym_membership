@@ -2,7 +2,7 @@
 CREATE TYPE membership_status AS ENUM ('active', 'pending', 'canceled', 'expired');
 
 -- Create membership tier enum
-CREATE TYPE membership_tier AS ENUM ('monthly', 'annual');
+CREATE TYPE membership_tier AS ENUM ('monthly', 'yearly');
 
 -- Create memberships table
 CREATE TABLE public.memberships (

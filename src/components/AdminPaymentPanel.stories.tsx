@@ -161,7 +161,7 @@ export const MultipleCashPayments: Story = {
     setupTransactions([
       createTestTransaction('cash', 'monthly', 'user_john_doe'),
       createTestTransaction('cash', 'semi-yearly', 'user_jane_smith'),
-      createTestTransaction('cash', 'annual', 'user_mike_wilson'),
+      createTestTransaction('cash', 'yearly', 'user_mike_wilson'),
       createTestTransaction('cash', 'walk-in', 'user_sarah_jones'),
     ]);
     return (
@@ -192,7 +192,7 @@ export const SingleOnlinePayment: Story = {
   },
   render: (args) => {
     setupTransactions([
-      createTestTransaction('online', 'annual', 'user_alex_patel'),
+      createTestTransaction('online', 'yearly', 'user_alex_patel'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -203,7 +203,7 @@ export const SingleOnlinePayment: Story = {
   parameters: {
     docs: {
       description: {
-        story: 'Displays a single online payment request for an annual membership. Includes option to view payment proof photo and fields for rejection reason if needed.',
+        story: 'Displays a single online payment request for a yearly membership. Includes option to view payment proof photo and fields for rejection reason if needed.',
       },
     },
   },
@@ -223,7 +223,7 @@ export const MultipleOnlinePayments: Story = {
   render: (args) => {
     setupTransactions([
       createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('online', 'annual', 'user_emma_brown'),
+      createTestTransaction('online', 'yearly', 'user_emma_brown'),
       createTestTransaction('online', 'monthly', 'user_david_lee'),
     ]);
     return (
@@ -256,7 +256,7 @@ export const MixedPaymentTypes: Story = {
     setupTransactions([
       createTestTransaction('cash', 'monthly', 'user_john_doe'),
       createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('cash', 'annual', 'user_jane_smith'),
+      createTestTransaction('cash', 'yearly', 'user_jane_smith'),
       createTestTransaction('online', 'walk-in', 'user_emma_brown'),
       createTestTransaction('cash', 'monthly', 'user_mike_wilson'),
     ]);
@@ -289,7 +289,7 @@ export const MobileView: Story = {
   render: (args) => {
     setupTransactions([
       createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('online', 'annual', 'user_alex_patel'),
+      createTestTransaction('online', 'yearly', 'user_alex_patel'),
       createTestTransaction('cash', 'semi-yearly', 'user_jane_smith'),
     ]);
     return (
@@ -325,7 +325,7 @@ export const TabletView: Story = {
     setupTransactions([
       createTestTransaction('cash', 'monthly', 'user_john_doe'),
       createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('cash', 'annual', 'user_jane_smith'),
+      createTestTransaction('cash', 'yearly', 'user_jane_smith'),
       createTestTransaction('online', 'walk-in', 'user_emma_brown'),
     ]);
     return (
@@ -361,10 +361,10 @@ export const DesktopView: Story = {
     setupTransactions([
       createTestTransaction('cash', 'monthly', 'user_john_doe'),
       createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('cash', 'annual', 'user_jane_smith'),
+      createTestTransaction('cash', 'yearly', 'user_jane_smith'),
       createTestTransaction('online', 'monthly', 'user_emma_brown'),
       createTestTransaction('cash', 'walk-in', 'user_mike_wilson'),
-      createTestTransaction('online', 'annual', 'user_david_lee'),
+      createTestTransaction('online', 'yearly', 'user_david_lee'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -398,7 +398,7 @@ export const HighVolumePayments: Story = {
   render: (args) => {
     const payments: PaymentTransaction[] = [];
     const userIds = ['user_john', 'user_jane', 'user_mike', 'user_sarah', 'user_alex', 'user_emma', 'user_david', 'user_lisa', 'user_james', 'user_maria', 'user_robert', 'user_anna'];
-    const tiers: UserType[] = ['monthly', 'semi-yearly', 'annual', 'walk-in'];
+    const tiers: UserType[] = ['monthly', 'semi-yearly', 'yearly', 'walk-in'];
     const methods: ('cash' | 'online')[] = ['cash', 'online'];
     
     for (let i = 0; i < 12; i++) {
@@ -435,7 +435,7 @@ export const InteractiveCashDemo: Story = {
   render: (args) => {
     setupTransactions([
       createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('cash', 'annual', 'user_mike_wilson'),
+      createTestTransaction('cash', 'yearly', 'user_mike_wilson'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -468,7 +468,7 @@ export const InteractiveOnlineDemo: Story = {
   render: (args) => {
     setupTransactions([
       createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('online', 'annual', 'user_emma_brown'),
+      createTestTransaction('online', 'yearly', 'user_emma_brown'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">

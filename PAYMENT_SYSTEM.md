@@ -42,7 +42,7 @@ Asynchronous payment simulation with local storage:
 
 #### **PaymentModal** (`src/components/PaymentModal.tsx`)
 User-facing payment initiation interface:
-- Membership tier selection (4 buttons: monthly, semi-yearly, annual, walk-in)
+- Membership tier selection (4 buttons: monthly, semi-yearly, yearly, walk-in)
 - Dynamic amount display based on selected tier
 - Payment method selection with descriptions:
   - Cash: Shows "Admin will confirm" note
@@ -126,7 +126,7 @@ Wired into main membership dashboard:
 {
   "id": "txn_1704067200000_abc123def",
   "userId": "user@example.com",
-  "userType": "annual",
+  "userType": "yearly",
   "amount": 1199,
   "method": "cash",
   "status": "paid",
@@ -151,7 +151,7 @@ Wired into main membership dashboard:
 
 #### Test Digital Wallet Payment
 1. Switch to user view (if in admin)
-2. Click "Choose Annual" (or any tier)
+2. Click "Choose Yearly" (or any tier)
 3. Select "Digital Wallet" as payment method
 4. Click "Pay Now"
 5. Wait 2 seconds for processing
