@@ -9,11 +9,13 @@ import type {
   MembershipResponse,
   MembershipTier,
 } from "../types/membership";
+import { AccessFactory } from "../design-patterns";
 
 function getRenewalDays(tier: MembershipTier): number {
-  if (tier === "yearly") return 365;
-  if (tier === "semi-yearly") return 182;
-  return 30;
+  // exclude the walk in 
+  if (tier === "walk-in") return 30;
+
+  return AccessFactory.create_access(tier).get_duration();
 }
 
 /**

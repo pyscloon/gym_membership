@@ -3,6 +3,7 @@
  */
 
 import type { MembershipTier } from "./membership";
+import { AccessFactory } from "../design-patterns";
 
 export type PaymentMethod = "cash" | "card" | "online";
 
@@ -61,10 +62,14 @@ export interface PaymentContextType {
 }
 
 // Price mapping for membership tiers
+const monthlyAccess = AccessFactory.create_access("monthly");
+const semiYearlyAccess = AccessFactory.create_access("semi-yearly");
+const yearlyAccess = AccessFactory.create_access("yearly");
+
 export const MEMBERSHIP_PRICES: Record<UserType, number> = {
-  monthly: 499,
-  "semi-yearly": 699,
-  yearly: 1199,
+  monthly: monthlyAccess.get_price(),
+  "semi-yearly": semiYearlyAccess.get_price(),
+  yearly: yearlyAccess.get_price(),
   "walk-in": 60,
 };
 
