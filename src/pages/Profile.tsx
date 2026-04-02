@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import Layout from "../components/Layout";
@@ -26,8 +26,6 @@ const membershipColor: Record<string, string> = {
   "1 Year":   "bg-amber-50 text-amber-600 border-amber-200",
 };
 
-type MembershipStatus = "active" | "expired" | "none";
-
 export default function Profile() {
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
@@ -45,27 +43,34 @@ export default function Profile() {
     const fetchProfile = async () => {
       setLoading(true);
       if (!supabase) { navigate("/login"); return; }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { navigate("/login"); return; }
 
-      const { data, error } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", user.id)
         .single();
 
-      if (error) {
-        console.error("Error fetching profile:", error.message);
+      if (profileError) {
+        console.error("Error fetching profile:", profileError.message);
         setLoading(false);
         return;
       }
 
-      if (data) {
+      const { data: membershipData } = await supabase
+        .from("memberships")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileData) {
         const fetched = {
-          name: data.name ?? "",
+          name: profileData.full_name ?? "",
           email: user.email ?? "",
-          membershipStart: data.membership_start ?? "",
-          membershipEnd: data.membership_end ?? "",
+          membershipStart: membershipData?.start_date ?? "",
+          membershipEnd: membershipData?.renewal_date ?? "",
         };
         setProfile(fetched);
         setForm(fetched);
@@ -80,68 +85,27 @@ export default function Profile() {
   const getInitials = (name: string) =>
     name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 
-  const daysLeft = useMemo(() => {
-    if (!profile.membershipEnd) return 0;
-    const diff = new Date(profile.membershipEnd).getTime() - new Date().getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [profile.membershipEnd]);
-
-  const membershipStatus = useMemo((): MembershipStatus => {
-    if (!profile.membershipEnd) return "none";
-    return new Date(profile.membershipEnd) >= new Date() ? "active" : "expired";
-  }, [profile.membershipEnd]);
-
-  const statusConfig = {
-    active: {
-      banner: "bg-green-50 border-green-200",
-      label: "text-green-700",
-      sub: "text-green-600",
-      badge: "bg-green-100 text-green-700 border-green-300",
-      cardBadge: "bg-green-50 text-green-600 border-green-200",
-      dot: "● ",
-      text: "Active",
-      badgeText: "ACTIVE",
-      subText: `${daysLeft} days remaining`,
-    },
-    expired: {
-      banner: "bg-red-50 border-red-200",
-      label: "text-red-700",
-      sub: "text-red-500",
-      badge: "bg-red-100 text-red-700 border-red-300",
-      cardBadge: "bg-red-50 text-red-600 border-red-200",
-      dot: "● ",
-      text: "Expired",
-      badgeText: "EXPIRED",
-      subText: "Your membership has ended",
-    },
-    none: {
-      banner: "bg-gray-50 border-gray-200",
-      label: "text-gray-600",
-      sub: "text-gray-400",
-      badge: "bg-gray-100 text-gray-600 border-gray-200",
-      cardBadge: "bg-gray-50 text-gray-500 border-gray-200",
-      dot: "○ ",
-      text: "No Membership",
-      badgeText: "NO MEMBERSHIP",
-      subText: "No active membership on record",
-    },
-  }[membershipStatus];
-
   const handleSave = async () => {
     if (!supabase) return;
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { error } = await supabase
+    const { error: profileError } = await supabase
       .from("profiles")
-      .update({
-        name: form.name,
-        membership_start: form.membershipStart,
-        membership_end: form.membershipEnd,
-      })
+      .update({ full_name: form.name })
       .eq("id", user.id);
 
-    if (error) { console.error("Error saving profile:", error.message); return; }
+    if (profileError) { console.error("Error saving profile:", profileError.message); return; }
+
+    const { error: membershipError } = await supabase
+      .from("memberships")
+      .update({
+        start_date: form.membershipStart,
+        renewal_date: form.membershipEnd,
+      })
+      .eq("user_id", user.id);
+
+    if (membershipError) { console.error("Error saving membership:", membershipError.message); return; }
 
     setProfile({ ...form });
     setIsEditing(false);
@@ -159,6 +123,16 @@ export default function Profile() {
     });
   };
 
+  const isActive = profile.membershipEnd
+    ? new Date(profile.membershipEnd) >= new Date()
+    : false;
+
+  const daysLeft = () => {
+    if (!profile.membershipEnd) return 0;
+    const diff = new Date(profile.membershipEnd).getTime() - new Date().getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -173,7 +147,6 @@ export default function Profile() {
     <Layout>
       <div className="bg-white p-5 sm:p-7 md:p-8 lg:p-10 overflow-y-auto">
 
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-flexNavy">My Account</p>
@@ -192,7 +165,6 @@ export default function Profile() {
           )}
         </div>
 
-        {/* Profile Card */}
         <div className="flex items-center gap-5 rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-5 sm:p-6 mb-5">
           <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-flexBlue/10 border-2 border-flexBlue/30 flex items-center justify-center shrink-0">
             <span className="text-xl sm:text-2xl font-black text-flexBlue">{getInitials(profile.name)}</span>
@@ -200,28 +172,26 @@ export default function Profile() {
           <div>
             <h3 className="text-lg sm:text-xl font-bold text-flexBlack">{profile.name}</h3>
             <p className="text-flexNavy text-sm mt-0.5">{profile.email}</p>
-            <span className={`inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full border ${statusConfig.cardBadge}`}>
-              {statusConfig.dot}{statusConfig.text}
+            <span className={`inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full border ${isActive ? "bg-green-50 text-green-600 border-green-200" : "bg-red-50 text-red-600 border-red-200"}`}>
+              {isActive ? "● Active" : "● Expired"}
             </span>
           </div>
         </div>
 
-        {/* Status Banner */}
-        <div className={`rounded-2xl px-5 py-4 mb-5 flex items-center justify-between border ${statusConfig.banner}`}>
+        <div className={`rounded-2xl px-5 py-4 mb-5 flex items-center justify-between border ${isActive ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
           <div>
-            <p className={`text-sm font-bold ${statusConfig.label}`}>
-              Membership {statusConfig.text}
+            <p className={`text-sm font-bold ${isActive ? "text-green-700" : "text-red-700"}`}>
+              Membership {isActive ? "Active" : "Expired"}
             </p>
-            <p className={`text-xs mt-0.5 ${statusConfig.sub}`}>
-              {statusConfig.subText}
+            <p className={`text-xs mt-0.5 ${isActive ? "text-green-600" : "text-red-500"}`}>
+              {isActive ? `${daysLeft()} days remaining` : "Your membership has ended"}
             </p>
           </div>
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${statusConfig.badge}`}>
-            {statusConfig.badgeText}
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${isActive ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>
+            {isActive ? "ACTIVE" : "EXPIRED"}
           </span>
         </div>
 
-        {/* Personal Info */}
         <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden mb-5">
           <div className="px-5 py-3.5 border-b border-flexNavy/10">
             <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Personal Info</p>
@@ -248,7 +218,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Membership Period */}
         <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden mb-5">
           <div className="px-5 py-3.5 border-b border-flexNavy/10">
             <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Membership Period</p>
@@ -300,7 +269,6 @@ export default function Profile() {
           </button>
         )}
 
-        {/* Transaction History */}
         <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden">
           <div className="px-5 py-3.5 border-b border-flexNavy/10 flex items-center justify-between">
             <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Transaction History</p>
