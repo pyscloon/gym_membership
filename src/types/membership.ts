@@ -4,7 +4,7 @@
 
 export type MembershipStatus = "active" | "pending" | "canceled" | "expired";
 
-export type MembershipTier = "monthly" | "semi-yearly" | "annual" | "walk-in";
+export type MembershipTier = "monthly" | "semi-yearly" | "yearly" | "walk-in";
 
 export interface Membership {
   id: string;

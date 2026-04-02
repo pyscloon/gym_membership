@@ -64,7 +64,7 @@ export interface PaymentContextType {
 export const MEMBERSHIP_PRICES: Record<UserType, number> = {
   monthly: 499,
   "semi-yearly": 699,
-  annual: 1199,
+  yearly: 1199,
   "walk-in": 60,
 };
 
