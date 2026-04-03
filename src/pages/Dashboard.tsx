@@ -1,12 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import MembershipDashboard from "../components/MembershipDashboard";
 import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
+import { useAuth } from "../hooks/useAuth";
+import { fetchUserMembership } from "../lib/membershipService";
+import type { Membership } from "../types/membership";
 
 export default function Dashboard() {
   const notifications = ["Welcome to Flex Republic"];
   const unreadCount = notifications.length;
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const { user } = useAuth();
+  const [membership, setMembership] = useState<Membership | null>(null);
+  const [isLoadingMembership, setIsLoadingMembership] = useState(true);
+
+  useEffect(() => {
+    const loadMembership = async () => {
+      if (!user) {
+        setIsLoadingMembership(false);
+        return;
+      }
+
+      try {
+        const userMembership = await fetchUserMembership(user.id);
+        setMembership(userMembership);
+      } catch (error) {
+        console.error("Error loading membership:", error);
+        setMembership(null);
+      } finally {
+        setIsLoadingMembership(false);
+      }
+    };
+
+    loadMembership();
+  }, [user]);
+
+  const isSubscribed = membership?.status === "active";
 
   return (
     <Layout>
@@ -74,9 +103,11 @@ export default function Dashboard() {
         <MembershipDashboard />
       </section>
 
-      <section className="mt-6">
-        <CrowdEstimationPanel />
-      </section>
+      {isSubscribed && !isLoadingMembership && (
+        <section className="mt-6">
+          <CrowdEstimationPanel />
+        </section>
+      )}
     </Layout>
   );
 }
