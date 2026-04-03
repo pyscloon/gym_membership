@@ -85,3 +85,6 @@ vite.config.ts.timestamp-*
 # OS-generated files
 Thumbs.db
 Desktop.ini
+
+*storybook.log
+storybook-static
