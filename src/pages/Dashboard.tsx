@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Layout from "../components/Layout";
 import MembershipDashboard from "../components/MembershipDashboard";
+import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 
 export default function Dashboard() {
   const notifications = ["Welcome to Flex Republic"];
@@ -71,6 +72,10 @@ export default function Dashboard() {
 
       <section className="mt-6">
         <MembershipDashboard />
+      </section>
+
+      <section className="mt-6">
+        <CrowdEstimationPanel />
       </section>
     </Layout>
   );

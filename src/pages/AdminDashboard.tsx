@@ -10,8 +10,23 @@ import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
+import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
+
+type RecentCheckInRecord = {
+  id: string;
+  user_id: string | null;
+  check_in_type: string;
+  check_in_time: string;
+  status: string;
+};
+
+type ProfileRecord = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -19,7 +34,7 @@ export default function AdminDashboard() {
   const [activePlans, setActivePlans] = useState(0);
   const [expiringSoon, setExpiringSoon] = useState(0);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
-  const [recentCheckIns, setRecentCheckIns] = useState<any[]>([]);
+  const [recentCheckIns, setRecentCheckIns] = useState<RecentCheckInRecord[]>([]);
   const [todayCheckInCount, setTodayCheckInCount] = useState(0);
   const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [isTransactionHistoryExpanded, setIsTransactionHistoryExpanded] = useState(false);
@@ -94,7 +109,7 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
           const names: Record<string, string> = {};
           
           // Map profiles to names
-          data.forEach((profile: any) => {
+          (data as ProfileRecord[]).forEach((profile) => {
             const name = profile.full_name?.trim() || profile.email || profile.id;
             names[profile.id] = name;
             // console.log(`Mapped ${profile.id} -> ${name}`);
@@ -112,8 +127,8 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
         } else if (error) {
           // console.error("Supabase error:", error);
         }
-      } catch (err) {
-        // console.error("Error loading member names:", err);
+      } catch {
+        // console.error("Error loading member names");
       }
     };
 
@@ -168,10 +183,12 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
   const handleAdminDeclinePayment = async (
     transactionId: string,
-    _userId: string,
-    _userType: MembershipTier
+    userId: string,
+    userType: MembershipTier
   ) => {
     try {
+      void userId;
+      void userType;
       // Get or create payment state context
       const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
       
@@ -186,15 +203,15 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
         newContexts.set(transactionId, stateContext);
         setPaymentStateContexts(newContexts);
       }
-    } catch (err) {
-      console.error("Failed to decline payment:", err);
+    } catch (error) {
+      console.error("Failed to decline payment:", error);
     }
   };
 
   const handleAdminVerifyOnlinePayment = async (
     transactionId: string,
-    _userId: string,
-    _userType: MembershipTier
+    userId: string,
+    userType: MembershipTier
   ) => {
     try {
       // Get or create payment state context
@@ -206,25 +223,27 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
         
         await paymentHook.verifyOnlinePaymentProof(transactionId);
         // Apply membership to user once payment is verified
-        await applyMembership(_userId, _userType);
+        await applyMembership(userId, userType);
         
         // Update state contexts
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
         setPaymentStateContexts(newContexts);
       }
-    } catch (err) {
-      console.error("Failed to verify online payment:", err);
+    } catch (error) {
+      console.error("Failed to verify online payment:", error);
     }
   };
 
   const handleAdminRejectOnlinePayment = async (
     transactionId: string,
-    _userId: string,
-    _userType: MembershipTier,
+    userId: string,
+    userType: MembershipTier,
     reason: string
   ) => {
     try {
+      void userId;
+      void userType;
       // Get or create payment state context
       const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
       
@@ -239,8 +258,8 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
         newContexts.set(transactionId, stateContext);
         setPaymentStateContexts(newContexts);
       }
-    } catch (err) {
-      console.error("Failed to reject online payment:", err);
+    } catch (error) {
+      console.error("Failed to reject online payment:", error);
     }
   };
 
@@ -374,6 +393,9 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
         {/* Analytics Dashboard */}
         <AnalyticsDashboard />
+
+        {/* Crowd Estimation */}
+        <CrowdEstimationPanel showAdminControls />
 
         {/* Pending Payments Panel */}
         <section className="mt-6">

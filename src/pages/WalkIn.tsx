@@ -1,5 +1,6 @@
 import { QRCodeSVG } from "qrcode.react";
 import MembershipDashboard from "../components/MembershipDashboard";
+import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 
 export default function WalkInPage() {
   const walkInQR = JSON.stringify({
@@ -78,6 +79,10 @@ export default function WalkInPage() {
 
             <section className="mt-6">
               <MembershipDashboard />
+            </section>
+
+            <section className="mt-6">
+              <CrowdEstimationPanel />
             </section>
           </section>
         </div>

@@ -17,6 +17,134 @@ app.use(
 );
 app.use(express.json());
 
+function formatHour(hour) {
+  const period = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+  return `${hour12} ${period}`;
+}
+
+function buildRangeLabel(startHour, endHour) {
+  return `${formatHour(startHour)} - ${formatHour(endHour)}`;
+}
+
+function groupConsecutiveHours(entries) {
+  if (entries.length === 0) return [];
+
+  const sorted = [...entries].sort((a, b) => a.hour - b.hour);
+  const groups = [];
+  let current = [];
+
+  sorted.forEach((entry) => {
+    if (current.length === 0) {
+      current = [entry];
+      return;
+    }
+
+    if (entry.hour === current[current.length - 1].hour + 1) {
+      current.push(entry);
+      return;
+    }
+
+    groups.push(current);
+    current = [entry];
+  });
+
+  if (current.length > 0) {
+    groups.push(current);
+  }
+
+  return groups.map((group) => {
+    const startHour = group[0].hour;
+    const endHour = (group[group.length - 1].hour + 1) % 24;
+    const avgCrowd = group.reduce((sum, item) => sum + item.avgCrowd, 0) / group.length;
+    return {
+      startHour,
+      endHour,
+      label: buildRangeLabel(startHour, endHour),
+      avgCrowd,
+    };
+  });
+}
+
+function buildMockSnapshots() {
+  const now = new Date();
+  const snapshots = [];
+
+  for (let dayOffset = 0; dayOffset < 7; dayOffset += 1) {
+    for (let hour = 6; hour <= 21; hour += 1) {
+      const point = new Date(now);
+      point.setDate(now.getDate() - dayOffset);
+      point.setHours(hour, 0, 0, 0);
+
+      let activeUsers = 8;
+      if (hour >= 6 && hour < 9) activeUsers = 14;
+      if (hour >= 9 && hour < 12) activeUsers = 10;
+      if (hour >= 12 && hour < 15) activeUsers = 18;
+      if (hour >= 15 && hour < 17) activeUsers = 9;
+      if (hour >= 17 && hour < 20) activeUsers = 28;
+      if (hour >= 20) activeUsers = 12;
+
+      snapshots.push({
+        timestamp: point.toISOString(),
+        activeUsers,
+      });
+    }
+  }
+
+  return snapshots;
+}
+
+function buildBestTimeResponse({ days = 7, topCount = 3, totalEquipment = 50 }) {
+  const snapshots = buildMockSnapshots();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  const filtered = snapshots.filter((snapshot) => new Date(snapshot.timestamp) >= cutoff);
+
+  const hourlyMap = new Map();
+  filtered.forEach((snapshot) => {
+    const hour = new Date(snapshot.timestamp).getHours();
+    const current = hourlyMap.get(hour) || { sumUsers: 0, count: 0 };
+    hourlyMap.set(hour, {
+      sumUsers: current.sumUsers + snapshot.activeUsers,
+      count: current.count + 1,
+    });
+  });
+
+  const hourlyAverages = Array.from(hourlyMap.entries())
+    .map(([hour, aggregate]) => {
+      const avgUsers = aggregate.sumUsers / aggregate.count;
+      return {
+        hour,
+        avgUsers,
+        avgCrowd: avgUsers / Math.max(totalEquipment, 1),
+        sampleCount: aggregate.count,
+      };
+    })
+    .sort((left, right) => left.hour - right.hour);
+
+  if (hourlyAverages.length < 2) {
+    return {
+      best_time_ranges: [],
+      worst_time_ranges: [],
+      hourly_averages: hourlyAverages,
+      message: "Not enough data yet",
+      daysAnalyzed: days,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  const ranked = [...hourlyAverages].sort((a, b) => a.avgCrowd - b.avgCrowd);
+  const count = Math.max(2, Math.min(topCount, Math.floor(ranked.length / 2) || 1));
+
+  return {
+    best_time_ranges: groupConsecutiveHours(ranked.slice(0, count)),
+    worst_time_ranges: groupConsecutiveHours(ranked.slice(-count)),
+    hourly_averages: hourlyAverages,
+    daysAnalyzed: days,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 app.get("/api/health", (_request, response) => {
   response.json({
     status: "ok",
@@ -87,6 +215,20 @@ app.get("/api/dashboard", (_request, response) => {
       ],
       streakCounter: 0,
     },
+  });
+});
+
+app.get("/api/crowd/best-times", (request, response) => {
+  const parsedDays = Number.parseInt(String(request.query.days ?? "7"), 10);
+  const parsedTopCount = Number.parseInt(String(request.query.topCount ?? "3"), 10);
+
+  const days = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 7;
+  const topCount = Number.isFinite(parsedTopCount) && parsedTopCount > 0 ? parsedTopCount : 3;
+
+  response.status(200).json({
+    status: "ok",
+    message: "Best time suggestions generated.",
+    data: buildBestTimeResponse({ days, topCount, totalEquipment: 50 }),
   });
 });
 

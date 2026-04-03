@@ -8,8 +8,7 @@
  * behavior and allowed transitions in dedicated state classes.
  */
 
-import type { Membership, MembershipTier } from "../types/membership";
-import type { PaymentTransaction } from "../types/payment";
+import type { Membership } from "../types/membership";
 
 /**
  * Base interface that all membership states must implement

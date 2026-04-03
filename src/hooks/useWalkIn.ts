@@ -1,8 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Membership } from "../types/membership";
 import { createWalkInSession } from "../lib/membershipService";
+import { endCrowdSession, startCrowdSession } from "../lib/crowdService";
 
 const WALK_IN_STORAGE_KEY = "flex_republic_walk_in_session";
+
+function readStoredWalkInSession(): Membership | null {
+  try {
+    const stored = localStorage.getItem(WALK_IN_STORAGE_KEY);
+    if (!stored) return null;
+
+    const session = JSON.parse(stored) as Membership;
+    const renewalDate = new Date(session.renewal_date).getTime();
+    const now = new Date().getTime();
+
+    return now > renewalDate ? null : session;
+  } catch (error) {
+    console.error("Error reading walk-in session:", error);
+    return null;
+  }
+}
 
 /**
  * useWalkIn - Hook to manage walk-in session in localStorage
@@ -10,33 +27,24 @@ const WALK_IN_STORAGE_KEY = "flex_republic_walk_in_session";
  * Auto-expires after 24 hours
  */
 export function useWalkIn() {
-  const [session, setSession] = useState<Membership | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [session, setSession] = useState<Membership | null>(() => readStoredWalkInSession());
+  const [isLoading] = useState(false);
+  const sessionRef = useRef<Membership | null>(null);
 
   /**
    * Get walk-in session from localStorage
    * Returns null if session expired
    */
-  const getSession = (): Membership | null => {
-    try {
-      const stored = localStorage.getItem(WALK_IN_STORAGE_KEY);
-      if (!stored) return null;
+  const clearSession = (sessionId?: string): void => {
+    const currentSessionId = sessionId ?? sessionRef.current?.id;
 
-      const session = JSON.parse(stored) as Membership;
-      const renewalDate = new Date(session.renewal_date).getTime();
-      const now = Date.now();
-
-      // Session expired, clear it
-      if (now > renewalDate) {
-        clearSession();
-        return null;
-      }
-
-      return session;
-    } catch (error) {
-      console.error("Error reading walk-in session:", error);
-      return null;
+    if (currentSessionId) {
+      endCrowdSession({ sessionId: currentSessionId });
     }
+
+    localStorage.removeItem(WALK_IN_STORAGE_KEY);
+    sessionRef.current = null;
+    setSession(null);
   };
 
   /**
@@ -45,16 +53,14 @@ export function useWalkIn() {
   const startSession = (): Membership => {
     const newSession = createWalkInSession();
     localStorage.setItem(WALK_IN_STORAGE_KEY, JSON.stringify(newSession));
+    startCrowdSession({
+      sessionId: newSession.id,
+      userId: null,
+      sessionType: "walk-in",
+    });
+    sessionRef.current = newSession;
     setSession(newSession);
     return newSession;
-  };
-
-  /**
-   * Clear walk-in session
-   */
-  const clearSession = (): void => {
-    localStorage.removeItem(WALK_IN_STORAGE_KEY);
-    setSession(null);
   };
 
   /**
@@ -86,23 +92,34 @@ export function useWalkIn() {
    * Check if session is active and not expired
    */
   const isSessionActive = (): boolean => {
-    const current = getSession();
-    return current !== null;
+    return session !== null;
   };
 
-  // Load session on mount and check for expiry
+  // Keep the ref synchronized with the current session
   useEffect(() => {
-    const current = getSession();
-    setSession(current);
-    setIsLoading(false);
+    sessionRef.current = session;
+  }, [session]);
 
+  // Check for expiry every second without setting state inside the effect body
+  useEffect(() => {
     // Set up interval to check for expiry every second
     const interval = setInterval(() => {
-      const current = getSession();
+      const current = readStoredWalkInSession();
       if (!current) {
-        setSession(null);
+        const currentSessionId = sessionRef.current?.id;
+
+        if (currentSessionId) {
+          endCrowdSession({ sessionId: currentSessionId });
+        }
+
+        localStorage.removeItem(WALK_IN_STORAGE_KEY);
+        sessionRef.current = null;
+        clearSession(currentSessionId);
         clearInterval(interval);
+        return;
       }
+
+      setSession(current);
     }, 1000);
 
     return () => clearInterval(interval);

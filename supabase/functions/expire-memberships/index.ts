@@ -5,9 +5,13 @@
 // Deploy: supabase functions deploy expire-memberships
 
 // Declare Deno for TypeScript - available at runtime in Supabase Edge Functions
-declare const Deno: any;
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+};
 
-// @ts-ignore - ESM import available at runtime in Deno environment
+// @ts-expect-error - ESM import available at runtime in Deno environment
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -15,7 +19,7 @@ const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async () => {
   try {
     console.log("Starting membership expiration check...");
 
@@ -62,7 +66,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Update all expired memberships
-    const membershipIds = expiredMemberships.map((m: any) => m.id);
+    const membershipIds = expiredMemberships.map((membership: { id: string }) => membership.id);
 
     const { error: updateError, count: updatedCount } = await supabase
       .from("memberships")
@@ -89,7 +93,7 @@ Deno.serve(async (req: Request) => {
     console.log(`Successfully expired ${updatedCount} memberships`);
 
     // Log the operation for audit purposes
-    const { error: logError } = await supabase
+    await supabase
       .from("membership_expiration_logs")
       .insert({
         expired_count: updatedCount,
