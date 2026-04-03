@@ -246,11 +246,11 @@ import path from "path";
 // Serve frontend
 app.use(express.static(path.resolve("dist")));
 
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.resolve("dist/index.html"));
 });
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
-});
+});sole.log(`Server running on port ${port}`);
 export default app;
