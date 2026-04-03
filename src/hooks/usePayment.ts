@@ -166,7 +166,7 @@ export function usePayment(userId: string) {
         dispatch({ type: "SET_ERROR", error: errorMsg });
       }
     },
-    []
+      [state.pendingPayments]
   );
 
   const confirmCashPayment = useCallback((transactionId: string) => {

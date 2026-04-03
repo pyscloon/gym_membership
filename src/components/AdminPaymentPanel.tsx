@@ -327,9 +327,8 @@ export default function AdminPaymentPanel({
 
       {/* Footer Info */}
       <div className="mt-6 rounded-lg bg-blue-50 p-4 border border-blue-200 text-sm text-blue-800">
-        <p className="font-semibold mb-1">💡 Admin Tip</p>
         <p className="text-xs">
-          This panel automatically refreshes every 2 seconds to show new payment requests. Payment confirmations are processed in real-time and instantly visible to users.
+          This panel automatically refreshes every 2 seconds to show new payment requests. 
         </p>
       </div>
     </div>

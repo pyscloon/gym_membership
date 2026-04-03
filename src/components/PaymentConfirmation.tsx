@@ -2,7 +2,7 @@
  * PaymentConfirmation - Displays payment status after transaction
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { PaymentTransaction } from "../types/payment";
 import { PAYMENT_METHOD_LABELS } from "../types/payment";
 
@@ -19,22 +19,23 @@ export default function PaymentConfirmation({
   onClose,
   onComplete,
 }: PaymentConfirmationProps) {
-  const [autoCloseTimer, setAutoCloseTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    if (isOpen && transaction?.status === "paid" && !autoCloseTimer) {
+    if (isOpen && transaction?.status === "paid" && !autoCloseTimerRef.current) {
       // Auto-close after 5 seconds for successful payments
       const timer = setTimeout(() => {
         onClose();
         onComplete?.();
       }, 5000);
-      setAutoCloseTimer(timer);
+      autoCloseTimerRef.current = timer;
 
       return () => {
         if (timer) clearTimeout(timer);
+        autoCloseTimerRef.current = null;
       };
     }
-  }, [isOpen, transaction?.status, autoCloseTimer, onClose, onComplete]);
+  }, [isOpen, transaction?.status, onClose, onComplete]);
 
   if (!isOpen || !transaction) return null;
 

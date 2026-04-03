@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks";
@@ -76,15 +76,15 @@ export default function MembershipDashboard() {
     setIsAdmin(!isAdmin);
   };
 
-  const addToast = (message: string, type: "success" | "error" = "success") => {
+  const addToast = useCallback((message: string, type: "success" | "error" = "success") => {
     const id = Date.now().toString();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 4000);
-  };
+  }, []);
 
-  const loadMembership = async () => {
+  const loadMembership = useCallback(async () => {
     if (!user) return;
     try {
       setError(null);
@@ -101,12 +101,12 @@ export default function MembershipDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     setLoading(true);
     loadMembership();
-  }, [user?.id]);
+  }, [loadMembership]);
 
   // QR changes based on attendance state
   const qrValue = JSON.stringify({
@@ -149,7 +149,7 @@ export default function MembershipDashboard() {
     setStateUpdateTrigger((prev) => prev + 1);
   };
 
-  const handleApply = async (tier: MembershipTier = "monthly") => {
+  const handleApply = useCallback(async (tier: MembershipTier = "monthly") => {
     if (!user) return;
     setActionLoading(true);
     const result = await applyMembership(user.id, tier);
@@ -162,7 +162,7 @@ export default function MembershipDashboard() {
       addToast(result.error || "Failed to apply for membership", "error");
     }
     setActionLoading(false);
-  };
+  }, [addToast, user]);
 
   const handleRenew = async () => {
     if (!user) return;
@@ -210,14 +210,14 @@ export default function MembershipDashboard() {
     setActionLoading(false);
   };
 
-  const handleWalkInApply = () => {
+  const handleWalkInApply = useCallback(() => {
     startWalkIn();
     // Create a walk-in attendance session
     const walkInSession = new AttendanceSessionContext("walk-in");
     setAttendanceSessionContext(walkInSession);
     setStateUpdateTrigger((prev) => prev + 1);
     addToast("Welcome! Your 24-hour walk-in session has started. Enjoy! 🎉", "success");
-  };
+  }, [addToast, startWalkIn]);
 
   const handleEndWalkInSession = () => {
     if (!confirm("Are you sure you want to end your walk-in session? You will lose access immediately.")) return;
@@ -343,7 +343,7 @@ export default function MembershipDashboard() {
     setShowPaymentConfirmation(true);
   };
 
-  const handlePaymentComplete = async () => {
+  const handlePaymentComplete = useCallback(async () => {
     const transaction = paymentHook.state.currentTransaction;
     if (!transaction || completedTransactionId === transaction.id) {
       return;
@@ -361,7 +361,7 @@ export default function MembershipDashboard() {
     await handleApply(transaction.userType);
     addToast("Payment completed! Your membership is now active.", "success");
     navigate("/dashboard");
-  };
+  }, [addToast, completedTransactionId, handleApply, handleWalkInApply, navigate, paymentHook.state.currentTransaction]);
 
   useEffect(() => {
     const transaction = paymentHook.state.currentTransaction;
@@ -372,7 +372,7 @@ export default function MembershipDashboard() {
     ) {
       void handlePaymentComplete();
     }
-  }, [paymentHook.state.currentTransaction, completedTransactionId]);
+  }, [completedTransactionId, handlePaymentComplete, paymentHook.state.currentTransaction]);
 
   const plans = [
     {

@@ -225,10 +225,8 @@ export class PaidPaymentState implements IPaymentState {
   readonly canReject = false;
   readonly isTerminal = true;
 
-  private context: PaymentStateContext;
-
-  constructor(context: PaymentStateContext) {
-    this.context = context;
+  constructor(_context: PaymentStateContext) {
+    void _context;
   }
 
   toProcessing(): void {

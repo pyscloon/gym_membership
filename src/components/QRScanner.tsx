@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { processQRCheckIn, type QRData, type CheckInResponse } from "../lib/checkInService";
 import { useAuth } from "../hooks";
@@ -27,58 +27,7 @@ export default function QRScanner({ onScanSuccess, onScanError }: QRScannerProps
   const lastScannedRef = useRef<string>("");
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
-  useEffect(() => {
-    const initializeScanner = async () => {
-      if (!containerRef.current || !isScanning || !user) return;
-
-      try {
-        setIsCameraLoading(true);
-        setCameraError(null);
-
-        // Create new scanner instance
-        scannerRef.current = new Html5Qrcode("qr-scanner-container");
-
-        // Start camera
-        await scannerRef.current.start(
-          { facingMode: "environment" }, // Use back camera
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-          },
-          (decodedText) => {
-            handleQRCodeDetected(decodedText);
-          },
-          (error) => {
-            // Ignore scanning errors (they happen frequently)
-            console.debug("Scanning error:", error);
-          }
-        );
-
-        setIsCameraLoading(false);
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : "Failed to initialize camera";
-        console.error("Scanner initialization error:", err);
-        setCameraError(errorMsg);
-        setIsCameraLoading(false);
-        setIsScanning(false);
-      }
-    };
-
-    initializeScanner();
-
-    // Cleanup on unmount
-    return () => {
-      if (scannerRef.current && isScanning) {
-        scannerRef.current.stop().catch(console.error);
-        scannerRef.current = null;
-      }
-      if (scanTimeoutRef.current) {
-        clearTimeout(scanTimeoutRef.current);
-      }
-    };
-  }, [isScanning, user]);
-
-  const handleQRCodeDetected = async (decodedText: string) => {
+  const handleQRCodeDetected = useCallback(async (decodedText: string) => {
     try {
       // Prevent duplicate scans within 2 seconds
       if (lastScannedRef.current === decodedText) {
@@ -145,7 +94,58 @@ export default function QRScanner({ onScanSuccess, onScanError }: QRScannerProps
       setScanResults((prev) => [scanResult, ...prev].slice(0, 10));
       onScanError?.(errorMsg);
     }
-  };
+  }, [onScanError, onScanSuccess, user]);
+
+  useEffect(() => {
+    const initializeScanner = async () => {
+      if (!containerRef.current || !isScanning || !user) return;
+
+      try {
+        setIsCameraLoading(true);
+        setCameraError(null);
+
+        // Create new scanner instance
+        scannerRef.current = new Html5Qrcode("qr-scanner-container");
+
+        // Start camera
+        await scannerRef.current.start(
+          { facingMode: "environment" }, // Use back camera
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            handleQRCodeDetected(decodedText);
+          },
+          (error) => {
+            // Ignore scanning errors (they happen frequently)
+            console.debug("Scanning error:", error);
+          }
+        );
+
+        setIsCameraLoading(false);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Failed to initialize camera";
+        console.error("Scanner initialization error:", err);
+        setCameraError(errorMsg);
+        setIsCameraLoading(false);
+        setIsScanning(false);
+      }
+    };
+
+    initializeScanner();
+
+    // Cleanup on unmount
+    return () => {
+      if (scannerRef.current && isScanning) {
+        scannerRef.current.stop().catch(console.error);
+        scannerRef.current = null;
+      }
+      if (scanTimeoutRef.current) {
+        clearTimeout(scanTimeoutRef.current);
+      }
+    };
+  }, [handleQRCodeDetected, isScanning, user]);
 
   const toggleScanning = async () => {
     if (isScanning) {
