@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks";
 import { useWalkIn } from "../hooks/useWalkIn";
 import { usePayment } from "../hooks/usePayment";
@@ -16,7 +16,7 @@ import {
   type MembershipTier,
   calculateMembershipStats,
 } from "../types/membership";
-import { type UserType } from "../types/payment";
+import { type PaymentTransaction, type UserType } from "../types/payment";
 import {
   MembershipStateContext,
   AttendanceSessionContext,
@@ -27,6 +27,7 @@ import WalkInCard from "./WalkInCard";
 import PaymentConfirmation from "./PaymentConfirmation";
 import PaymentModal from "./PaymentModal";
 import { MEMBERSHIP_PRICES } from "../types/payment";
+import { generateTransactionId, saveTransaction } from "../lib/paymentSimulator";
 
 type Toast = {
   id: string;
@@ -43,6 +44,7 @@ const TIER_LABELS: Record<MembershipTier, string> = {
 
 export default function MembershipDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { session: walkInSession, startSession: startWalkIn, clearSession: clearWalkIn } = useWalkIn();
   const paymentHook = usePayment(user?.id || "");
@@ -68,6 +70,7 @@ export default function MembershipDashboard() {
   const [selectedPlanTier, setSelectedPlanTier] = useState<UserType>("monthly");
   const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
   const [completedTransactionId, setCompletedTransactionId] = useState<string | null>(null);
+  const [guestTransaction, setGuestTransaction] = useState<PaymentTransaction | null>(null);
 
   const displayMembership = membership;
   const displayStats = displayMembership ? calculateMembershipStats(displayMembership) : null;
@@ -85,7 +88,12 @@ export default function MembershipDashboard() {
   }, []);
 
   const loadMembership = useCallback(async () => {
-    if (!user) return;
+    if (!user) {
+      setMembership(null);
+      setMembershipStateContext(null);
+      setLoading(false);
+      return;
+    }
     try {
       setError(null);
       const userMembership = await fetchUserMembership(user.id);
@@ -327,7 +335,26 @@ export default function MembershipDashboard() {
 
   const handleInitiatePayment = async (method: "cash" | "card" | "online", proofOfPayment?: string) => {
     if (!user) {
-      addToast("Please log in first to continue payment.", "error");
+      const transactionId = generateTransactionId();
+      const now = new Date().toISOString();
+      const guestPayment: PaymentTransaction = {
+        id: transactionId,
+        userId: "guest",
+        userType: selectedPlanTier,
+        amount: MEMBERSHIP_PRICES[selectedPlanTier],
+        method,
+        status: method === "online" ? "awaiting-verification" : "awaiting-confirmation",
+        createdAt: now,
+        updatedAt: now,
+        proofOfPaymentUrl: proofOfPayment,
+        paymentProofStatus: method === "online" ? "pending" : undefined,
+      };
+
+      saveTransaction(guestPayment);
+      setGuestTransaction(guestPayment);
+      addToast("Payment request created.", "success");
+      setShowPaymentModal(false);
+      setShowPaymentConfirmation(true);
       return;
     }
 
@@ -350,13 +377,19 @@ export default function MembershipDashboard() {
   };
 
   const handlePaymentComplete = useCallback(async () => {
-    const transaction = paymentHook.state.currentTransaction;
+    const transaction = paymentHook.state.currentTransaction ?? guestTransaction;
     if (!transaction || completedTransactionId === transaction.id) {
       return;
     }
 
     setCompletedTransactionId(transaction.id);
     setShowPaymentConfirmation(false);
+
+    if (transaction.userId === "guest" || !user) {
+      addToast("Your payment request has been submitted.", "success");
+      navigate("/subscription-tier");
+      return;
+    }
 
     if (transaction.userType === "walk-in") {
       handleWalkInApply();
@@ -367,7 +400,7 @@ export default function MembershipDashboard() {
     await handleApply(transaction.userType);
     addToast("Payment completed! Your membership is now active.", "success");
     navigate("/dashboard");
-  }, [addToast, completedTransactionId, handleApply, handleWalkInApply, navigate, paymentHook.state.currentTransaction]);
+  }, [addToast, completedTransactionId, guestTransaction, handleApply, handleWalkInApply, navigate, paymentHook.state.currentTransaction, user]);
 
   useEffect(() => {
     const transaction = paymentHook.state.currentTransaction;
@@ -454,7 +487,32 @@ export default function MembershipDashboard() {
     },
   ];
 
-  if (loading) {
+  const renderPricingContent = () => (
+    <>
+      <PricingSection
+        plans={plans}
+        isLoading={actionLoading}
+        onSelectPlan={(plan) => handleSelectPlan(plan.tier)}
+      />
+      <PaymentModal
+        isOpen={showPaymentModal}
+        selectedUserType={selectedPlanTier}
+        onClose={() => setShowPaymentModal(false)}
+        onInitiatePayment={handleInitiatePayment}
+        isLoading={paymentHook.state.status === "processing"}
+        error={paymentHook.state.error}
+        onClearError={paymentHook.clearError}
+      />
+      <PaymentConfirmation
+        transaction={paymentHook.state.currentTransaction ?? guestTransaction}
+        isOpen={showPaymentConfirmation}
+        onClose={() => setShowPaymentConfirmation(false)}
+        onComplete={handlePaymentComplete}
+      />
+    </>
+  );
+
+  if (loading && location.pathname !== "/subscription-tier") {
     return (
       <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6 animate-pulse">
         <div className="h-8 bg-flexNavy/10 rounded w-32 mb-4"></div>
@@ -463,7 +521,7 @@ export default function MembershipDashboard() {
     );
   }
 
-  if (error && !membership) {
+  if (error && !membership && location.pathname !== "/subscription-tier") {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
         <p className="font-semibold">Error loading membership</p>
@@ -475,12 +533,17 @@ export default function MembershipDashboard() {
     );
   }
 
-  if (walkInSession) {
+  if (walkInSession && location.pathname !== "/subscription-tier") {
     return (
       <div className="space-y-4">
         <WalkInCard membership={walkInSession} onEndSession={handleEndWalkInSession} isLoading={actionLoading} />
       </div>
     );
+  }
+
+  // Always show pricing cards when this dashboard is rendered under the Subscription Tier page.
+  if (location.pathname === "/subscription-tier") {
+    return <div className="space-y-4">{renderPricingContent()}</div>;
   }
 
   if (!displayMembership) {
@@ -504,28 +567,7 @@ export default function MembershipDashboard() {
             onRejectOnlinePayment={handleAdminRejectOnlinePayment}
           />
         ) : (
-          <>
-            <PricingSection
-              plans={plans}
-              isLoading={actionLoading}
-              onSelectPlan={(plan) => handleSelectPlan(plan.tier)}
-            />
-            <PaymentModal
-              isOpen={showPaymentModal}
-              selectedUserType={selectedPlanTier}
-              onClose={() => setShowPaymentModal(false)}
-              onInitiatePayment={handleInitiatePayment}
-              isLoading={paymentHook.state.status === "processing"}
-              error={paymentHook.state.error}
-              onClearError={paymentHook.clearError}
-            />
-            <PaymentConfirmation
-              transaction={paymentHook.state.currentTransaction}
-              isOpen={showPaymentConfirmation}
-              onClose={() => setShowPaymentConfirmation(false)}
-              onComplete={handlePaymentComplete}
-            />
-          </>
+          renderPricingContent()
         )}
       </div>
     );
