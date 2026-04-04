@@ -211,20 +211,16 @@ const handleAdminConfirmPayment = async (
   userId: string,
   userType: MembershipTier
 ) => {
-  console.log("handleAdminConfirmPayment called", { transactionId, userId, userType }); // ← step 1
   try {
     const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
-    console.log("stateContext state:", stateContext.getStateName()); // ← step 2
-    console.log("canPerformAction confirm:", stateContext.canPerformAction("confirm")); // ← step 3
 
     if (stateContext.canPerformAction("confirm")) {
       stateContext.confirm();
-      console.log("Calling confirmPayment..."); // ← step 4
       await paymentHook.confirmPayment(transactionId);
-      console.log("Calling applyMembership..."); // ← step 5
       await applyMembership(userId, userType);
-      console.log("Calling recordWalkIn..."); // ← step 6
-      await recordWalkIn(userId);
+      if (userType === "walk-in"){
+        await recordWalkIn(userId);
+      }
 
       const newContexts = new Map(paymentStateContexts);
       newContexts.set(transactionId, stateContext);
@@ -270,7 +266,9 @@ const handleAdminConfirmPayment = async (
 
         await paymentHook.verifyOnlinePaymentProof(transactionId);
         await applyMembership(userId, userType);
-        await recordWalkIn(userId);
+        if(userType === "walk-in"){
+          await recordWalkIn(userId);
+        }
 
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
