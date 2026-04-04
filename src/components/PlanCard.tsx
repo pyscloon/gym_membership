@@ -12,6 +12,8 @@ type PlanCardProps = {
   icon: ReactNode;
   isActive?: boolean;
   isLoading?: boolean;
+  showCta?: boolean;
+  isCurrentSubscription?: boolean;
   onSelect: () => void;
 };
 
@@ -27,6 +29,8 @@ export default function PlanCard({
   icon,
   isActive = false,
   isLoading = false,
+  showCta = true,
+  isCurrentSubscription = false,
   onSelect,
 }: PlanCardProps) {
   return (
@@ -91,20 +95,31 @@ export default function PlanCard({
         ))}
       </ul>
 
-      {/* Dark Blue Glowing Button (#0c2149) */}
-      <button
-        type="button"
-        onClick={onSelect}
-        disabled={isLoading}
-        className={`mt-auto w-full rounded-xl py-4 text-sm font-bold tracking-widest text-white uppercase transition-all active:scale-[0.98] disabled:opacity-50
-          bg-[#0c2149] border border-blue-900/30
-          shadow-[0_0_15px_rgba(12,33,73,0.4)] 
-          hover:shadow-[0_0_25px_rgba(12,33,73,0.6)] 
-          hover:bg-[#142d5f] hover:-translate-y-0.5
-        `}
-      >
-        {isLoading ? "Processing..." : ctaLabel}
-      </button>
+      {isCurrentSubscription ? (
+        <button
+          type="button"
+          disabled
+          className="mt-auto w-full cursor-not-allowed rounded-xl border border-emerald-300 bg-emerald-50 py-4 text-sm font-bold tracking-widest uppercase text-emerald-700"
+        >
+          Current Subscription
+        </button>
+      ) : null}
+
+      {showCta && !isCurrentSubscription ? (
+        <button
+          type="button"
+          onClick={onSelect}
+          disabled={isLoading}
+          className={`mt-auto w-full rounded-xl py-4 text-sm font-bold tracking-widest text-white uppercase transition-all active:scale-[0.98] disabled:opacity-50
+            bg-[#0c2149] border border-blue-900/30
+            shadow-[0_0_15px_rgba(12,33,73,0.4)]
+            hover:shadow-[0_0_25px_rgba(12,33,73,0.6)]
+            hover:bg-[#142d5f] hover:-translate-y-0.5
+          `}
+        >
+          {isLoading ? "Processing..." : ctaLabel}
+        </button>
+      ) : null}
     </article>
   );
 }

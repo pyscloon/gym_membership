@@ -2,13 +2,26 @@ import { useNavigate } from "react-router-dom";
 import Header from "../components/Header";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import { getStoredTransaction, rejectOnlinePayment, saveTransaction, simulateAdminConfirmation, verifyOnlinePayment } from "../lib/paymentSimulator";
+import { applyMembership, changeMembership, fetchUserMembership, renewMembership } from "../lib/membershipService";
 import type { UserType, PaymentTransaction } from "../types/payment";
 
 export default function PaymentPanel() {
   const navigate = useNavigate();
 
   const handleConfirmPayment = async (transactionId: string, _userId: string, _userType: UserType) => {
-    await simulateAdminConfirmation(transactionId);
+    const confirmed = await simulateAdminConfirmation(transactionId);
+    if (!confirmed) return;
+
+    const currentMembership = await fetchUserMembership(confirmed.userId);
+    const result = currentMembership?.status === "active"
+      ? currentMembership.tier === confirmed.userType
+        ? await renewMembership(confirmed.userId)
+        : await changeMembership(confirmed.userId, confirmed.userType)
+      : await applyMembership(confirmed.userId, confirmed.userType);
+
+    if (!result.success) {
+      console.error("Failed to apply membership after confirmation:", result.error);
+    }
   };
 
   const handleDeclinePayment = async (transactionId: string, _userId: string, _userType: UserType) => {
