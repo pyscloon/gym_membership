@@ -88,12 +88,12 @@ export async function processQRCheckIn(
 
     // Insert check-in/check-out record
     const { data: checkIn, error: checkInError } = await supabase
-      .from("check_ins")
+      .from("walk_ins")
       .insert({
         user_id: qrData.id,
         membership_id: membership.id,
-        check_in_type: qrData.type,
-        check_in_time: qrData.timestamp || new Date().toISOString(),
+        walk_in_type: qrData.type,
+        walk_in_time: qrData.timestamp || new Date().toISOString(),
         qr_data: qrData,
         validated_by: adminId,
         status: "completed",
@@ -148,8 +148,8 @@ async function handleWalkIn(qrData: QRData, adminId: string): Promise<CheckInRes
     // In a real system, you might want to require payment or pre-registration
     const walkInData = {
       user_id: null, // Walk-in guests don't have user accounts
-      check_in_type: "walkin" as const,
-      check_in_time: new Date().toISOString(),
+      walk_in_type: "walk-in" as const,
+      walk_in_time: new Date().toISOString(),
       qr_data: qrData,
       validated_by: adminId,
       status: "completed",
@@ -157,7 +157,7 @@ async function handleWalkIn(qrData: QRData, adminId: string): Promise<CheckInRes
     };
 
     const { data: checkIn, error: checkInError } = await supabase
-      .from("check_ins")
+      .from("walk_ins")
       .insert(walkInData)
       .select()
       .single();
@@ -205,9 +205,9 @@ export async function getRecentCheckIns(limit: number = 10) {
 
   try {
     const { data, error } = await supabase
-      .from("check_ins")
-      .select("id, user_id, check_in_type, check_in_time, status")
-      .order("check_in_time", { ascending: false })
+      .from("walk_ins")
+      .select("id, user_id, walk_in_type, walk_in_time, status")
+      .order("walk_in_time", { ascending: false })
       .limit(limit);
 
     if (error) {
