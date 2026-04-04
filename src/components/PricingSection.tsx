@@ -19,12 +19,16 @@ type PricingPlan = {
 type PricingSectionProps = {
   plans: PricingPlan[];
   isLoading?: boolean;
+  isSubscriberView?: boolean;
+  currentTier?: MembershipTier | null;
   onSelectPlan: (plan: PricingPlan) => void;
 };
 
 export default function PricingSection({
   plans,
   isLoading = false,
+  isSubscriberView = false,
+  currentTier = null,
   onSelectPlan,
 }: PricingSectionProps) {
   return (
@@ -96,6 +100,8 @@ export default function PricingSection({
             icon={plan.icon}
             isActive={plan.isActive}
             isLoading={isLoading}
+            showCta={!isSubscriberView}
+            isCurrentSubscription={isSubscriberView && currentTier === plan.tier}
             onSelect={() => onSelectPlan(plan)}
           />
         ))}
