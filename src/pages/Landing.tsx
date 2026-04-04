@@ -1,4 +1,7 @@
+import { Link } from "react-router-dom";
 import flexBackground from "../assets/flex-background.png";
+import location1 from "../assets/Location1.png";
+import location2 from "../assets/Location2.png";
 import Header from "../components/Header";
 
 export default function Landing() {
@@ -23,12 +26,12 @@ export default function Landing() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              <a
-                href="#features"
+              <Link
+                to="/subscription-tier"
                 className="inline-flex items-center justify-center rounded-xl bg-gradient-to-r from-flexBlue to-[#1c8ee6] px-8 py-3.5 text-base font-bold text-white shadow-xl shadow-flexBlue/30 transition hover:-translate-y-1 hover:shadow-2xl"
               >
-                 Get Started Today
-              </a>
+                 Get Started
+              </Link>
               <a
                 href="#about"
                 className="inline-flex items-center justify-center rounded-xl border-2 border-white/30 bg-white/10 px-8 py-3.5 text-base font-bold text-white backdrop-blur transition hover:bg-white/20"
@@ -71,6 +74,54 @@ export default function Landing() {
                 </span>
                 <h3 className="text-xl font-bold text-[#000033]">{item.title}</h3>
                 <p className="mt-2 text-sm text-flexNavy/75">{item.desc}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Locations Section */}
+      <section id="locations" className="w-full bg-gradient-to-b from-[#f9fcff] via-white to-[#f6f9ff] px-6 py-16 sm:px-10 lg:px-14">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-12 text-center">
+            <p className="inline-flex rounded-full border border-flexBlue/25 bg-flexBlue/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-flexBlue">
+              Our Branches
+            </p>
+            <h2 className="mt-4 text-4xl font-black text-[#000033] sm:text-5xl">Train in Our Signature Locations</h2>
+            <p className="mx-auto mt-4 max-w-3xl text-lg leading-relaxed text-flexNavy/80">
+              Experience professionally curated training environments designed for serious progress, comfort, and performance at every level.
+            </p>
+          </div>
+
+          <div className="grid gap-7 md:grid-cols-2">
+            {[
+              {
+                image: location1,
+                name: "Jaro Plaza Branch",
+                details: "Plaza Rizal St, Jaro, Iloilo City, 5000 Iloilo.",
+              },
+              {
+                image: location2,
+                name: "B-Complex Branch ",
+                details: "The B Lifestyle Complex Building, Diversion Road, Cuartero Highway, Jaro, Iloilo City, 5000 Iloilo.",
+              },
+            ].map((branch) => (
+              <article key={branch.name} className="group overflow-hidden rounded-3xl border-2 border-flexBlue/15 bg-white shadow-[0_20px_45px_rgba(31,90,214,0.12)] transition hover:-translate-y-1 hover:shadow-[0_28px_55px_rgba(31,90,214,0.18)]">
+                <div className="relative h-72 sm:h-80">
+                  <img
+                    src={branch.image}
+                    alt={`${branch.name} interior with complete gym training equipment`}
+                    className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#000033]/75 via-[#000033]/20 to-transparent" aria-hidden="true" />
+                  <div className="absolute bottom-0 left-0 right-0 p-6">
+                    <h3 className="text-2xl font-bold text-white">{branch.name}</h3>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <p className="text-sm leading-relaxed text-flexNavy/80 sm:text-base">{branch.details}</p>
+                </div>
               </article>
             ))}
           </div>

@@ -52,21 +52,34 @@ export default function AboutUs() {
           </div>
         </section>
 
-        {/* Values Section */}
+        {/* Trainers Section */}
         <section className="bg-gradient-to-r from-flexBlue to-[#1c8ee6] px-6 py-16 sm:px-10 lg:px-14">
           <div className="mx-auto max-w-7xl">
-            <h2 className="text-3xl font-black text-white mb-8 text-center">Our Core Values</h2>
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/75">Professional Team</p>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-4xl">Meet Our Trainers</h2>
+              <p className="mt-4 text-base leading-relaxed text-white/85 sm:text-lg">
+                Our trainers combine disciplined expertise with a refined approach to coaching, guiding every member with clarity and consistency.
+              </p>
+            </div>
+
+            <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {[
-                { value: "Innovation", desc: "Always evolving with cutting-edge tech" },
-                { value: "Transparency", desc: "Clear data, honest metrics, no BS" },
-                { value: "Community", desc: "Building gyms that are stronger together" },
-                { value: "Excellence", desc: "Obsessed with user experience quality" },
-              ].map((item) => (
-                <div key={item.value} className="rounded-xl bg-white/10 p-6 backdrop-blur border border-white/20">
-                  <h3 className="text-xl font-bold text-white">{item.value}</h3>
-                  <p className="mt-2 text-white/80">{item.desc}</p>
-                </div>
+                { name: "Amiel Benedict Mirasol", role: "Coach" },
+                { name: "Ilon Ziv Barcelona", role: "Coach" },
+                { name: "Gian Gamir Umadhay", role: "Coach" },
+                { name: "Lance Jrzn Demonteverde", role: "Coach" },
+              ].map((trainer) => (
+                <article key={trainer.name} className="rounded-2xl border border-white/20 bg-white/10 p-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.12)] backdrop-blur transition hover:-translate-y-1 hover:bg-white/15">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/70">Trainer</p>
+                      <h3 className="mt-2 text-xl font-bold">{trainer.name}</h3>
+                    </div>
+                    <div className="h-12 w-12 flex-shrink-0 rounded-full border border-white/30 bg-white/15" aria-hidden="true" />
+                  </div>
+                  <p className="mt-6 text-sm font-semibold uppercase tracking-widest text-white/80">{trainer.role}</p>
+                </article>
               ))}
             </div>
           </div>
@@ -75,14 +88,17 @@ export default function AboutUs() {
         {/* Stats Section */}
         <section className="bg-[#f8f9ff] px-6 py-16 sm:px-10 lg:px-14">
           <div className="mx-auto max-w-7xl">
-            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4 text-center">
+            {/* Using flex and justify-center to center the three items */}
+            <div className="flex flex-wrap justify-center gap-8 text-center">
               {[
-                { stat: "Founded", value: "2024" },
-                { stat: "Members", value: "10K+" },
-                { stat: "Gyms", value: "50+" },
-                { stat: "Countries", value: "5+" },
+                { stat: "Founded", value: "2021" },
+                { stat: "Members", value: "100" },
+                { stat: "Gyms", value: "2" },
               ].map((item) => (
-                <div key={item.stat} className="rounded-2xl bg-white p-8 shadow-sm border-2 border-flexBlue/10">
+                <div 
+                  key={item.stat} 
+                  className="w-full max-w-[280px] rounded-2xl bg-white p-8 shadow-sm border-2 border-flexBlue/10"
+                >
                   <p className="text-xs font-semibold uppercase tracking-widest text-flexBlue">{item.stat}</p>
                   <p className="mt-3 text-4xl font-black text-[#000033]">{item.value}</p>
                 </div>
