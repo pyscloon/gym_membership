@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { syncProfile } from "../lib/profile";
 
+const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? "").toLowerCase();
+
 export default function Login() {
     const navigate = useNavigate();
     const [email, setEmail] = useState("");
@@ -41,9 +43,15 @@ export default function Login() {
                     setErrorMessage(profileError);
                     return;
                 }
-            }
 
-            navigate("/dashboard");
+                // Check if user is admin and route accordingly
+                const userEmail = data.user.email?.toLowerCase() || "";
+                if (userEmail === ADMIN_EMAIL) {
+                    navigate("/admin/dashboard");
+                } else {
+                    navigate("/subscription-tier");
+                }
+            }
         } catch {
             setErrorMessage("Something went wrong while signing in.");
         } finally {

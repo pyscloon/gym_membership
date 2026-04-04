@@ -12,6 +12,8 @@ type PlanCardProps = {
   icon: ReactNode;
   isActive?: boolean;
   isLoading?: boolean;
+  showCta?: boolean;
+  isCurrentSubscription?: boolean;
   onSelect: () => void;
 };
 
@@ -27,80 +29,97 @@ export default function PlanCard({
   icon,
   isActive = false,
   isLoading = false,
+  showCta = true,
+  isCurrentSubscription = false,
   onSelect,
 }: PlanCardProps) {
   return (
     <article
-      className={`group flex h-full flex-col rounded-2xl border p-5 shadow-sm transition duration-300 sm:p-6 xl:p-5 ${
+      className={`group relative flex h-full flex-col rounded-[24px] border p-6 transition-all duration-300 ${
         isActive
-          ? "border-flexBlue/40 bg-gradient-to-b from-flexBlue/12 to-white"
-          : "border-flexNavy/15 bg-white/95"
-      } hover:-translate-y-1 hover:shadow-xl hover:border-flexBlue/45`}
+          ? "border-blue-500/50 bg-white shadow-[0_20px_50px_rgba(0,0,0,0.1)] -translate-y-2 ring-1 ring-blue-500/20"
+          : "border-slate-100 bg-white shadow-sm hover:border-slate-300 hover:shadow-lg"
+      }`}
     >
+      {isActive && (
+        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-blue-600 px-4 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg">
+          Best Value
+        </div>
+      )}
+
       <div className="mb-5">
-        <span
-          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] ${
-            isActive
-              ? "border-flexBlue/35 bg-flexBlue/18 text-flexNavy"
-              : "border-flexBlue/20 bg-flexBlue/10 text-flexNavy/80"
-          }`}
-        >
+        <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-500">
           {badge}
         </span>
       </div>
 
-      <header className="flex items-center gap-3 sm:gap-4">
-        <span
-          className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-full border ${
-            isActive
-              ? "border-flexBlue/40 bg-flexBlue/20 text-flexNavy"
-              : "border-flexBlue/25 bg-flexBlue/12 text-flexNavy"
-          }`}
-          aria-hidden="true"
-        >
+      <header className="flex items-center gap-4">
+        {/* Unified Icon Style for all cards */}
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-600 shadow-sm transition-transform group-hover:scale-110">
           {icon}
-        </span>
+        </div>
 
         <div>
-          <h4 className="text-xl font-semibold leading-tight text-flexNavy sm:text-2xl xl:text-xl 2xl:text-2xl">{title}</h4>
-          <p className="mt-1 text-2xl font-bold leading-tight text-flexBlack sm:text-3xl xl:text-2xl 2xl:text-3xl">
-            {amount}
-            <span className="ml-2 text-sm font-semibold text-flexNavy/75 sm:text-base xl:text-sm 2xl:text-base">{interval}</span>
-          </p>
+          <h4 className="text-xl font-black tracking-tight text-slate-900">{title}</h4>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-black text-slate-900">{amount}</span>
+            <span className="text-[10px] font-bold uppercase text-slate-400">{interval}</span>
+          </div>
         </div>
       </header>
 
-      <blockquote className="mt-4 text-center text-sm italic text-flexNavy/65">{quote}</blockquote>
+      <blockquote className="mt-5 text-sm font-medium italic leading-relaxed text-slate-500">
+        "{quote}"
+      </blockquote>
 
-      <div className="my-4 h-px w-full bg-flexBlue/20" aria-hidden="true" />
+      <div className="my-5 h-px w-full bg-slate-100" />
 
-      <p className="text-sm leading-relaxed text-flexNavy/70 sm:text-base xl:text-sm 2xl:text-base">{description}</p>
+      <p className="text-sm leading-relaxed text-slate-600 mb-6">
+        {description}
+      </p>
 
-      <ul className="mt-4 space-y-2 text-sm text-flexNavy/80 xl:text-[0.92rem]">
+      <ul className="mb-8 space-y-3.5 text-sm font-medium text-slate-700">
         {features.map((feature) => (
-          <li key={feature} className="flex items-start gap-2">
-            <span className="mt-0.5 text-flexBlue" aria-hidden="true">
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-            </span>
+          <li key={feature} className="flex items-start gap-3">
+            <svg 
+              className="h-5 w-5 shrink-0 text-blue-500" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth={3}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
             <span>{feature}</span>
           </li>
         ))}
       </ul>
 
-      <button
-        type="button"
-        onClick={onSelect}
-        disabled={isLoading}
-        className={`mt-auto w-full rounded-xl border px-4 py-3 text-base font-semibold transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-flexBlue/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70 sm:px-5 sm:py-3.5 sm:text-lg xl:px-4 xl:py-3 xl:text-base 2xl:px-5 2xl:py-3.5 2xl:text-lg ${
-          isActive
-            ? "border-flexBlue bg-flexBlue text-white hover:bg-flexNavy"
-            : "border-flexBlue/35 bg-flexBlue/10 text-flexNavy hover:border-flexBlue/55 hover:bg-flexBlue/20"
-        }`}
-      >
-        {isLoading ? "Processing..." : ctaLabel}
-      </button>
+      {isCurrentSubscription ? (
+        <button
+          type="button"
+          disabled
+          className="mt-auto w-full cursor-not-allowed rounded-xl border border-emerald-300 bg-emerald-50 py-4 text-sm font-bold tracking-widest uppercase text-emerald-700"
+        >
+          Current Subscription
+        </button>
+      ) : null}
+
+      {showCta && !isCurrentSubscription ? (
+        <button
+          type="button"
+          onClick={onSelect}
+          disabled={isLoading}
+          className={`mt-auto w-full rounded-xl py-4 text-sm font-bold tracking-widest text-white uppercase transition-all active:scale-[0.98] disabled:opacity-50
+            bg-[#0c2149] border border-blue-900/30
+            shadow-[0_0_15px_rgba(12,33,73,0.4)]
+            hover:shadow-[0_0_25px_rgba(12,33,73,0.6)]
+            hover:bg-[#142d5f] hover:-translate-y-0.5
+          `}
+        >
+          {isLoading ? "Processing..." : ctaLabel}
+        </button>
+      ) : null}
     </article>
   );
 }

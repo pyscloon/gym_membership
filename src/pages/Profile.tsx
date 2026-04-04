@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
-import Layout from "../components/Layout";
+import Header from "../components/Header";
 
 type Transaction = {
   id: number;
@@ -116,6 +116,16 @@ export default function Profile() {
     setIsEditing(false);
   };
 
+  const handleLogout = async () => {
+    if (!supabase) {
+      navigate("/login");
+      return;
+    }
+
+    await supabase.auth.signOut();
+    navigate("/");
+  };
+
   const formatDate = (dateStr: string): string => {
     if (!dateStr) return "—";
     return new Date(dateStr).toLocaleDateString("en-US", {
@@ -135,34 +145,45 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <Layout>
-        <div className="flex items-center justify-center h-full">
+      <div className="min-h-screen w-full bg-gradient-to-br from-white via-[#f0f7ff] to-[#e3f2fd]">
+        <Header />
+        <div className="mx-auto flex min-h-[50vh] w-full max-w-7xl items-center justify-center px-6 py-10 sm:px-10 lg:px-14">
           <p className="text-flexNavy text-sm font-medium animate-pulse">Loading profile...</p>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
-      <div className="bg-white p-5 sm:p-7 md:p-8 lg:p-10 overflow-y-auto">
+    <div className="min-h-screen w-full bg-gradient-to-br from-white via-[#f0f7ff] to-[#e3f2fd]">
+      <Header />
+      <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10 lg:px-14">
+        <div className="rounded-3xl border border-flexNavy/12 bg-white p-5 shadow-sm sm:p-7 md:p-8 lg:p-10 overflow-y-auto">
 
         <div className="flex items-center justify-between mb-8">
           <div>
             <p className="text-sm uppercase tracking-[0.2em] text-flexNavy">My Account</p>
             <h2 className="mt-1 text-2xl font-semibold text-flexBlack sm:text-3xl">Profile</h2>
           </div>
-          {!isEditing && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="hidden sm:flex items-center gap-2 border border-flexNavy/20 hover:border-flexBlue text-flexNavy hover:text-flexBlue text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.414H8v-2a2 2 0 01.586-1.414z" />
-              </svg>
-              Edit Profile
-            </button>
-          )}
+          <div className="hidden sm:flex items-center gap-2">
+            {!isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="flex items-center gap-2 border border-flexNavy/20 hover:border-flexBlue text-flexNavy hover:text-flexBlue text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.414H8v-2a2 2 0 01.586-1.414z" />
+                </svg>
+                Edit Profile
+              </button>
+            )}
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-2 border border-red-200 bg-red-50 px-4 py-2 rounded-xl text-sm font-semibold text-red-600 transition-colors hover:bg-red-100"
+              >
+                Logout
+              </button>
+          </div>
         </div>
 
         <div className="flex items-center gap-5 rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-5 sm:p-6 mb-5">
@@ -262,11 +283,19 @@ export default function Profile() {
             <button onClick={handleCancel} className="flex-1 border border-flexNavy/20 hover:border-flexNavy/40 text-flexNavy font-semibold py-3 rounded-xl text-sm tracking-wide transition-colors">
               Cancel
             </button>
+            <button onClick={handleLogout} className="sm:hidden flex-1 border border-red-200 bg-red-50 text-red-600 font-semibold py-3 rounded-xl text-sm tracking-wide transition-colors hover:bg-red-100">
+              Logout
+            </button>
           </div>
         ) : (
-          <button onClick={() => setIsEditing(true)} className="w-full sm:hidden bg-flexBlue hover:bg-flexBlue/90 text-white font-bold py-3 rounded-xl text-sm tracking-wide transition-colors mb-8">
-            Edit Profile
-          </button>
+          <div className="sm:hidden grid grid-cols-2 gap-3 mb-8">
+            <button onClick={() => setIsEditing(true)} className="w-full bg-flexBlue hover:bg-flexBlue/90 text-white font-bold py-3 rounded-xl text-sm tracking-wide transition-colors">
+              Edit Profile
+            </button>
+            <button onClick={handleLogout} className="w-full border border-red-200 bg-red-50 text-red-600 font-semibold py-3 rounded-xl text-sm tracking-wide transition-colors hover:bg-red-100">
+              Logout
+            </button>
+          </div>
         )}
 
         <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden">
@@ -294,7 +323,8 @@ export default function Profile() {
           </div>
         </div>
 
-      </div>
-    </Layout>
+        </div>
+      </main>
+    </div>
   );
 }
