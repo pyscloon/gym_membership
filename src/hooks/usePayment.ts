@@ -394,6 +394,7 @@ const initializePayment = useCallback(
     rejectOnlinePaymentProof,
     getPendingPayments,
     getTransactionHistory,
+    fetchTransaction, 
     refreshTransactions,
     clearError,
   };
