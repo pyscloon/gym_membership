@@ -153,25 +153,39 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
     setScanMessage({ text: `Scan Error: ${error}`, type: "error" });
     setTimeout(() => setScanMessage(null), 4000);
   };
+  // Helper to restore a PaymentStateContext to match a transaction's real status
+  const getOrRestoreStateContext = (
+    transactionId: string,
+    status: "awaiting-confirmation" | "awaiting-verification"
+  ) => {
+    const existing = paymentStateContexts.get(transactionId);
+    if (existing && existing.isAwaitingAction()) return existing;
 
-  const handleAdminConfirmPayment = async (
+    // Brand-new context starts at idle — walk it to the correct state
+    const ctx = new PaymentStateContext();
+    ctx.initiate(); // idle → processing
+    if (status === "awaiting-confirmation") {
+      ctx.requiresAdminConfirmation(); // processing → awaiting-confirmation
+    } else {
+      ctx.requiresProofVerification(); // processing → awaiting-verification
+    }
+    return ctx;
+    };
+    
+    const handleAdminConfirmPayment = async (
     transactionId: string,
     userId: string,
     userType: MembershipTier
   ) => {
     try {
-      // Get or create payment state context
-      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
-      
-      // Verify we can perform this action in the current state
+      const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
+
       if (stateContext.canPerformAction("confirm")) {
-        stateContext.confirm();
-        
+        stateContext.confirm(); // awaiting-confirmation → paid
+
         await paymentHook.confirmPayment(transactionId);
-        // Apply membership to user once admin confirms payment
         await applyMembership(userId, userType);
-        
-        // Update state contexts
+
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
         setPaymentStateContexts(newContexts);
@@ -183,22 +197,17 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
   const handleAdminDeclinePayment = async (
     transactionId: string,
-    userId: string,
-    userType: MembershipTier
+    _userId: string,
+    _userType: MembershipTier
   ) => {
     try {
-      void userId;
-      void userType;
-      // Get or create payment state context
-      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
-      
-      // Verify we can perform this action
+      const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
+
       if (stateContext.canPerformAction("reject")) {
         stateContext.reject("Declined by admin");
-        
+
         await paymentHook.failPayment(transactionId, "Declined by admin");
-        
-        // Update state contexts
+
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
         setPaymentStateContexts(newContexts);
@@ -214,18 +223,14 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
     userType: MembershipTier
   ) => {
     try {
-      // Get or create payment state context
-      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
-      
-      // Verify we can perform this action
+      const stateContext = getOrRestoreStateContext(transactionId, "awaiting-verification");
+
       if (stateContext.canPerformAction("confirm")) {
-        stateContext.confirm();
-        
+        stateContext.confirm(); // awaiting-verification → paid
+
         await paymentHook.verifyOnlinePaymentProof(transactionId);
-        // Apply membership to user once payment is verified
         await applyMembership(userId, userType);
-        
-        // Update state contexts
+
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
         setPaymentStateContexts(newContexts);
@@ -237,23 +242,18 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
   const handleAdminRejectOnlinePayment = async (
     transactionId: string,
-    userId: string,
-    userType: MembershipTier,
+    _userId: string,
+    _userType: MembershipTier,
     reason: string
   ) => {
     try {
-      void userId;
-      void userType;
-      // Get or create payment state context
-      const stateContext = paymentStateContexts.get(transactionId) || new PaymentStateContext();
-      
-      // Verify we can perform this action
+      const stateContext = getOrRestoreStateContext(transactionId, "awaiting-verification");
+
       if (stateContext.canPerformAction("reject")) {
         stateContext.reject(reason);
-        
+
         await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
-        
-        // Update state contexts
+
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
         setPaymentStateContexts(newContexts);
