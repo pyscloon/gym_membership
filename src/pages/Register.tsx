@@ -58,7 +58,7 @@ export default function Register() {
                     return;
                 }
 
-                navigate("/dashboard");
+                navigate("/subscription-tier");
                 return;
             }
         } catch {

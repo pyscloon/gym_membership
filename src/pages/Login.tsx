@@ -49,7 +49,7 @@ export default function Login() {
                 if (userEmail === ADMIN_EMAIL) {
                     navigate("/admin/dashboard");
                 } else {
-                    navigate("/dashboard");
+                    navigate("/subscription-tier");
                 }
             }
         } catch {
