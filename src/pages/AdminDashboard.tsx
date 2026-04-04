@@ -17,8 +17,8 @@ import { PaymentStateContext } from "../design-patterns";
 type RecentCheckInRecord = {
   id: string;
   user_id: string | null;
-  check_in_type: string;
-  check_in_time: string;
+  walk_in_type: string;
+  walk_in_time: string;
   status: string;
 };
 
@@ -60,19 +60,9 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
         setActivePlans(activePlansCount);
         setExpiringSoon(expiringSoonCount);
         setRecentCheckIns(checkIns);
-
-        // Count today's check-ins
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const todayCount = checkIns.filter((check) => {
-          const checkDate = new Date(check.check_in_time);
-          checkDate.setHours(0, 0, 0, 0);
-          return checkDate.getTime() === today.getTime();
-        }).length;
-        setTodayCheckInCount(todayCount);
-
         setIsLoadingMembers(false);
       }
+      await fetchTodayWalkInCount();
     };
 
     loadDashboardData();
@@ -81,6 +71,50 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
       isMounted = false;
     };
   }, []);
+  const fetchTodayWalkInCount = async () => {
+    if (!supabase) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { count } = await supabase
+      .from("walk_ins")
+      .select("*", { count: "exact", head: true })
+      .gte("walk_in_time", today.toISOString())
+      .lt("walk_in_time", tomorrow.toISOString());
+
+    setTodayCheckInCount(count ?? 0);
+  };
+
+const recordWalkIn = async (userId: string) => {
+  if (!supabase) return;
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const adminId = session?.user?.id ?? null;
+
+  const { data: membership } = await supabase
+    .from("memberships")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .single();
+
+  const { error } = await supabase.from("walk_ins").insert({
+    user_id: userId,
+    membership_id: membership?.id ?? null,
+    validated_by: adminId,
+    walk_in_type: "walk_in",
+    walk_in_time: new Date().toISOString(),
+    qr_data: {},
+    status: "completed",
+  });
+
+  console.log("recordWalkIn result:", JSON.stringify(error));
+  if (error) return;
+
+  await fetchTodayWalkInCount();
+};
 
   // Load member names for transactions
   useEffect(() => {
@@ -172,28 +206,34 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
     return ctx;
     };
     
-    const handleAdminConfirmPayment = async (
-    transactionId: string,
-    userId: string,
-    userType: MembershipTier
-  ) => {
-    try {
-      const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
+const handleAdminConfirmPayment = async (
+  transactionId: string,
+  userId: string,
+  userType: MembershipTier
+) => {
+  console.log("handleAdminConfirmPayment called", { transactionId, userId, userType }); // ← step 1
+  try {
+    const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
+    console.log("stateContext state:", stateContext.getStateName()); // ← step 2
+    console.log("canPerformAction confirm:", stateContext.canPerformAction("confirm")); // ← step 3
 
-      if (stateContext.canPerformAction("confirm")) {
-        stateContext.confirm(); // awaiting-confirmation → paid
+    if (stateContext.canPerformAction("confirm")) {
+      stateContext.confirm();
+      console.log("Calling confirmPayment..."); // ← step 4
+      await paymentHook.confirmPayment(transactionId);
+      console.log("Calling applyMembership..."); // ← step 5
+      await applyMembership(userId, userType);
+      console.log("Calling recordWalkIn..."); // ← step 6
+      await recordWalkIn(userId);
 
-        await paymentHook.confirmPayment(transactionId);
-        await applyMembership(userId, userType);
-
-        const newContexts = new Map(paymentStateContexts);
-        newContexts.set(transactionId, stateContext);
-        setPaymentStateContexts(newContexts);
-      }
-    } catch (err) {
-      console.error("Failed to apply membership after confirmation:", err);
+      const newContexts = new Map(paymentStateContexts);
+      newContexts.set(transactionId, stateContext);
+      setPaymentStateContexts(newContexts);
     }
-  };
+  } catch (err) {
+    console.error("Failed to apply membership after confirmation:", err);
+  }
+};
 
   const handleAdminDeclinePayment = async (
     transactionId: string,
@@ -230,6 +270,7 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
 
         await paymentHook.verifyOnlinePaymentProof(transactionId);
         await applyMembership(userId, userType);
+        await recordWalkIn(userId);
 
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
@@ -439,17 +480,17 @@ const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon:
               {recentCheckIns.map((checkIn) => (
                 <div key={checkIn.id} className="flex items-center justify-between p-3 rounded-lg bg-flexWhite/50 border border-flexNavy/10">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${checkIn.check_in_type === "checkin" ? "bg-green-500" : "bg-blue-500"}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${checkIn.walk_in_type === "walk_in" ? "bg-green-500" : "bg-blue-500"}`}></div>
                     <div>
                       <p className="text-sm font-semibold text-flexBlack">
-                        {checkIn.check_in_type === "checkin"
+                        {checkIn.walk_in_type === "walk_in"
                           ? "Check-In"
-                          : checkIn.check_in_type === "checkout"
+                          : checkIn.walk_in_type === "checkout"
                             ? "Check-Out"
                             : "Walk-In"}
                       </p>
                       <p className="text-xs text-flexNavy/60">
-                        {new Date(checkIn.check_in_time).toLocaleTimeString()}
+                        {new Date(checkIn.walk_in_time).toLocaleTimeString()}
                       </p>
                     </div>
                   </div>
