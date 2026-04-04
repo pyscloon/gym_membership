@@ -1,7 +1,27 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
+import { useAuth } from "../hooks/useAuth";
+import { fetchUserMembership } from "../lib/membershipService";
 
 export default function AboutUs() {
+  const { user } = useAuth();
+  const [isSubscriber, setIsSubscriber] = useState(false);
+
+  useEffect(() => {
+    const loadMembership = async () => {
+      if (!user) {
+        setIsSubscriber(false);
+        return;
+      }
+
+      const membership = await fetchUserMembership(user.id);
+      setIsSubscriber(Boolean(membership && membership.status === "active"));
+    };
+
+    void loadMembership();
+  }, [user]);
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-white via-[#f0f7ff] to-[#e3f2fd]">
       <Header />
@@ -107,19 +127,20 @@ export default function AboutUs() {
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="bg-gradient-to-br from-[#000033] to-[#0a2d5c] px-6 py-16 sm:px-10 lg:px-14">
-          <div className="mx-auto max-w-4xl rounded-2xl bg-gradient-to-r from-flexBlue to-[#1c8ee6] p-10 text-center text-white">
-            <h2 className="text-3xl font-black">Ready to Join Our Movement?</h2>
-            <p className="mt-3 text-white/90 text-lg">Start your fitness transformation with Flex Republic today.</p>
-            <Link
-              to="/subscription-tier"
-              className="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-8 py-3.5 font-bold text-flexBlue shadow-lg transition hover:scale-105 hover:shadow-xl"
-            >
-              View Membership Plans
-            </Link>
-          </div>
-        </section>
+        {!isSubscriber && (
+          <section className="bg-gradient-to-br from-[#000033] to-[#0a2d5c] px-6 py-16 sm:px-10 lg:px-14">
+            <div className="mx-auto max-w-4xl rounded-2xl bg-gradient-to-r from-flexBlue to-[#1c8ee6] p-10 text-center text-white">
+              <h2 className="text-3xl font-black">Ready to Join Our Movement?</h2>
+              <p className="mt-3 text-white/90 text-lg">Start your fitness transformation with Flex Republic today.</p>
+              <Link
+                to="/subscription-tier"
+                className="mt-6 inline-flex items-center justify-center rounded-xl bg-white px-8 py-3.5 font-bold text-flexBlue shadow-lg transition hover:scale-105 hover:shadow-xl"
+              >
+                View Membership Plans
+              </Link>
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );
