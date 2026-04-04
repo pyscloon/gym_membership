@@ -12,7 +12,7 @@ export default function SubscriptionTier() {
           <div className="inline-flex items-center gap-2 rounded-full bg-flexBlue/20 px-4 py-1.5 text-sm font-semibold text-flexBlue mb-4">
             💎 Premium Membership
           </div>
-          <h1 className="text-4xl font-black text-white sm:text-5xl">Choose Your Perfect Plan</h1>
+          <h1 className="text-4xl font-black text-white sm:text-5xl">Select Your Perfect Plan</h1>
           <p className="mt-4 max-w-2xl text-lg text-white/85">
             Select a membership that aligns with your fitness goals. All plans include real-time gym capacity tracking and seamless check-ins.
           </p>

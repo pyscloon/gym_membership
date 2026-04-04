@@ -436,7 +436,7 @@ export default function MembershipDashboard() {
       badge: "Value",
       title: "Semi-Yearly",
       amount: "₱699",
-      interval: "/ 6months",
+      interval: "/ 6 months",
       quote: "Commit a little longer and save more.",
       description: "Balanced commitment with better long-term value.",
       features: ["Lower effective monthly cost", "Priority class slots", "Consistent progress window"],
@@ -454,7 +454,7 @@ export default function MembershipDashboard() {
       badge: "Best Plan",
       title: "Yearly",
       amount: "₱1,199",
-      interval: "/ year",
+      interval: "/ 12 months",
       quote: "Maximum savings for year-round training.",
       description: "Most cost-effective plan for consistent training.",
       features: ["Best yearly value", "Locked-in lower rate", "Built for long-term goals"],
@@ -477,7 +477,7 @@ export default function MembershipDashboard() {
       features: ["No subscription required", "24-hour pass validity", "Fast entry for single visit"],
       isActive: false,
       tier: "walk-in" as const,
-      ctaLabel: "Start Walk-In",
+      ctaLabel: "Choose Walk-In",
       icon: (
         <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M10 14L21 3" />
