@@ -339,6 +339,12 @@ export default function MembershipDashboard() {
       proofOfPayment
     );
 
+    // Don't proceed if the hook ended up in an error state
+    if (paymentHook.state.status === "failed" || !paymentHook.state.currentTransaction) {
+      addToast(paymentHook.state.error ?? "Payment failed. Please try again.", "error");
+      return;
+    }
+
     setShowPaymentModal(false);
     setShowPaymentConfirmation(true);
   };
