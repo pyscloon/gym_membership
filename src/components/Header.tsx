@@ -154,6 +154,59 @@ export default function Header() {
                     Profile
                   </Link>
                 </li>
+                <li className="relative md:ml-3" ref={notificationPanelRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsNotificationsOpen((prev) => !prev)}
+                    className="relative inline-flex items-center justify-center p-2 text-flexBlue transition hover:text-flexBlue/70 focus-visible:outline-none"
+                    aria-haspopup="dialog"
+                    aria-expanded={isNotificationsOpen}
+                    aria-label="Open notifications"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-6 w-6"
+                    >
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+
+                    {notifications.length > 0 && (
+                      <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-red-500 ring-2 ring-white"></span>
+                    )}
+                  </button>
+
+                  {isNotificationsOpen && (
+                    <div className="absolute right-0 z-50 mt-4 w-[20rem] overflow-hidden rounded-2xl border border-flexBlue/20 bg-white shadow-[0_20px_40px_rgba(0,0,51,0.2)] md:w-[23rem]">
+                      <div className="flex items-center justify-between border-b border-flexBlue/10 bg-gradient-to-r from-[#f7fbff] to-white px-4 py-3">
+                        <p className="text-sm font-bold text-[#000033]">Notifications</p>
+                        <span className="rounded-full bg-flexBlue/10 px-2 py-1 text-xs font-semibold text-flexBlue">
+                          {notifications.length} new
+                        </span>
+                      </div>
+                      <ul className="max-h-80 overflow-y-auto">
+                        {notifications.map((notice) => (
+                          <li key={notice.id}>
+                            <button
+                              type="button"
+                              className="w-full border-b border-flexBlue/8 px-4 py-3 text-left transition hover:bg-[#f7fbff]"
+                            >
+                              <p className="text-sm font-semibold text-[#000033]">{notice.title}</p>
+                              <p className="mt-1 text-xs leading-relaxed text-flexNavy/80">{notice.summary}</p>
+                              <p className="mt-2 text-[11px] font-medium uppercase tracking-wide text-flexBlue/70">{notice.time}</p>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </li>
               </>
             ) : (
               <>
