@@ -191,6 +191,71 @@ export async function cancelMembership(
 }
 
 /**
+ * Change membership - Updates the active membership tier in place
+ * @param userId - User's ID from auth
+ * @param tier - New membership tier selection
+ * @returns MembershipResponse with success status
+ */
+export async function changeMembership(
+  userId: string,
+  tier: MembershipTier
+): Promise<MembershipResponse> {
+  if (!supabase) {
+    return { success: false, error: "Supabase client not initialized" };
+  }
+
+  try {
+    const { data: existingMembership, error: fetchError } = await supabase
+      .from("memberships")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .single();
+
+    if (fetchError || !existingMembership) {
+      return {
+        success: false,
+        error: "No active membership found to change",
+      };
+    }
+
+    const now = new Date();
+    const renewalDays = getRenewalDays(tier);
+    const renewalDate = new Date(
+      now.getTime() + renewalDays * 24 * 60 * 60 * 1000
+    );
+
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({
+        tier,
+        start_date: now.toISOString(),
+        renewal_date: renewalDate.toISOString(),
+        cancel_at_period_end: false,
+        status: "active",
+      })
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error changing membership:", error);
+      return {
+        success: false,
+        error: error.message || "Failed to change membership",
+      };
+    }
+
+    return { success: true, data };
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("Error in changeMembership:", err);
+    return { success: false, error: errorMsg };
+  }
+}
+
+/**
  * Fetch user's current membership
  * @param userId - User's ID from auth
  * @returns Membership record or null if no active membership
