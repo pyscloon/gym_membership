@@ -75,25 +75,33 @@ export default function Header() {
           className="inline-flex items-center gap-3 text-flexBlack transition hover:scale-105" 
           aria-label="Flex Republic home"
         >
-          {/* Logo SVG */}
+          {/* Logo SVG with Gradient */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
-            fill="currentColor"
             className="h-10 w-10 text-flexBlue"
             aria-hidden="true"
           >
-            <rect x="2" y="11" width="20" height="2" rx="1" />
-            <rect x="4" y="9" width="1.5" height="6" rx="0.5" />
-            <rect x="6" y="8" width="1.5" height="8" rx="0.5" />
-            <rect x="8" y="7" width="1.5" height="10" rx="0.5" />
-            <rect x="14.5" y="7" width="1.5" height="10" rx="0.5" />
-            <rect x="16.5" y="8" width="1.5" height="8" rx="0.5" />
-            <rect x="18.5" y="9" width="1.5" height="6" rx="0.5" />
+            <defs>
+              <linearGradient id="dumbbell-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="black" />
+                <stop offset="100%" stopColor="currentColor" />
+              </linearGradient>
+            </defs>
+            <g fill="url(#dumbbell-gradient)">
+              <rect x="2" y="11" width="20" height="2" rx="1" />
+              <rect x="4" y="9" width="1.5" height="6" rx="0.5" />
+              <rect x="6" y="8" width="1.5" height="8" rx="0.5" />
+              <rect x="8" y="7" width="1.5" height="10" rx="0.5" />
+              <rect x="14.5" y="7" width="1.5" height="10" rx="0.5" />
+              <rect x="16.5" y="8" width="1.5" height="8" rx="0.5" />
+              <rect x="18.5" y="9" width="1.5" height="6" rx="0.5" />
+            </g>
           </svg>
 
+          {/* Solid Color Text */}
           <span className="text-2xl font-black tracking-tight">
-            <span className="bg-gradient-to-r from-black to-flexBlue bg-clip-text text-transparent">Flex</span>
+            <span className="text-black">Flex</span>
             <span className="text-flexBlue"> Republic</span>
           </span>
         </Link>
