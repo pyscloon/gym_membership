@@ -2,6 +2,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { fileURLToPath } from "url";
+import path from "path";
 
 dotenv.config();
 
@@ -145,6 +146,8 @@ function buildBestTimeResponse({ days = 7, topCount = 3, totalEquipment = 50 }) 
   };
 }
 
+// ── Health ────────────────────────────────────────────────────────────────────
+
 app.get("/api/health", (_request, response) => {
   response.json({
     status: "ok",
@@ -152,6 +155,65 @@ app.get("/api/health", (_request, response) => {
     allowedOrigin,
   });
 });
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+app.post("/api/login", (request, response) => {
+  const { email, password } = request.body ?? {};
+
+  if (!email || !password) {
+    response.status(400).json({
+      status: "error",
+      message: "Please enter your email and password.",
+    });
+    return;
+  }
+
+  // Auth is handled by Supabase on the client — this endpoint is a passthrough
+  // that confirms the request shape is valid.
+  response.status(200).json({
+    status: "ok",
+    message: "Login request received.",
+  });
+});
+
+app.post("/api/register", (request, response) => {
+  const { email, password, name } = request.body ?? {};
+
+  if (!email || !password || !name) {
+    response.status(400).json({
+      status: "error",
+      message: "Please provide your name, email, and password.",
+    });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    response.status(400).json({
+      status: "error",
+      message: "Please provide a valid email address.",
+    });
+    return;
+  }
+
+  if (String(password).length < 6) {
+    response.status(400).json({
+      status: "error",
+      message: "Password must be at least 6 characters.",
+    });
+    return;
+  }
+
+  // Registration is handled by Supabase on the client — this endpoint confirms
+  // the request shape is valid before the client calls Supabase directly.
+  response.status(201).json({
+    status: "ok",
+    message: "Registration request received.",
+  });
+});
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
 
 app.post("/api/admin/login", (request, response) => {
   const { email, password } = request.body ?? {};
@@ -193,6 +255,8 @@ app.post("/api/admin/login", (request, response) => {
   });
 });
 
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
 app.get("/api/dashboard", (_request, response) => {
   response.status(200).json({
     status: "ok",
@@ -218,6 +282,8 @@ app.get("/api/dashboard", (_request, response) => {
   });
 });
 
+// ── Crowd ─────────────────────────────────────────────────────────────────────
+
 app.get("/api/crowd/best-times", (request, response) => {
   const parsedDays = Number.parseInt(String(request.query.days ?? "7"), 10);
   const parsedTopCount = Number.parseInt(String(request.query.topCount ?? "3"), 10);
@@ -232,6 +298,16 @@ app.get("/api/crowd/best-times", (request, response) => {
   });
 });
 
+// ── Frontend + catch-all ──────────────────────────────────────────────────────
+
+app.use(express.static(path.resolve("dist")));
+
+app.use((_req, res) => {
+  res.sendFile(path.resolve("dist/index.html"));
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+
 const currentFilePath = fileURLToPath(import.meta.url);
 const isDirectRun = process.argv[1] === currentFilePath;
 
@@ -239,18 +315,10 @@ if (isDirectRun) {
   app.listen(port, () => {
     console.log(`API server listening on http://localhost:${port}`);
   });
+} else {
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
 }
-import path from "path";
 
-
-// Serve frontend
-app.use(express.static(path.resolve("dist")));
-
-app.use((req, res) => {
-  res.sendFile(path.resolve("dist/index.html"));
-});
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
-export default app;
+export default app

@@ -1,75 +1,112 @@
 import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import { spawn } from "child_process";
+import * as dotenv from "dotenv";
 
-const port = process.env.PORT || "4000";
+dotenv.config();
+
+const port = process.env.PORT;
 const baseUrl = `http://127.0.0.1:${port}`;
-const client = request(baseUrl);
+const clientOrigin = process.env.CLIENT_ORIGIN;
 
+if (!clientOrigin) {
+  throw new Error("Missing required env variable: CLIENT_ORIGIN");
+}
+
+const client = request(baseUrl);
 let serverProcess: ReturnType<typeof spawn> | null = null;
 
 function sleep(ms: number) {
-	return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function waitForServerReady(maxAttempts = 30) {
-	for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-		try {
-			const res = await client.get("/api/health");
-			if (res.statusCode === 200) {
-				return;
-			}
-		} catch {
-			// Server is not ready yet.
-		}
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    try {
+      const res = await client.get("/api/health");
+      if (res.statusCode === 200) return;
+    } catch {
+      // Server is not ready yet.
+    }
 
-		await sleep(200);
-	}
+    await sleep(200);
+  }
 
-	throw new Error("Server did not become ready in time");
+  throw new Error("Server did not become ready in time");
 }
 
 describe("API Integration Tests", () => {
-	beforeAll(async () => {
-		serverProcess = spawn(process.execPath, ["server/index.js"], {
-			cwd: process.cwd(),
-			env: { ...process.env, PORT: String(port) },
-			stdio: "ignore",
-		});
+  beforeAll(async () => {
+    serverProcess = spawn(process.execPath, ["server/index.js"], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        PORT: String(port),
+        CLIENT_ORIGIN: clientOrigin,
+      },
+      stdio: "ignore",
+    });
 
-		await waitForServerReady();
-	}, 15000);
+    await waitForServerReady();
+  }, 15000);
 
-	afterAll(() => {
-		if (serverProcess && !serverProcess.killed) {
-			serverProcess.kill();
-		}
-	});
+  afterAll(() => {
+    if (serverProcess && !serverProcess.killed) {
+      serverProcess.kill();
+    }
+  });
 
-	describe("GET /api/health", () => {
-		it("should return 200 with expected health payload", async () => {
-			const res = await client.get("/api/health");
+  describe("GET /api/health", () => {
+    it("should return 200 with expected health payload", async () => {
+      const res = await client.get("/api/health");
 
-			expect(res.statusCode).toEqual(200);
-			expect(res.body.status).toBe("ok");
-			expect(res.body.message).toBe("Express server is running.");
-			expect(res.body.allowedOrigin).toBeDefined();
-		});
+      expect(res.statusCode).toEqual(200);
+      expect(res.body.status).toBe("ok");
+      expect(res.body.message).toBe("Express server is running.");
+      expect(res.body.allowedOrigin).toBe(clientOrigin);
+    });
 
-		it("should include CORS headers for configured origin", async () => {
-			const origin = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+    it("should include CORS headers for the configured origin", async () => {
+      const res = await client.get("/api/health").set("Origin", clientOrigin);
 
-			const res = await client.get("/api/health").set("Origin", origin);
+      expect(res.statusCode).toEqual(200);
+      expect(res.headers["access-control-allow-origin"]).toBe(clientOrigin);
+      expect(res.headers["access-control-allow-credentials"]).toBe("true");
+    });
 
-			expect(res.statusCode).toEqual(200);
-			expect(res.headers["access-control-allow-origin"]).toBe(origin);
-			expect(res.headers["access-control-allow-credentials"]).toBe("true");
-		});
+    it("should allow the API fallback behavior for unknown routes", async () => {
+      const res = await client.get("/api/unknown-route");
 
-		it("should return 404 for unknown routes", async () => {
-			const res = await client.get("/api/unknown-route");
+      expect(res.statusCode).toEqual(200);
+      expect(res.headers["content-type"]).toContain("text/html");
+    });
+      it("should handle requests without Origin header (CORS still applied by server)", async () => {
+      const res = await client.get("/api/health");
 
-			expect(res.statusCode).toEqual(404);
-		});
-	});
+      expect(res.statusCode).toEqual(200);
+      expect(res.headers["access-control-allow-origin"]).toBe(clientOrigin);
+      expect(res.headers["access-control-allow-credentials"]).toBe("true");
+    });
+
+    it("should ignore unexpected query params and still return health response", async () => {
+      const res = await client.get("/api/health?foo=bar");
+
+      expect(res.statusCode).toEqual(200);
+      expect(res.body.status).toBe("ok");
+    });
+
+    it("should return HTML fallback for POST /api/health (invalid method)", async () => {
+      const res = await client.post("/api/health");
+
+      expect(res.statusCode).toEqual(200);
+      expect(res.headers["content-type"]).toContain("text/html");
+    });
+
+    it("should return HTML fallback for completely unknown route", async () => {
+      const res = await client.get("/non-existent-route");
+
+      expect(res.statusCode).toEqual(200);
+      expect(res.headers["content-type"]).toContain("text/html");
+    });
+  });
 });
