@@ -7,5 +7,4 @@ export default {
       tsconfig: 'tsconfig.test.json',
     }],
   },
-  setupFiles : ["<rootDir>/tests/setup.ts"],
 };
