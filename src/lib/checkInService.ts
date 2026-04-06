@@ -221,3 +221,46 @@ export async function getRecentCheckIns(limit: number = 10) {
     return [];
   }
 }
+
+/**
+ * Record a walk-in entry after payment confirmation
+ * @param adminId - Admin who confirmed the payment
+ * @param notes - Optional notes (e.g. transaction ID)
+ */
+export async function recordConfirmedWalkIn(
+  adminId: string,
+  notes?: string
+): Promise<CheckInResponse> {
+  if (!supabase) {
+    return { success: false, message: "Supabase client not initialized", error: "Client error" };
+  }
+
+  const { data: checkIn, error } = await supabase
+    .from("walk_ins")
+    .insert({
+      user_id: null,           // no account
+      walk_in_type: "walk-in",
+      walk_in_time: new Date().toISOString(),
+      validated_by: adminId,
+      status: "completed",
+      notes: notes ?? "Walk-in via confirmed payment",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    return { success: false, message: "Failed to record walk-in", error: error.message };
+  }
+
+  return {
+    success: true,
+    message: "Walk-in recorded successfully",
+    data: {
+      id: checkIn.id,
+      user_id: "guest",
+      check_in_type: checkIn.walk_in_type,
+      check_in_time: checkIn.walk_in_time,
+      status: checkIn.status,
+    },
+  };
+}
