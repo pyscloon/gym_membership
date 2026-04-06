@@ -28,6 +28,9 @@ export async function applyMembership(
   userId: string,
   tier: MembershipTier = "monthly"
 ): Promise<MembershipResponse> {
+  if (!userId || userId === "walk-in-guest" || userId.startsWith("walk-in-")) {
+    return { success: false, error: "Walk-in sessions cannot be stored in the database." };
+  }
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" };
   }
