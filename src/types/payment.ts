@@ -36,6 +36,7 @@ export interface PendingPayment {
   method: PaymentMethod;
   requestedAt: string;
   confirmedAt?: string;
+  proofOfPaymentUrl?: string
 }
 
 export interface PaymentState {

@@ -1,3 +1,4 @@
+import { supabase } from "../lib/supabaseClient";
 import { useCallback, useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -59,7 +60,20 @@ export default function MembershipDashboard() {
   const [isDev] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [devShowMembership, setDevShowMembership] = useState(false);
-  
+
+  useEffect(() => {
+  const checkAdmin = async () => {
+    if (!user || !supabase) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    setIsAdmin(data?.role === "admin");
+  };
+  checkAdmin();
+}, [user]);
+
   // State machine contexts - trigger re-render when state changes
   const [, setStateUpdateTrigger] = useState(0);
   const [membershipStateContext, setMembershipStateContext] = useState<MembershipStateContext | null>(null);
@@ -106,7 +120,6 @@ export default function MembershipDashboard() {
       setError(null);
       const userMembership = await fetchUserMembership(user.id);
       setMembership(userMembership);
-      // Initialize membership state context with the loaded membership
       if (userMembership) {
         setMembershipStateContext(new MembershipStateContext(userMembership));
       }
@@ -136,7 +149,6 @@ export default function MembershipDashboard() {
     };
   }, [showCheckInConfirmation]);
 
-  // QR changes based on attendance state
   const qrValue = JSON.stringify({
     id: user?.id,
     type: attendanceSessionContext?.getStateName() === "checked-in" ? "checkout" : "checkin",
@@ -151,7 +163,6 @@ export default function MembershipDashboard() {
       return;
     }
 
-    // Check if membership allows check-in
     if (membershipStateContext?.canPerformAction("checkIn")) {
       attendanceSessionContext?.checkIn();
       setShowQR(true);
@@ -163,7 +174,6 @@ export default function MembershipDashboard() {
   };
 
   const handleGenerateCheckOut = () => {
-    // Check if session allows check-out
     if (attendanceSessionContext?.canPerformAction("checkOut")) {
       setShowQR(true);
       setStateUpdateTrigger((prev) => prev + 1);
@@ -279,7 +289,6 @@ export default function MembershipDashboard() {
 
   const handleWalkInApply = useCallback(() => {
     startWalkIn();
-    // Create a walk-in attendance session
     const walkInSession = new AttendanceSessionContext("walk-in");
     setAttendanceSessionContext(walkInSession);
     setStateUpdateTrigger((prev) => prev + 1);
@@ -289,7 +298,6 @@ export default function MembershipDashboard() {
   const handleEndWalkInSession = () => {
     if (!confirm("Are you sure you want to end your walk-in session? You will lose access immediately.")) return;
     clearWalkIn();
-    // Reset attendance session
     setAttendanceSessionContext(new AttendanceSessionContext("regular"));
     setStateUpdateTrigger((prev) => prev + 1);
     addToast("Walk-in session ended. Thank you for visiting!", "success");
@@ -308,9 +316,11 @@ export default function MembershipDashboard() {
           ? await renewMembership(userId)
           : await changeMembership(userId, userType)
         : await applyMembership(userId, userType);
+
       if (result.success && result.data) {
         addToast(`Member ${userId} approved on ${userType} plan.`, "success");
-        // Update state context
+        setMembership(result.data);
+        setMembershipStateContext(new MembershipStateContext(result.data));
         if (membershipStateContext) {
           membershipStateContext.confirmPayment();
           membershipStateContext.activate();
@@ -333,7 +343,6 @@ export default function MembershipDashboard() {
     try {
       await paymentHook.failPayment(transactionId, "Declined by admin");
       addToast(`Payment ${transactionId} declined for user ${userId} (${userType}).`, "error");
-      // Update state context
       if (membershipStateContext) {
         membershipStateContext.updateMembership({ status: "canceled" });
         setStateUpdateTrigger((prev) => prev + 1);
@@ -357,9 +366,11 @@ export default function MembershipDashboard() {
           ? await renewMembership(userId)
           : await changeMembership(userId, userType)
         : await applyMembership(userId, userType);
+
       if (result.success && result.data) {
         addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
-        // Update state context
+        setMembership(result.data);
+        setMembershipStateContext(new MembershipStateContext(result.data));
         if (membershipStateContext) {
           membershipStateContext.confirmPayment();
           membershipStateContext.activate();
@@ -383,7 +394,6 @@ export default function MembershipDashboard() {
     try {
       await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
       addToast(`Online payment rejected for user ${userId} (${userType}). Reason: ${reason}`, "error");
-      // Update state context
       if (membershipStateContext) {
         membershipStateContext.updateMembership({ status: "canceled" });
         setStateUpdateTrigger((prev) => prev + 1);
@@ -394,14 +404,13 @@ export default function MembershipDashboard() {
     }
   };
 
-  // Payment handlers
-
   const handleSelectPlan = (tier: UserType) => {
     setSelectedPlanTier(tier);
     paymentHook.clearError();
     setShowPaymentModal(true);
   };
 
+  // ✅ FIXED: captures returned transaction instead of reading stale hook state
   const handleInitiatePayment = async (method: "cash" | "card" | "online", proofOfPayment?: string) => {
     if (!user) {
       const transactionId = generateTransactionId();
@@ -427,7 +436,7 @@ export default function MembershipDashboard() {
       return;
     }
 
-    await paymentHook.initializePayment(
+    const transaction = await paymentHook.initializePayment(
       user.id,
       selectedPlanTier,
       MEMBERSHIP_PRICES[selectedPlanTier],
@@ -435,8 +444,7 @@ export default function MembershipDashboard() {
       proofOfPayment
     );
 
-    // Don't proceed if the hook ended up in an error state
-    if (paymentHook.state.status === "failed" || !paymentHook.state.currentTransaction) {
+    if (!transaction) {
       addToast(paymentHook.state.error ?? "Payment failed. Please try again.", "error");
       return;
     }
@@ -641,7 +649,6 @@ export default function MembershipDashboard() {
     );
   }
 
-  // Always show pricing cards when this dashboard is rendered under the Subscription Tier page.
   if (location.pathname === "/subscription-tier") {
     return <div className="space-y-4">{renderPricingContent()}</div>;
   }
@@ -982,7 +989,6 @@ export default function MembershipDashboard() {
     );
   }
 
-  // Has membership: show status, actions, and check-in/out QR
   return (
     <div className="space-y-6">
       {isDev && (
@@ -1007,7 +1013,6 @@ export default function MembershipDashboard() {
         <div className="rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-yellow-700 text-sm">{error}</div>
       )}
 
-      {/* Check-In kag Check-Out QR Section */}
       <section className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -1029,7 +1034,6 @@ export default function MembershipDashboard() {
           </span>
         </div>
 
-        {/* QR Code Display */}
         {showQR && (
           <div className="flex flex-col items-center gap-4 my-4 p-5 rounded-2xl bg-white border border-flexNavy/10 shadow-sm">
             <p className="text-xs font-bold tracking-widest text-flexNavy uppercase">
@@ -1043,7 +1047,6 @@ export default function MembershipDashboard() {
                 ? "Show this to the admin at the front desk to check out"
                 : "Show this to the admin at the front desk to check in"}
             </p>
-            {/* Close/Done button */}
             <button
               onClick={handleCloseQR}
               className="w-full rounded-xl bg-flexBlue px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-flexNavy"
@@ -1053,7 +1056,6 @@ export default function MembershipDashboard() {
           </div>
         )}
 
-        {/* Generate QR Buttons */}
         {!showQR && (
           <div className="mt-2">
             {attendanceSessionContext?.canPerformAction("checkIn") && (
@@ -1082,7 +1084,6 @@ export default function MembershipDashboard() {
         )}
       </section>
 
-      {/* Status Card */}
       <section className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -1123,7 +1124,6 @@ export default function MembershipDashboard() {
         </div>
       </section>
 
-      {/* Membership Details */}
       <section className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6">
         <p className="text-xs uppercase tracking-[0.18em] text-flexNavy mb-4">Details</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -1146,7 +1146,6 @@ export default function MembershipDashboard() {
         </div>
       </section>
 
-      {/* Membership Action Buttons */}
       <section className="grid gap-3 sm:grid-cols-2">
         {membershipStateContext?.canPerformAction("renew") && (
           <button onClick={handleRenew} disabled={actionLoading} className="flex items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white transition hover:bg-green-700 disabled:opacity-70 disabled:cursor-not-allowed">
@@ -1182,7 +1181,6 @@ export default function MembershipDashboard() {
         )}
       </section>
 
-      {/* Toast Notifications */}
       <div className="fixed bottom-4 right-4 space-y-2 z-50">
         {toasts.map((toast) => (
           <div key={toast.id} className={`rounded-lg px-4 py-3 text-sm font-medium text-white animate-in fade-in slide-in-from-bottom-4 ${toast.type === "success" ? "bg-green-600" : "bg-red-600"}`}>
