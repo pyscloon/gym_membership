@@ -24,10 +24,9 @@ jobs:
         run: npm ci
 
       - name: Run API Tests
-        run: npm test -- --runInBand --detectOpenHandles
+        run: npm test -- --runInBand tests
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_ADMIN_EMAIL: ${{ secrets.VITE_ADMIN_EMAIL }}
-          PORT: 4000
           CLIENT_ORIGIN: http://localhost:5173
