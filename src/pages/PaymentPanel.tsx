@@ -4,6 +4,8 @@ import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import { getStoredTransaction, rejectOnlinePayment, saveTransaction, simulateAdminConfirmation, verifyOnlinePayment } from "../lib/paymentSimulator";
 import { applyMembership, changeMembership, fetchUserMembership, renewMembership } from "../lib/membershipService";
 import type { UserType, PaymentTransaction } from "../types/payment";
+import { recordConfirmedWalkIn } from "../lib/checkInService";
+
 
 export default function PaymentPanel() {
   const navigate = useNavigate();
@@ -11,6 +13,17 @@ export default function PaymentPanel() {
   const handleConfirmPayment = async (transactionId: string, _userId: string, _userType: UserType) => {
     const confirmed = await simulateAdminConfirmation(transactionId);
     if (!confirmed) return;
+
+      if (confirmed.userType === "walk-in") {
+      const result = await recordConfirmedWalkIn(
+        "admin",                    // or pass real adminId if you have it
+        `txn:${transactionId}`
+      );
+      if (!result.success) {
+        console.error("Failed to record walk-in:", result.error);
+      }
+      return;
+    }
 
     const currentMembership = await fetchUserMembership(confirmed.userId);
     const result = currentMembership?.status === "active"
@@ -37,6 +50,10 @@ export default function PaymentPanel() {
 
   const handleVerifyOnlinePayment = async (transactionId: string, _userId: string, _userType: UserType) => {
     await verifyOnlinePayment(transactionId);
+
+    if (_userType === "walk-in") {
+      await recordConfirmedWalkIn("admin", `txn:${transactionId}`);
+    }
   };
 
   const handleRejectOnlinePayment = async (transactionId: string, _userId: string, _userType: UserType, reason: string) => {
