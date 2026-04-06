@@ -153,7 +153,11 @@ export function getAllTransactions(): PaymentTransaction[] {
 
 export function isTransactionPending(transactionId: string): boolean {
   const transaction = getStoredTransaction(transactionId);
-  return transaction?.status === "awaiting-confirmation" || false;
+  return (
+    transaction?.status === "awaiting-confirmation" ||
+    transaction?.status === "awaiting-verification" ||
+    false
+  );
 }
 
 export function clearAllTransactions(): void {
