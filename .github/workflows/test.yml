@@ -20,12 +20,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Start server
-        run: npm run start &
-
-      - name: Wait for server
-        run: npx wait-on http://localhost:4000/api/health
-
       - name: Run API Tests
         run: npm test -- --runInBand tests
         env:
