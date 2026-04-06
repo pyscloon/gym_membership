@@ -27,6 +27,7 @@ import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
 import PaymentConfirmation from "./PaymentConfirmation";
 import PaymentModal from "./PaymentModal";
+import activeIconGif from "../assets/Active icon.gif";
 import { MEMBERSHIP_PRICES } from "../types/payment";
 import { generateTransactionId, saveTransaction } from "../lib/paymentSimulator";
 
@@ -711,7 +712,15 @@ export default function MembershipDashboard() {
             </div>
 
             <div className="inline-flex items-center gap-2 self-start rounded-full border border-flexBlue/35 bg-white px-4 py-2 text-sm font-semibold text-flexNavy shadow-sm">
-              <span className={`h-2.5 w-2.5 rounded-full ${sessionStage === "checked-in" ? "animate-pulse [animation-duration:1s] bg-flexBlue" : "bg-slate-300"}`} />
+              {sessionStage === "checked-in" ? (
+                <img
+                  src={activeIconGif}
+                  alt="Active"
+                  className="h-4 w-4 rounded-sm object-contain"
+                />
+              ) : (
+                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
+              )}
               {sessionStage === "checked-in" ? "Active Session" : "No Active Session"}
             </div>
           </div>
