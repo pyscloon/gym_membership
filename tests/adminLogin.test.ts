@@ -37,7 +37,7 @@ describe("Admin Login API Integration Tests", () => {
   beforeAll(async () => {
     serverProcess = spawn(process.execPath, ["server/index.js"], {
       cwd: process.cwd(),
-      env: { ...process.env, PORT: String(port), ADMIN_EMAIL: adminEmail },
+      env: { ...process.env, PORT: String(port), VITE_ADMIN_EMAIL: adminEmail },
       stdio: "ignore",
     });
 

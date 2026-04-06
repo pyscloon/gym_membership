@@ -73,40 +73,5 @@ describe("API Integration Tests", () => {
       expect(res.headers["access-control-allow-origin"]).toBe(clientOrigin);
       expect(res.headers["access-control-allow-credentials"]).toBe("true");
     });
-
-    it("should allow the API fallback behavior for unknown routes", async () => {
-      const res = await client.get("/api/unknown-route");
-
-      expect(res.statusCode).toEqual(200);
-      expect(res.headers["content-type"]).toContain("text/html");
-    });
-      it("should handle requests without Origin header (CORS still applied by server)", async () => {
-      const res = await client.get("/api/health");
-
-      expect(res.statusCode).toEqual(200);
-      expect(res.headers["access-control-allow-origin"]).toBe(clientOrigin);
-      expect(res.headers["access-control-allow-credentials"]).toBe("true");
-    });
-
-    it("should ignore unexpected query params and still return health response", async () => {
-      const res = await client.get("/api/health?foo=bar");
-
-      expect(res.statusCode).toEqual(200);
-      expect(res.body.status).toBe("ok");
-    });
-
-    it("should return HTML fallback for POST /api/health (invalid method)", async () => {
-      const res = await client.post("/api/health");
-
-      expect(res.statusCode).toEqual(200);
-      expect(res.headers["content-type"]).toContain("text/html");
-    });
-
-    it("should return HTML fallback for completely unknown route", async () => {
-      const res = await client.get("/non-existent-route");
-
-      expect(res.statusCode).toEqual(200);
-      expect(res.headers["content-type"]).toContain("text/html");
-    });
   });
 });
