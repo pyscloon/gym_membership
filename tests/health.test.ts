@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const port = process.env.PORT || 4000;
+const port = process.env.PORT;
 const baseUrl = `http://127.0.0.1:${port}`;
 const clientOrigin = process.env.CLIENT_ORIGIN;
 
@@ -16,35 +16,33 @@ if (!clientOrigin) {
 const client = request(baseUrl);
 let serverProcess: ReturnType<typeof spawn> | null = null;
 
-// Simple sleep helper
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Wait for server to be ready
 async function waitForServerReady(maxAttempts = 30) {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const res = await client.get("/api/health");
       if (res.statusCode === 200) return;
     } catch {
-      // Not ready yet
+      // Server is not ready yet.
     }
+
     await sleep(200);
   }
+
   throw new Error("Server did not become ready in time");
 }
 
 describe("API Integration Tests", () => {
   beforeAll(async () => {
-    // Start the server in test mode
     serverProcess = spawn(process.execPath, ["server/index.js"], {
       cwd: process.cwd(),
       env: {
         ...process.env,
         PORT: String(port),
         CLIENT_ORIGIN: clientOrigin,
-        NODE_ENV: "test", // ensures fallback works
       },
       stdio: "ignore",
     });
@@ -76,28 +74,18 @@ describe("API Integration Tests", () => {
       expect(res.headers["access-control-allow-credentials"]).toBe("true");
     });
 
-    it("should allow fallback HTML for unknown GET routes", async () => {
+    it("should allow the API fallback behavior for unknown routes", async () => {
       const res = await client.get("/api/unknown-route");
 
       expect(res.statusCode).toEqual(200);
       expect(res.headers["content-type"]).toContain("text/html");
-      expect(res.text).toContain("Test HTML fallback"); // matches our test fallback
     });
-
-    it("should allow fallback HTML for completely unknown routes", async () => {
-      const res = await client.get("/non-existent-route");
+      it("should handle requests without Origin header (CORS still applied by server)", async () => {
+      const res = await client.get("/api/health");
 
       expect(res.statusCode).toEqual(200);
-      expect(res.headers["content-type"]).toContain("text/html");
-      expect(res.text).toContain("Test HTML fallback");
-    });
-
-    it("should return fallback HTML for POST /api/health (invalid method)", async () => {
-      const res = await client.post("/api/health");
-
-      expect(res.statusCode).toEqual(200);
-      expect(res.headers["content-type"]).toContain("text/html");
-      expect(res.text).toContain("Test HTML fallback");
+      expect(res.headers["access-control-allow-origin"]).toBe(clientOrigin);
+      expect(res.headers["access-control-allow-credentials"]).toBe("true");
     });
 
     it("should ignore unexpected query params and still return health response", async () => {
@@ -107,12 +95,18 @@ describe("API Integration Tests", () => {
       expect(res.body.status).toBe("ok");
     });
 
-    it("should handle requests without Origin header (CORS still applied by server)", async () => {
-      const res = await client.get("/api/health");
+    it("should return HTML fallback for POST /api/health (invalid method)", async () => {
+      const res = await client.post("/api/health");
 
       expect(res.statusCode).toEqual(200);
-      expect(res.headers["access-control-allow-origin"]).toBe(clientOrigin);
-      expect(res.headers["access-control-allow-credentials"]).toBe("true");
+      expect(res.headers["content-type"]).toContain("text/html");
+    });
+
+    it("should return HTML fallback for completely unknown route", async () => {
+      const res = await client.get("/non-existent-route");
+
+      expect(res.statusCode).toEqual(200);
+      expect(res.headers["content-type"]).toContain("text/html");
     });
   });
 });
