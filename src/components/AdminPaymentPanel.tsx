@@ -4,7 +4,18 @@
 
 import { useEffect, useState } from "react";
 import type { PendingPayment, UserType } from "../types/payment";
-import { getAllTransactions } from "../lib/paymentSimulator";
+import { supabase } from "../lib/supabaseClient";
+
+type TransactionRow = {
+  id: string;
+  user_id: string;
+  user_type: string;
+  amount: number;
+  method: string;
+  status: string;
+  proof_of_payment_url: string | null;
+  created_at: string;
+};
 
 interface AdminPaymentPanelProps {
   onConfirmPayment: (transactionId: string, userId: string, userType: UserType) => Promise<void>;
@@ -26,26 +37,37 @@ export default function AdminPaymentPanel({
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<{ [key: string]: string }>({});
 
-  // Poll for pending payments every 2 seconds
+  // ✅ Now fetches from Supabase instead of localStorage
   useEffect(() => {
-    const updatePending = () => {
-      const transactions = getAllTransactions();
-      const pending = transactions
-        .filter((t) => (t.status === "awaiting-confirmation" || t.status === "awaiting-verification") && 
-                      (t.method === "cash" || t.method === "online"))
-        .map<PendingPayment>((t) => ({
-          transactionId: t.id,
-          userId: t.userId,
-          userType: t.userType,
-          amount: t.amount,
-          method: t.method,
-          requestedAt: t.createdAt,
-        }));
+    const fetchPending = async () => {
+      if (!supabase) return;
+
+      const { data, error } = await supabase
+        .from("transactions")
+        .select("*")
+        .in("status", ["awaiting-confirmation", "awaiting-verification"])
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to fetch pending payments:", error);
+        return;
+      }
+
+      const pending = (data as TransactionRow[]).map<PendingPayment>((t) => ({
+        transactionId: t.id,
+        userId: t.user_id,
+        userType: t.user_type as UserType,
+        amount: t.amount,
+        method: t.method as PendingPayment["method"],
+        requestedAt: t.created_at,
+        proofOfPaymentUrl: t.proof_of_payment_url ?? undefined,
+      }));
+
       setPendingPayments(pending);
     };
 
-    updatePending();
-    const interval = setInterval(updatePending, 2000);
+    fetchPending();
+    const interval = setInterval(fetchPending, 2000);
     return () => clearInterval(interval);
   }, [refreshTrigger]);
 
@@ -53,7 +75,6 @@ export default function AdminPaymentPanel({
     setConfirmingId(transactionId);
     try {
       await onConfirmPayment(transactionId, userId, userType);
-      // Trigger refresh after confirmation
       setTimeout(() => {
         setRefreshTrigger((prev) => prev + 1);
       }, 500);
@@ -157,9 +178,8 @@ export default function AdminPaymentPanel({
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto">
           {pendingPayments.map((payment) => {
-            const fullTransaction = getAllTransactions().find(t => t.id === payment.transactionId);
             const isOnline = payment.method === "online";
-            
+
             return (
               <div
                 key={payment.transactionId}
@@ -172,8 +192,8 @@ export default function AdminPaymentPanel({
                         {payment.userType} Membership
                       </p>
                       <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                        isOnline 
-                          ? "bg-purple-100 text-purple-700" 
+                        isOnline
+                          ? "bg-purple-100 text-purple-700"
                           : "bg-amber-100 text-amber-700"
                       }`}>
                         {isOnline ? "Online Transfer" : "Cash"}
@@ -205,12 +225,12 @@ export default function AdminPaymentPanel({
                 </p>
 
                 {/* Online Payment Photo Proof */}
-                {isOnline && fullTransaction?.proofOfPaymentUrl && (
+                {isOnline && payment.proofOfPaymentUrl && (
                   <div className="mb-4">
                     {selectedPhotoId === payment.transactionId ? (
                       <div className="rounded-lg bg-gray-50 p-3 mb-3">
                         <img
-                          src={fullTransaction.proofOfPaymentUrl}
+                          src={payment.proofOfPaymentUrl}
                           alt="Payment proof"
                           className="w-full max-h-72 object-contain rounded-lg mb-3"
                         />
@@ -244,7 +264,7 @@ export default function AdminPaymentPanel({
                       value={rejectionReason[payment.transactionId] || ""}
                       onChange={(e) => setRejectionReason({
                         ...rejectionReason,
-                        [payment.transactionId]: e.target.value
+                        [payment.transactionId]: e.target.value,
                       })}
                       className="w-full text-xs px-2 py-1.5 rounded border border-flexNavy/20 focus:border-flexBlue focus:outline-none"
                     />
@@ -328,7 +348,7 @@ export default function AdminPaymentPanel({
       {/* Footer Info */}
       <div className="mt-6 rounded-lg bg-blue-50 p-4 border border-blue-200 text-sm text-blue-800">
         <p className="text-xs">
-          This panel automatically refreshes every 2 seconds to show new payment requests. 
+          This panel automatically refreshes every 2 seconds to show new payment requests.
         </p>
       </div>
     </div>

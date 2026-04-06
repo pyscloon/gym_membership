@@ -95,13 +95,11 @@ export function usePayment(userId: string) {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  /** Re-fetch all transactions from Supabase and sync state. */
   const refreshTransactions = useCallback(async () => {
     if (!supabase) return;
 
     const query = supabase.from("transactions").select("*").order("created_at", { ascending: false });
 
-    // Admins see everything; regular users only see their own rows.
     if (userId !== "admin") {
       query.eq("user_id", userId);
     }
@@ -115,7 +113,6 @@ export function usePayment(userId: string) {
     const transactions = (data as TransactionRow[]).map(rowToTransaction);
     dispatch({ type: "SET_TRANSACTIONS", transactions });
 
-    // Derive pending payments from the fresh data
     const pending: PendingPayment[] = transactions
       .filter(
         (t) =>
@@ -133,7 +130,6 @@ export function usePayment(userId: string) {
     dispatch({ type: "SET_PENDING_PAYMENTS", payments: pending });
   }, [userId]);
 
-  /** Fetch a single transaction row by id. */
   const fetchTransaction = useCallback(
     async (transactionId: string): Promise<PaymentTransaction | null> => {
       if (!supabase) return null;
@@ -152,89 +148,90 @@ export function usePayment(userId: string) {
     []
   );
 
-  // ── On mount: load transactions ───────────────────────────────────────────
-
   useEffect(() => {
     refreshTransactions();
   }, [refreshTransactions]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
-const initializePayment = useCallback(
-  async (
-    paramUserId: string,
-    userType: UserType,
-    amount: number,
-    method: PaymentMethod,
-    proofOfPayment?: string  // base64 string coming in
-  ) => {
-    if (!supabase) return;
-    try {
-      dispatch({ type: "SET_STATUS", status: "processing" });
+  const initializePayment = useCallback(
+    async (
+      paramUserId: string,
+      userType: UserType,
+      amount: number,
+      method: PaymentMethod,
+      proofOfPayment?: string
+    ): Promise<PaymentTransaction | null> => {
+      if (!supabase) return null;
+      try {
+        dispatch({ type: "SET_STATUS", status: "processing" });
 
-      // Upload proof image to Storage if provided
-      let proofUrl: string | null = null;
-      if (proofOfPayment && method === "online") {
-        const base64Data = proofOfPayment.split(",")[1]; // strip data:image/...;base64,
-        const mimeMatch = proofOfPayment.match(/data:(.*?);base64/);
-        const mimeType = mimeMatch?.[1] ?? "image/jpeg";
-        const extension = mimeType.split("/")[1] ?? "jpg";
-        const fileName = `proof_${paramUserId}_${Date.now()}.${extension}`;
+        // Upload proof image to Storage if provided
+        let proofUrl: string | null = null;
+        if (proofOfPayment && method === "online") {
+          const base64Data = proofOfPayment.split(",")[1];
+          const mimeMatch = proofOfPayment.match(/data:(.*?);base64/);
+          const mimeType = mimeMatch?.[1] ?? "image/jpeg";
+          const extension = mimeType.split("/")[1] ?? "jpg";
+          const fileName = `proof_${paramUserId}_${Date.now()}.${extension}`;
 
-        const byteCharacters = atob(base64Data);
-        const byteArray = new Uint8Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteArray[i] = byteCharacters.charCodeAt(i);
-        }
-        const blob = new Blob([byteArray], { type: mimeType });
+          const byteCharacters = atob(base64Data);
+          const byteArray = new Uint8Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteArray[i] = byteCharacters.charCodeAt(i);
+          }
+          const blob = new Blob([byteArray], { type: mimeType });
 
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("payment-proofs") // create this bucket in Supabase
-          .upload(fileName, blob, { contentType: mimeType, upsert: false });
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from("payment-proofs")
+            .upload(fileName, blob, { contentType: mimeType, upsert: false });
 
-        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+          if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
-        const { data: urlData } = supabase.storage
-          .from("payment-proofs")
-          .getPublicUrl(uploadData.path);
-        proofUrl = urlData.publicUrl;
+          const { data: urlData } = supabase.storage
+            .from("payment-proofs")
+            .getPublicUrl(uploadData.path);
+          proofUrl = urlData.publicUrl;
+        } // ✅ if block ends here — insert happens for ALL methods below
+
+        const initialStatus =
+          method === "cash"
+            ? "awaiting-confirmation"
+            : method === "online"
+            ? "awaiting-verification"
+            : "paid";
+
+        const { data, error } = await supabase
+          .from("transactions")
+          .insert({
+            user_id: paramUserId,
+            user_type: userType,
+            amount,
+            method,
+            status: initialStatus,
+            proof_of_payment_url: proofUrl,
+            payment_proof_status: proofUrl ? "pending" : null,
+          })
+          .select()
+          .single();
+
+        if (error || !data) throw new Error(error?.message ?? "Insert failed");
+
+        const transaction = rowToTransaction(data as TransactionRow);
+        dispatch({ type: "SET_TRANSACTION", transaction });
+        dispatch({ type: "SET_STATUS", status: transaction.status });
+
+        await refreshTransactions();
+
+        return transaction; // ✅ always returns transaction on success
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : "Payment failed";
+        dispatch({ type: "SET_ERROR", error: errorMsg });
+        return null; // ✅ returns null on failure
       }
-
-      const initialStatus =
-        method === "cash"
-          ? "awaiting-confirmation"
-          : method === "online"
-          ? "awaiting-verification"
-          : "paid";
-
-      const { data, error } = await supabase
-        .from("transactions")
-        .insert({
-          user_id: paramUserId,
-          user_type: userType,
-          amount,
-          method,
-          status: initialStatus,
-          proof_of_payment_url: proofUrl,
-          payment_proof_status: proofUrl ? "pending" : null,
-        })
-        .select()
-        .single();
-
-      if (error || !data) throw new Error(error?.message ?? "Insert failed");
-
-      const transaction = rowToTransaction(data as TransactionRow);
-      dispatch({ type: "SET_TRANSACTION", transaction });
-      dispatch({ type: "SET_STATUS", status: transaction.status });
-
-      await refreshTransactions();
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Payment failed";
-      dispatch({ type: "SET_ERROR", error: errorMsg });
-    }
-  },
-  [refreshTransactions]
-);
+    },
+    [refreshTransactions]
+  );
 
   const confirmPayment = useCallback(
     async (transactionId: string) => {
@@ -375,7 +372,6 @@ const initializePayment = useCallback(
     return state.pendingPayments;
   }, [state.pendingPayments]);
 
-  /** Returns all loaded transactions from state (already filtered by userId on fetch). */
   const getTransactionHistory = useCallback(() => {
     return state.transactions;
   }, [state.transactions]);
@@ -394,7 +390,7 @@ const initializePayment = useCallback(
     rejectOnlinePaymentProof,
     getPendingPayments,
     getTransactionHistory,
-    fetchTransaction, 
+    fetchTransaction,
     refreshTransactions,
     clearError,
   };
