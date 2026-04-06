@@ -321,9 +321,4 @@ if (isDirectRun) {
   });
 }
 
-if (process.env.NODE_ENV === "test") {
-  app.all("*", (_req, res) => {
-    res.status(200).send("<html><body>Test HTML fallback</body></html>");
-  });
-}
-export default app;
+export default app

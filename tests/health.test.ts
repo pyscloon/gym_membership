@@ -44,7 +44,7 @@ describe("API Integration Tests", () => {
         ...process.env,
         PORT: String(port),
         CLIENT_ORIGIN: clientOrigin,
-        NODE_ENV: "test",
+        NODE_ENV: "test", // ensures fallback works
       },
       stdio: "ignore",
     });
