@@ -14,7 +14,7 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
-const port = process.env.PORT;
+const port = process.env.PORT || "4003";
 const baseUrl = `http://127.0.0.1:${port}`;
 const supabaseUrl = process.env.VITE_SUPABASE_URL!;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY!;

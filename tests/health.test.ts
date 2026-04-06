@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const port = process.env.PORT;
+const port = process.env.PORT || "4001";
 const baseUrl = `http://127.0.0.1:${port}`;
 const clientOrigin = process.env.CLIENT_ORIGIN;
 

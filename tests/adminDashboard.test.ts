@@ -5,7 +5,7 @@ import * as dotenv from "dotenv";
 
 dotenv.config();
 
-const port = process.env.PORT;
+const port = process.env.PORT  || "4003";
 const baseUrl = `http://127.0.0.1:${port}`;
 const adminEmail = process.env.VITE_ADMIN_EMAIL;
 

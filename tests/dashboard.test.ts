@@ -18,7 +18,7 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
-const port          = process.env.PORT;
+const port          = process.env.PORT || "4002";
 const baseUrl       = `http://127.0.0.1:${port}`;
 const clientOrigin  = process.env.CLIENT_ORIGIN!;
 const supabaseUrl   = process.env.VITE_SUPABASE_URL!;
