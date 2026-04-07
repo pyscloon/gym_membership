@@ -753,37 +753,21 @@ export default function MembershipDashboard() {
 
             {!showQR && (
               <div className="mt-4">
-                {sessionStage === "idle" && (
+                {sessionStage === "checked-in" ? (
                   <button
                     type="button"
-                    onClick={() => setSessionStage("ready")}
-                    className="w-full rounded-xl border border-flexBlue/35 bg-gradient-to-r from-[#1a5fb8] to-flexBlue px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(28,102,191,0.38)]"
-                  >
-                    Log In Session
-                  </button>
-                )}
-
-                {sessionStage === "ready" && (
-                  <button
-                    type="button"
-                    onClick={handleGenerateCheckIn}
-                    className="w-full rounded-xl border border-flexBlue/35 bg-gradient-to-r from-flexBlue to-[#1c8ee6] px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 hover:from-[#1c8ee6] hover:to-flexBlue"
-                  >
-                    Generate Check-In QR
-                  </button>
-                )}
-
-                {sessionStage === "checked-in" && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSessionStage("ready");
-                      setShowQR(false);
-                      addToast("Session logged out. You can check in again.", "success");
-                    }}
+                    onClick={() => {handleGenerateCheckOut}}
                     className="w-full rounded-xl border border-red-200 bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:from-red-500 hover:to-red-600"
                   >
                     Log Out Session
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleGenerateCheckIn}
+                    className="w-full rounded-xl border border-flexBlue/35 bg-gradient-to-r from-[#1a5fb8] to-flexBlue px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(28,102,191,0.38)]"
+                  >
+                    Log In Session
                   </button>
                 )}
               </div>
@@ -1061,23 +1045,23 @@ export default function MembershipDashboard() {
             {attendanceSessionContext?.canPerformAction("checkIn") && (
               <button
                 onClick={handleGenerateCheckIn}
-                className="w-full rounded-xl bg-flexBlue px-4 py-3 font-semibold text-white transition hover:bg-flexNavy flex items-center justify-center gap-2"
+                className="w-full rounded-xl border border-flexBlue/35 bg-gradient-to-r from-[#1a5fb8] to-flexBlue px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(28,102,191,0.38)] flex items-center justify-center gap-2"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
-                Generate Check-In QR
+                Log In Session
               </button>
             )}
             {attendanceSessionContext?.canPerformAction("checkOut") && (
               <button
                 onClick={handleGenerateCheckOut}
-                className="w-full rounded-xl bg-flexNavy px-4 py-3 font-semibold text-white transition hover:bg-red-600 flex items-center justify-center gap-2"
+                className="w-full rounded-xl border border-red-200 bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:from-red-500 hover:to-red-600 flex items-center justify-center gap-2"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" />
                 </svg>
-                Generate Check-Out QR
+                Log Out Session
               </button>
             )}
           </div>
