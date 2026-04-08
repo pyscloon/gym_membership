@@ -186,13 +186,22 @@ export default function MembershipDashboard() {
   const handleCloseQR = () => {
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
+    if (sessionStage === "checked-in") {
+      setAttendanceSessionContext(new AttendanceSessionContext("regular"));
+      setSessionStage("idle");
+      setStateUpdateTrigger((prev) => prev + 1);
+      addToast("Checked out successfully! See you next time!", "success");
+    } else {
+      
       attendanceSessionContext?.checkIn();
       setSessionStage("checked-in");
       setStateUpdateTrigger((prev) => prev + 1);
       setShowCheckInConfirmation(true);
       addToast("Check-in approved. Session is active.", "success");
-      return;
     }
+    return;
+  }
+
 
     setShowQR(false);
     const currentState = attendanceSessionContext?.getStateName();
