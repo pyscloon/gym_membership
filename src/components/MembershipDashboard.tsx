@@ -50,7 +50,7 @@ export default function MembershipDashboard() {
   const location = useLocation();
   const { user } = useAuth();
   const { session: walkInSession, startSession: startWalkIn, clearSession: clearWalkIn } = useWalkIn();
-  const paymentHook = usePayment(user?.id || "");
+  const paymentHook = usePayment(user?.id);
   const [membership, setMembership] = useState<Membership | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);

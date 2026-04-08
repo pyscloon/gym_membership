@@ -12,6 +12,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AdminLoginPage from "./pages/AdminLogin.tsx";
 import AdminDashboardPage from "./pages/AdminDashboard.tsx";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
+import TransactionHistory from "./pages/TransactionHistory.tsx";
 
 export default function AppRoutes() {
   return (
@@ -52,6 +53,7 @@ export default function AppRoutes() {
             </ProtectedRoute>
           }
         />
+        <Route path="/transaction-history" element={<TransactionHistory />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>

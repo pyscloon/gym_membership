@@ -4,46 +4,21 @@ import Header from "../components/Header";
 import { supabase } from "../lib/supabaseClient";
 import {
   calculateMembershipStatus,
-  formatDate,
   getFullName,
   splitFullName,
   type ProfileFormState,
   validateProfileForm,
 } from "../lib/profileUtils";
+import { type MemberTransaction } from "../components/MemberTransactionHistory";
+import TransactionHistoryButton from "../components/TransactionHistoryBtn";
 
 type Transaction = {
   id: number;
-  date: string;
-  membership_type: string;
+  created_at: string;
+  user_type: string;
   amount: number;
   currency: string;
   status: "Success" | "Pending" | "Failed";
-};
-
-const membershipColor: Record<string, string> = {
-  "Day Pass": "bg-gray-100 text-gray-600 border-gray-200",
-  "1 Month": "bg-blue-50 text-blue-600 border-blue-200",
-  "3 Months": "bg-indigo-50 text-indigo-600 border-indigo-200",
-  "6 Months": "bg-violet-50 text-violet-600 border-violet-200",
-  "1 Year": "bg-amber-50 text-amber-600 border-amber-200",
-};
-
-const transactionStatusColor: Record<string, string> = {
-  Success: "bg-green-50 text-green-700 border-green-200",
-  Pending: "bg-amber-50 text-amber-700 border-amber-200",
-  Failed: "bg-red-50 text-red-700 border-red-200",
-};
-
-const transactionStatusIconColor: Record<string, string> = {
-  Success: "text-green-600",
-  Pending: "text-amber-600",
-  Failed: "text-red-600",
-};
-
-const transactionStatusIconPath: Record<string, string> = {
-  Success: "M5 13l4 4L19 7",
-  Pending: "M12 6v6l4 2",
-  Failed: "M6 18L18 6M6 6l12 12",
 };
 
 const initialProfile: ProfileFormState = {
@@ -134,7 +109,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<ProfileFormState>(initialProfile);
   const [form, setForm] = useState<ProfileFormState>(initialProfile);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<MemberTransaction[]>([]);
 
   useEffect(() => {
     const fetchProfileAndTransactions = async () => {
@@ -153,7 +128,7 @@ export default function Profile() {
       const [profileRes, membershipRes, transactionRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
         supabase.from("memberships").select("*").eq("user_id", user.id).single(),
-        supabase.from("transactions").select("*").eq("user_id", user.id).order("date", { ascending: false })
+        supabase.from("transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false })
       ]);
 
       if (profileRes.error) {
@@ -162,7 +137,20 @@ export default function Profile() {
       }
 
       if (transactionRes.data) {
-        setTransactions(transactionRes.data);
+      const mappedTransactions: MemberTransaction[] =
+        transactionRes.data.map((txn: Transaction) => ({
+          id: txn.id.toString(),
+          date: txn.created_at,
+          user_type: txn.user_type
+            ? txn.user_type.toLowerCase().replace("_", "-")
+            : "unknown",
+          amount: txn.amount,
+          currency: txn.currency,
+          status: txn.status.toLowerCase(),
+        }));
+
+      console.log("mapped user_types:", mappedTransactions.map(t => t.user_type)); // 👈 add this
+      setTransactions(mappedTransactions);
       }
 
       const nextProfile = buildEditableProfile(user, profileRes.data, membershipRes.data);
@@ -190,7 +178,7 @@ export default function Profile() {
   const handleSave = async () => {
     if (!supabase || saving) return;
     setSaving(true);
-    
+
     const errors = validateProfileForm(form);
     if (Object.keys(errors).length > 0) {
       setSaving(false);
@@ -235,7 +223,7 @@ export default function Profile() {
     <div className="min-h-screen w-full bg-gradient-to-br from-[#f7fbff] via-[#f0f7ff] to-[#e3f2fd]">
       <Header />
       <main className="relative mx-auto w-full max-w-7xl px-6 py-10 sm:px-10 lg:px-14">
-        
+
         {/* Styled Header Section */}
         <section className="mb-8 overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-r from-[#021738] via-[#0b2f63] to-[#0f4e8c] px-8 py-10 text-white shadow-[0_30px_65px_rgba(4,23,56,0.35)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -249,8 +237,8 @@ export default function Profile() {
 
             {/* Neon Status Pill */}
             <div className={`order-1 sm:order-2 inline-flex items-center gap-2.5 self-start rounded-full border px-4 py-2 text-xs font-bold tracking-tight transition-all sm:self-center ${
-              membershipStatus.isActive 
-              ? "border-[#b6f7c0]/30 bg-[#07152f]/40 shadow-[0_0_20px_rgba(57,255,20,0.15)] backdrop-blur-md" 
+              membershipStatus.isActive
+              ? "border-[#b6f7c0]/30 bg-[#07152f]/40 shadow-[0_0_20px_rgba(57,255,20,0.15)] backdrop-blur-md"
               : "bg-red-50 text-red-600 border-red-100"
             }`}>
               {membershipStatus.isActive && (
@@ -269,7 +257,7 @@ export default function Profile() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               )}
-              <span 
+              <span
                 className="whitespace-nowrap uppercase"
                 style={membershipStatus.isActive ? { color: "#39FF14" } : {}}
               >
@@ -304,11 +292,12 @@ export default function Profile() {
                     Edit Profile
                   </button>
                 )}
+                <TransactionHistoryButton transactions={transactions} />
                 <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 transition-all hover:bg-red-100">
-                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                   </svg>
-                   Logout
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Logout
                 </button>
               </div>
             </div>
@@ -335,87 +324,9 @@ export default function Profile() {
                 <button onClick={handleSave} disabled={saving} className="flex-1 bg-flexBlue text-white py-3 rounded-xl font-bold hover:opacity-90 disabled:opacity-50 transition-opacity">
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
-                <button onClick={handleCancel} className="px-8 py-3 border border-flexNavy/20 rounded-xl font-semibold transition-colors hover:bg-gray-50" >Cancel</button>
+                <button onClick={handleCancel} className="px-8 py-3 border border-flexNavy/20 rounded-xl font-semibold transition-colors hover:bg-gray-50">Cancel</button>
               </div>
             )}
-          </section>
-
-          {/* Transaction History Section */}
-          <section className="mt-12 rounded-[1.75rem] border border-flexNavy/10 bg-white/90 p-4 shadow-md sm:p-6">
-            <div className="mb-5 flex items-center justify-between gap-3 border-b border-flexNavy/5 pb-4">
-              <div>
-                <h3 className="text-xl font-bold text-flexBlack">Transaction History</h3>
-                <p className="text-sm text-flexNavy/60">Recent membership payments</p>
-              </div>
-              <span className="rounded-full bg-flexNavy/5 px-3 py-1 text-xs font-semibold text-flexNavy/60">{transactions.length} records</span>
-            </div>
-            
-            <div className="hidden overflow-x-auto rounded-xl border border-flexNavy/5 bg-white md:block">
-              <table className="w-full text-left">
-                <thead className="bg-[#f7fbff] text-xs font-bold uppercase text-flexNavy/40">
-                  <tr>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4">Membership Type</th>
-                    <th className="px-6 py-4">Amount</th>
-                    <th className="px-6 py-4 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-flexNavy/5">
-                  {transactions.length > 0 ? (
-                    transactions.map((txn) => (
-                      <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-medium text-flexBlack">{formatDate(txn.date)}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${membershipColor[txn.membership_type] || "bg-gray-50"}`}>
-                            {txn.membership_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold text-flexBlack">₱{txn.amount.toLocaleString()}</td>
-                        <td className="px-6 py-4 text-right">
-                          <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${transactionStatusColor[txn.status] || "bg-gray-50"}`}>
-                            <svg className={`h-3.5 w-3.5 ${transactionStatusIconColor[txn.status] || "text-flexNavy/40"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d={transactionStatusIconPath[txn.status]} />
-                            </svg>
-                            {txn.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td colSpan={4} className="px-6 py-10 text-center text-flexNavy/40">No transaction records found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="space-y-4 md:hidden">
-              {transactions.length > 0 ? (
-                transactions.map((txn) => (
-                  <div key={txn.id} className="space-y-3 rounded-2xl border border-flexNavy/10 bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-flexBlack">{formatDate(txn.date)}</p>
-                      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${transactionStatusColor[txn.status] || "bg-gray-50"}`}>
-                        <svg className={`h-3.5 w-3.5 ${transactionStatusIconColor[txn.status] || "text-flexNavy/40"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d={transactionStatusIconPath[txn.status]} />
-                        </svg>
-                        {txn.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-flexNavy/5 pt-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${membershipColor[txn.membership_type] || "bg-gray-50"}`}>
-                        {txn.membership_type}
-                      </span>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-flexBlack">₱{txn.amount.toLocaleString()}</p>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-flexNavy/45">{txn.currency}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-10 text-center rounded-xl border border-flexNavy/5 bg-white text-flexNavy/40">No transaction records found.</div>
-              )}
-            </div>
           </section>
         </div>
       </main>

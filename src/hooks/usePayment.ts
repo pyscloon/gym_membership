@@ -90,18 +90,22 @@ function paymentReducer(
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
-export function usePayment(userId: string) {
+export function usePayment(userId?: string) {
   const [state, dispatch] = useReducer(paymentReducer, initialState);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   const refreshTransactions = useCallback(async () => {
     if (!supabase) return;
+    if (!userId || userId === "") return;
 
-    const query = supabase.from("transactions").select("*").order("created_at", { ascending: false });
+    let query = supabase
+      .from("transactions")
+      .select("*")
+      .order("created_at", { ascending: false });
 
     if (userId !== "admin") {
-      query.eq("user_id", userId);
+      query = query.eq("user_id", userId);
     }
 
     const { data, error } = await query;
@@ -129,7 +133,8 @@ export function usePayment(userId: string) {
       }));
     dispatch({ type: "SET_PENDING_PAYMENTS", payments: pending });
   }, [userId]);
-
+  console.log("Fetching transactions for userId:", userId);
+  
   const fetchTransaction = useCallback(
     async (transactionId: string): Promise<PaymentTransaction | null> => {
       if (!supabase) return null;
@@ -149,8 +154,9 @@ export function usePayment(userId: string) {
   );
 
   useEffect(() => {
+    if (!userId) return;
     refreshTransactions();
-  }, [refreshTransactions]);
+  }, [refreshTransactions, userId]);
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
