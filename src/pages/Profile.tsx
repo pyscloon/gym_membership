@@ -127,7 +127,7 @@ export default function Profile() {
       const [profileRes, membershipRes, transactionRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
         supabase.from("memberships").select("*").eq("user_id", user.id).single(),
-        supabase.from("transactions").select("*").eq("user_id", user.id).order("date", { ascending: false })
+        supabase.from("transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false })
       ]);
 
       if (profileRes.error) {
