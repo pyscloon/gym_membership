@@ -13,7 +13,7 @@ import MemberTransactionHistory, {type MemberTransaction } from "../components/M
 
 type Transaction = {
   id: number;
-  date: string;
+  created_at: string;
   membership_type: string;
   amount: number;
   currency: string;
@@ -139,7 +139,7 @@ export default function Profile() {
         const mappedTransactions: MemberTransaction[] =
           transactionRes.data.map((txn: Transaction) => ({
             id: txn.id.toString(),
-            date: txn.date,
+            date: txn.created_at,
             membership_type: txn.membership_type,
             amount: txn.amount,
             currency: txn.currency,

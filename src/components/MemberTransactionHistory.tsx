@@ -36,16 +36,23 @@ const transactionStatusIconPath: Record<string, string> = {
   failed: "M6 18L18 6M6 6l12 12",
 };
 
-const formatDate = (dateStr: string) =>
-  new Date(dateStr).toLocaleDateString("en-PH", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return "No date";
+  const isoStr = dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T"); 
+  const date = new Date(isoStr);
+  return isNaN(date.getTime())
+    ? "Invalid Date"
+    : date.toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+};
 
 export default function MemberTransactionHistory({
   transactions,
 }: MemberTransactionHistoryProps) {
+    console.log("Transaction dates:", transactions.map(t => t.date));
   return (
     <section className="mt-12 rounded-[1.75rem] border border-flexNavy/10 bg-white/90 p-4 shadow-md sm:p-6">
       <div className="mb-5 flex items-center justify-between gap-3 border-b border-flexNavy/5 pb-4">
