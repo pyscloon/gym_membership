@@ -186,7 +186,9 @@ export default function MembershipDashboard() {
   const handleCloseQR = () => {
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
+      attendanceSessionContext?.checkIn();
       setSessionStage("checked-in");
+      setStateUpdateTrigger((prev) => prev + 1);
       setShowCheckInConfirmation(true);
       addToast("Check-in approved. Session is active.", "success");
       return;
@@ -196,6 +198,9 @@ export default function MembershipDashboard() {
     const currentState = attendanceSessionContext?.getStateName();
     if (currentState === "checked-in") {
       attendanceSessionContext?.checkOut();
+      setAttendanceSessionContext(new AttendanceSessionContext("regular"));
+      setSessionStage("idle");
+      setStateUpdateTrigger((prev)=> prev + 1);
       addToast("Checked out successfully! See you next time!", "success");
     }
     setStateUpdateTrigger((prev) => prev + 1);
@@ -756,7 +761,7 @@ export default function MembershipDashboard() {
                 {sessionStage === "checked-in" ? (
                   <button
                     type="button"
-                    onClick={() => {handleGenerateCheckOut}}
+                    onClick={handleGenerateCheckOut}
                     className="w-full rounded-xl border border-red-200 bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:from-red-500 hover:to-red-600"
                   >
                     Log Out Session
