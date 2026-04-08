@@ -9,12 +9,13 @@ import {
   type ProfileFormState,
   validateProfileForm,
 } from "../lib/profileUtils";
-import MemberTransactionHistory, {type MemberTransaction } from "../components/MemberTransactionHistory";
+import { type MemberTransaction } from "../components/MemberTransactionHistory";
+import TransactionHistoryButton from "../components/TransactionHistoryBtn";
 
 type Transaction = {
   id: number;
   created_at: string;
-  membership_type: string;
+  user_type: string;
   amount: number;
   currency: string;
   status: "Success" | "Pending" | "Failed";
@@ -136,17 +137,20 @@ export default function Profile() {
       }
 
       if (transactionRes.data) {
-        const mappedTransactions: MemberTransaction[] =
-          transactionRes.data.map((txn: Transaction) => ({
-            id: txn.id.toString(),
-            date: txn.created_at,
-            membership_type: txn.membership_type,
-            amount: txn.amount,
-            currency: txn.currency,
-            status: txn.status.toLowerCase(), 
-          }));
+      const mappedTransactions: MemberTransaction[] =
+        transactionRes.data.map((txn: Transaction) => ({
+          id: txn.id.toString(),
+          date: txn.created_at,
+          user_type: txn.user_type
+            ? txn.user_type.toLowerCase().replace("_", "-")
+            : "unknown",
+          amount: txn.amount,
+          currency: txn.currency,
+          status: txn.status.toLowerCase(),
+        }));
 
-        setTransactions(mappedTransactions);
+      console.log("mapped user_types:", mappedTransactions.map(t => t.user_type)); // 👈 add this
+      setTransactions(mappedTransactions);
       }
 
       const nextProfile = buildEditableProfile(user, profileRes.data, membershipRes.data);
@@ -174,7 +178,7 @@ export default function Profile() {
   const handleSave = async () => {
     if (!supabase || saving) return;
     setSaving(true);
-    
+
     const errors = validateProfileForm(form);
     if (Object.keys(errors).length > 0) {
       setSaving(false);
@@ -219,7 +223,7 @@ export default function Profile() {
     <div className="min-h-screen w-full bg-gradient-to-br from-[#f7fbff] via-[#f0f7ff] to-[#e3f2fd]">
       <Header />
       <main className="relative mx-auto w-full max-w-7xl px-6 py-10 sm:px-10 lg:px-14">
-        
+
         {/* Styled Header Section */}
         <section className="mb-8 overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-r from-[#021738] via-[#0b2f63] to-[#0f4e8c] px-8 py-10 text-white shadow-[0_30px_65px_rgba(4,23,56,0.35)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -233,8 +237,8 @@ export default function Profile() {
 
             {/* Neon Status Pill */}
             <div className={`order-1 sm:order-2 inline-flex items-center gap-2.5 self-start rounded-full border px-4 py-2 text-xs font-bold tracking-tight transition-all sm:self-center ${
-              membershipStatus.isActive 
-              ? "border-[#b6f7c0]/30 bg-[#07152f]/40 shadow-[0_0_20px_rgba(57,255,20,0.15)] backdrop-blur-md" 
+              membershipStatus.isActive
+              ? "border-[#b6f7c0]/30 bg-[#07152f]/40 shadow-[0_0_20px_rgba(57,255,20,0.15)] backdrop-blur-md"
               : "bg-red-50 text-red-600 border-red-100"
             }`}>
               {membershipStatus.isActive && (
@@ -253,7 +257,7 @@ export default function Profile() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               )}
-              <span 
+              <span
                 className="whitespace-nowrap uppercase"
                 style={membershipStatus.isActive ? { color: "#39FF14" } : {}}
               >
@@ -288,11 +292,12 @@ export default function Profile() {
                     Edit Profile
                   </button>
                 )}
+                <TransactionHistoryButton transactions={transactions} />
                 <button onClick={handleLogout} className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-5 py-2.5 text-sm font-semibold text-red-600 transition-all hover:bg-red-100">
-                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                     <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                   </svg>
-                   Logout
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  Logout
                 </button>
               </div>
             </div>
@@ -319,11 +324,10 @@ export default function Profile() {
                 <button onClick={handleSave} disabled={saving} className="flex-1 bg-flexBlue text-white py-3 rounded-xl font-bold hover:opacity-90 disabled:opacity-50 transition-opacity">
                   {saving ? "Saving..." : "Save Changes"}
                 </button>
-                <button onClick={handleCancel} className="px-8 py-3 border border-flexNavy/20 rounded-xl font-semibold transition-colors hover:bg-gray-50" >Cancel</button>
+                <button onClick={handleCancel} className="px-8 py-3 border border-flexNavy/20 rounded-xl font-semibold transition-colors hover:bg-gray-50">Cancel</button>
               </div>
             )}
           </section>
-          <MemberTransactionHistory transactions={transactions} />
         </div>
       </main>
     </div>

@@ -1,7 +1,7 @@
 export type MemberTransaction = {
   id: string;
   date: string;
-  membership_type: string;
+  user_type: string;
   amount: number;
   currency: string;
   status: "completed" | "pending" | "failed" | string;
@@ -13,8 +13,8 @@ type MemberTransactionHistoryProps = {
 
 const membershipColor: Record<string, string> = {
   monthly: "bg-flexBlue/10 text-flexBlue border-flexBlue/20",
-  quarterly: "bg-purple-50 text-purple-600 border-purple-200",
-  annual: "bg-green-50 text-green-600 border-green-200",
+  yearly: "bg-green-50 text-green-600 border-green-200",
+  "semi-yearly": "bg-purple-50 text-purple-600 border-purple-200",
   "walk-in": "bg-flexNavy/10 text-flexNavy border-flexNavy/20",
 };
 
@@ -52,7 +52,6 @@ const formatDate = (dateStr?: string | null) => {
 export default function MemberTransactionHistory({
   transactions,
 }: MemberTransactionHistoryProps) {
-    console.log("Transaction dates:", transactions.map(t => t.date));
   return (
     <section className="mt-12 rounded-[1.75rem] border border-flexNavy/10 bg-white/90 p-4 shadow-md sm:p-6">
       <div className="mb-5 flex items-center justify-between gap-3 border-b border-flexNavy/5 pb-4">
@@ -84,13 +83,13 @@ export default function MemberTransactionHistory({
                     {formatDate(txn.date)}
                   </td>
                   <td className="px-6 py-4">
-                    <span
-                      className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                        membershipColor[txn.membership_type] ?? "bg-gray-50"
-                      }`}
-                    >
-                      {txn.membership_type}
-                    </span>
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                      membershipColor[txn.user_type] ?? "bg-gray-50"
+                    }`}
+                  >
+                    {txn.user_type}
+                  </span>
                   </td>
                   <td className="px-6 py-4 text-sm font-bold text-flexBlack">
                     ₱{txn.amount.toLocaleString()}
@@ -131,10 +130,10 @@ export default function MemberTransactionHistory({
               <div className="flex items-center justify-between gap-3 border-t border-flexNavy/5 pt-3">
                 <span
                   className={`rounded-full border px-3 py-1 text-xs font-bold ${
-                    membershipColor[txn.membership_type] ?? "bg-gray-50"
+                    membershipColor[txn.user_type] ?? "bg-gray-50"
                   }`}
                 >
-                  {txn.membership_type}
+                  {txn.user_type}
                 </span>
                 <div className="text-right">
                   <p className="text-sm font-bold text-flexBlack">
