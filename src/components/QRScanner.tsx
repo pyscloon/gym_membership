@@ -39,9 +39,6 @@ export default function QRScanner({
   const lastScannedRef = useRef<string>("");
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // -------------------------
-  // QR HANDLER
-  // -------------------------
   const handleQRCodeDetected = useCallback(
     async (decodedText: string) => {
       try {
@@ -108,9 +105,6 @@ export default function QRScanner({
     [user, onScanSuccess, onScanError]
   );
 
-  // -------------------------
-  // INIT SCANNER (ONCE)
-  // -------------------------
   useEffect(() => {
     if (!scannerRef.current) {
       scannerRef.current = new Html5Qrcode(containerId);
@@ -133,9 +127,6 @@ export default function QRScanner({
     };
   }, []);
 
-  // -------------------------
-  // START / STOP SCANNER
-  // -------------------------
   useEffect(() => {
     const startScanner = async () => {
       if (!scannerRef.current || !isScanning || !user) return;
@@ -149,7 +140,7 @@ export default function QRScanner({
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           handleQRCodeDetected,
-          () => {} // ✅ silent errors
+          () => {} 
         );
 
         isScannerRunningRef.current = true;
@@ -166,7 +157,7 @@ export default function QRScanner({
 
     const stopScanner = async () => {
       if (!scannerRef.current) return;
-      if (!isScannerRunningRef.current) return; // ✅ FIX
+      if (!isScannerRunningRef.current) return; 
 
       try {
         await scannerRef.current.stop();
@@ -184,9 +175,6 @@ export default function QRScanner({
     }
   }, [isScanning, user, handleQRCodeDetected]);
 
-  // -------------------------
-  // UI ACTIONS
-  // -------------------------
   const toggleScanning = () => {
     setIsScanning((prev) => !prev);
   };
@@ -196,9 +184,6 @@ export default function QRScanner({
     setLastScan(null);
   };
 
-  // -------------------------
-  // RENDER
-  // -------------------------
   return (
     <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6">
       <div className="flex items-center justify-between mb-6">

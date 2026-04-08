@@ -7,7 +7,7 @@ import { supabase } from "./supabaseClient";
 
 export interface QRData {
   id?: string;
-  type: "checkin" | "checkout" | "walkin";
+  type: "checkin" | "checkout" | "walk_in";
   tier?: string;
   timestamp?: string;
   date?: string;
@@ -43,7 +43,7 @@ export async function processQRCheckIn(
 
   try {
     // Handle walk-in access
-    if (qrData.type === "walkin") {
+    if (qrData.type === "walk_in") {
       return await handleWalkIn(qrData, adminId);
     }
 
@@ -89,7 +89,7 @@ export async function processQRCheckIn(
     }
 
     // Insert check-in/check-out record
-    const { data: checkIn, error: checkInError } = await supabase
+    const { data:  checkIn, error: checkInError } = await supabase
       .from("walk_ins")
       .insert({
         user_id: qrData.id,

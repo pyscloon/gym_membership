@@ -478,13 +478,19 @@ const handleAdminConfirmPayment = async (
               {recentCheckIns.map((checkIn) => (
                 <div key={checkIn.id} className="flex items-center justify-between p-3 rounded-lg bg-flexWhite/50 border border-flexNavy/10">
                   <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${checkIn.walk_in_type === "walk_in" ? "bg-green-500" : "bg-blue-500"}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${
+                      checkIn.walk_in_type === "checkin"
+                        ? "bg-blue-500"
+                        : checkIn.walk_in_type === "checkout"
+                          ? "bg-red-500"
+                          : "bg-green-500"
+                    }`}></div>
                     <div>
                       <p className="text-sm font-semibold text-flexBlack">
-                        {checkIn.walk_in_type === "walk_in"
-                          ? "Check-In"
+                        {checkIn.walk_in_type === "checkin"
+                          ? "Member"
                           : checkIn.walk_in_type === "checkout"
-                            ? "Check-Out"
+                            ? "Checked-Out"
                             : "Walk-In"}
                       </p>
                       <p className="text-xs text-flexNavy/60">
