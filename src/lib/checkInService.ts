@@ -53,13 +53,15 @@ export async function processQRCheckIn(
     }
 
     // Check if user exists and has active membership
-    const { data: userData, error: userError } = await supabase.auth.admin.getUserById(qrData.id);
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email")
+      .eq("id", qrData.id)
+      .single();
 
-    if (userError || !userData?.user) {
+    if (profileError || !profile) {
       return { success: false, message: "User not found", error: "User not found" };
     }
-
-    const user = userData.user;
 
     // Fetch user's membership info
     const { data: membership, error: membershipError } = await supabase
@@ -112,7 +114,7 @@ export async function processQRCheckIn(
 
     return {
       success: true,
-      message: `${qrData.type === "checkin" ? "Check-in" : "Check-out"} successful for ${(user.user_metadata?.full_name as string | undefined) || user.email || "user"}`,
+      message: `${qrData.type === "checkin" ? "Check-in" : "Check-out"} successful for ${profile.full_name || profile.email || "user"}`,
       data: {
         id: checkIn.id,
         user_id: checkIn.user_id,

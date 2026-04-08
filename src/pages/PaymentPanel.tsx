@@ -16,7 +16,7 @@ export default function PaymentPanel() {
 
       if (confirmed.userType === "walk-in") {
       const result = await recordConfirmedWalkIn(
-        "admin",                    // or pass real adminId if you have it
+        "admin",
         `txn:${transactionId}`
       );
       if (!result.success) {
