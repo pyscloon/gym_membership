@@ -4,12 +4,12 @@ import Header from "../components/Header";
 import { supabase } from "../lib/supabaseClient";
 import {
   calculateMembershipStatus,
-  formatDate,
   getFullName,
   splitFullName,
   type ProfileFormState,
   validateProfileForm,
 } from "../lib/profileUtils";
+import MemberTransactionHistory, {type MemberTransaction } from "../components/MemberTransactionHistory";
 
 type Transaction = {
   id: number;
@@ -18,32 +18,6 @@ type Transaction = {
   amount: number;
   currency: string;
   status: "Success" | "Pending" | "Failed";
-};
-
-const membershipColor: Record<string, string> = {
-  "Day Pass": "bg-gray-100 text-gray-600 border-gray-200",
-  "1 Month": "bg-blue-50 text-blue-600 border-blue-200",
-  "3 Months": "bg-indigo-50 text-indigo-600 border-indigo-200",
-  "6 Months": "bg-violet-50 text-violet-600 border-violet-200",
-  "1 Year": "bg-amber-50 text-amber-600 border-amber-200",
-};
-
-const transactionStatusColor: Record<string, string> = {
-  Success: "bg-green-50 text-green-700 border-green-200",
-  Pending: "bg-amber-50 text-amber-700 border-amber-200",
-  Failed: "bg-red-50 text-red-700 border-red-200",
-};
-
-const transactionStatusIconColor: Record<string, string> = {
-  Success: "text-green-600",
-  Pending: "text-amber-600",
-  Failed: "text-red-600",
-};
-
-const transactionStatusIconPath: Record<string, string> = {
-  Success: "M5 13l4 4L19 7",
-  Pending: "M12 6v6l4 2",
-  Failed: "M6 18L18 6M6 6l12 12",
 };
 
 const initialProfile: ProfileFormState = {
@@ -134,7 +108,7 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<ProfileFormState>(initialProfile);
   const [form, setForm] = useState<ProfileFormState>(initialProfile);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<MemberTransaction[]>([]);
 
   useEffect(() => {
     const fetchProfileAndTransactions = async () => {
@@ -162,7 +136,17 @@ export default function Profile() {
       }
 
       if (transactionRes.data) {
-        setTransactions(transactionRes.data);
+        const mappedTransactions: MemberTransaction[] =
+          transactionRes.data.map((txn: Transaction) => ({
+            id: txn.id.toString(),
+            date: txn.date,
+            membership_type: txn.membership_type,
+            amount: txn.amount,
+            currency: txn.currency,
+            status: txn.status.toLowerCase(), 
+          }));
+
+        setTransactions(mappedTransactions);
       }
 
       const nextProfile = buildEditableProfile(user, profileRes.data, membershipRes.data);
@@ -339,84 +323,7 @@ export default function Profile() {
               </div>
             )}
           </section>
-
-          {/* Transaction History Section */}
-          <section className="mt-12 rounded-[1.75rem] border border-flexNavy/10 bg-white/90 p-4 shadow-md sm:p-6">
-            <div className="mb-5 flex items-center justify-between gap-3 border-b border-flexNavy/5 pb-4">
-              <div>
-                <h3 className="text-xl font-bold text-flexBlack">Transaction History</h3>
-                <p className="text-sm text-flexNavy/60">Recent membership payments</p>
-              </div>
-              <span className="rounded-full bg-flexNavy/5 px-3 py-1 text-xs font-semibold text-flexNavy/60">{transactions.length} records</span>
-            </div>
-            
-            <div className="hidden overflow-x-auto rounded-xl border border-flexNavy/5 bg-white md:block">
-              <table className="w-full text-left">
-                <thead className="bg-[#f7fbff] text-xs font-bold uppercase text-flexNavy/40">
-                  <tr>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4">Membership Type</th>
-                    <th className="px-6 py-4">Amount</th>
-                    <th className="px-6 py-4 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-flexNavy/5">
-                  {transactions.length > 0 ? (
-                    transactions.map((txn) => (
-                      <tr key={txn.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-medium text-flexBlack">{formatDate(txn.date)}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${membershipColor[txn.membership_type] || "bg-gray-50"}`}>
-                            {txn.membership_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm font-bold text-flexBlack">₱{txn.amount.toLocaleString()}</td>
-                        <td className="px-6 py-4 text-right">
-                          <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${transactionStatusColor[txn.status] || "bg-gray-50"}`}>
-                            <svg className={`h-3.5 w-3.5 ${transactionStatusIconColor[txn.status] || "text-flexNavy/40"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                              <path strokeLinecap="round" strokeLinejoin="round" d={transactionStatusIconPath[txn.status]} />
-                            </svg>
-                            {txn.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr><td colSpan={4} className="px-6 py-10 text-center text-flexNavy/40">No transaction records found.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="space-y-4 md:hidden">
-              {transactions.length > 0 ? (
-                transactions.map((txn) => (
-                  <div key={txn.id} className="space-y-3 rounded-2xl border border-flexNavy/10 bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-flexBlack">{formatDate(txn.date)}</p>
-                      <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold border ${transactionStatusColor[txn.status] || "bg-gray-50"}`}>
-                        <svg className={`h-3.5 w-3.5 ${transactionStatusIconColor[txn.status] || "text-flexNavy/40"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
-                          <path strokeLinecap="round" strokeLinejoin="round" d={transactionStatusIconPath[txn.status]} />
-                        </svg>
-                        {txn.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between gap-3 border-t border-flexNavy/5 pt-3">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${membershipColor[txn.membership_type] || "bg-gray-50"}`}>
-                        {txn.membership_type}
-                      </span>
-                      <div className="text-right">
-                        <p className="text-sm font-bold text-flexBlack">₱{txn.amount.toLocaleString()}</p>
-                        <p className="text-[11px] font-semibold uppercase tracking-wide text-flexNavy/45">{txn.currency}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-10 text-center rounded-xl border border-flexNavy/5 bg-white text-flexNavy/40">No transaction records found.</div>
-              )}
-            </div>
-          </section>
+          <MemberTransactionHistory transactions={transactions} />
         </div>
       </main>
     </div>
