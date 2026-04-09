@@ -6,6 +6,7 @@
 import { useState, useRef } from "react";
 import type { UserType, PaymentMethod } from "../types/payment";
 import { MEMBERSHIP_PRICES, PAYMENT_METHOD_LABELS } from "../types/payment";
+import { PAYMENT_TIER_OPTIONS, resolveTierSelection } from "../lib/paymentTierSelection";
 
 // DECORATOR PATTERN — Price Calculation
 
@@ -106,6 +107,7 @@ const DISCOUNT_CONFIG: Record<
 interface PaymentModalProps {
   isOpen: boolean;
   selectedUserType: UserType;
+  onSelectUserType?: (userType: UserType) => void;
   onClose: () => void;
   onInitiatePayment: (
     method: PaymentMethod,
@@ -122,6 +124,7 @@ interface PaymentModalProps {
 export default function PaymentModal({
   isOpen,
   selectedUserType,
+  onSelectUserType,
   onClose,
   onInitiatePayment,
   isLoading,
@@ -272,6 +275,40 @@ export default function PaymentModal({
             <p className="mt-1">{error}</p>
           </div>
         )}
+
+        {/* ── Tier Selection ── */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-flexNavy mb-3">
+            Membership Tier
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {PAYMENT_TIER_OPTIONS.map((tier) => {
+              const isActive = selectedUserType === tier;
+              return (
+                <button
+                  key={tier}
+                  type="button"
+                  onClick={() => {
+                    const nextTier = resolveTierSelection(selectedUserType, tier);
+                    onSelectUserType?.(nextTier);
+                    onClearError();
+                  }}
+                  disabled={isLoading}
+                  className={`rounded-lg border-2 p-2.5 text-left transition ${
+                    isActive
+                      ? "border-flexBlue bg-flexBlue/10"
+                      : "border-flexNavy/15 hover:border-flexBlue/50"
+                  } disabled:opacity-60 disabled:cursor-not-allowed`}
+                  aria-pressed={isActive}
+                >
+                  <p className="text-xs font-semibold text-flexNavy capitalize">
+                    {tier.replace("-", " ")}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {/* ── Amount Display ── */}
         <div className="mb-6 rounded-lg bg-flexBlue/8 p-4 border border-flexBlue/25">

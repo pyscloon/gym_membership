@@ -635,6 +635,7 @@ export default function MembershipDashboard() {
       <PaymentModal
         isOpen={showPaymentModal}
         selectedUserType={selectedPlanTier}
+        onSelectUserType={setSelectedPlanTier}
         onClose={() => {
           setShowPaymentModal(false);
           setRenewalPaymentTier(null);
