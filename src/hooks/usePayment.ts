@@ -7,8 +7,7 @@ import type {
   PendingPayment,
 } from "../types/payment";
 import { supabase } from "../lib/supabaseClient";
-
-// ─── DB row → frontend type mapper ───────────────────────────────────────────
+import { usePaymentState } from "../design-patterns/useStatePatterns";
 
 type TransactionRow = {
   id: string;
@@ -34,47 +33,41 @@ function rowToTransaction(row: TransactionRow): PaymentTransaction {
     amount: row.amount,
     method: row.method as PaymentMethod,
     status: row.status as PaymentTransaction["status"],
-    proofOfPaymentUrl: row.proof_of_payment_url ?? undefined,
-    failureReason: row.failure_reason ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    confirmedAt: row.confirmed_at ?? undefined,
+    failureReason: row.failure_reason ?? undefined,
+    proofOfPaymentUrl: row.proof_of_payment_url ?? undefined,
+    paymentProofStatus: row.payment_proof_status as PaymentTransaction["paymentProofStatus"],
+    rejectionReason: row.rejection_reason ?? undefined,
   };
 }
 
-// ─── Reducer ──────────────────────────────────────────────────────────────────
-
-type ExtendedPaymentState = PaymentState & {
+type PaymentDataState = Omit<PaymentState, "status"> & {
   transactions: PaymentTransaction[];
 };
 
 type PaymentAction =
-  | { type: "SET_STATUS"; status: PaymentState["status"] }
-  | { type: "SET_TRANSACTION"; transaction: PaymentTransaction }
+  | { type: "SET_TRANSACTION"; transaction: PaymentTransaction | null }
   | { type: "SET_ERROR"; error: string }
   | { type: "CLEAR_ERROR" }
   | { type: "SET_PENDING_PAYMENTS"; payments: PendingPayment[] }
   | { type: "SET_TRANSACTIONS"; transactions: PaymentTransaction[] }
   | { type: "RESET" };
 
-const initialState: ExtendedPaymentState = {
-  status: "idle",
+const initialState: PaymentDataState = {
   currentTransaction: null,
   error: null,
   pendingPayments: [],
   transactions: [],
 };
 
-function paymentReducer(
-  state: ExtendedPaymentState,
-  action: PaymentAction
-): ExtendedPaymentState {
+function paymentReducer(state: PaymentDataState, action: PaymentAction): PaymentDataState {
   switch (action.type) {
-    case "SET_STATUS":
-      return { ...state, status: action.status };
     case "SET_TRANSACTION":
       return { ...state, currentTransaction: action.transaction };
     case "SET_ERROR":
-      return { ...state, error: action.error, status: "failed" };
+      return { ...state, error: action.error };
     case "CLEAR_ERROR":
       return { ...state, error: null };
     case "SET_PENDING_PAYMENTS":
@@ -88,21 +81,41 @@ function paymentReducer(
   }
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
-
 export function usePayment(userId?: string) {
   const [state, dispatch] = useReducer(paymentReducer, initialState);
+  const paymentLifecycle = usePaymentState();
 
-  // ── Helpers ──────────────────────────────────────────────────────────────
+  const commitTransaction = useCallback(
+    (transaction: PaymentTransaction) => {
+      dispatch({ type: "SET_TRANSACTION", transaction });
+      paymentLifecycle.hydrate(transaction.status, {
+        failureReason: transaction.failureReason,
+        rejectionReason: transaction.rejectionReason,
+      });
+    },
+    [paymentLifecycle]
+  );
+
+  const restoreLifecycle = useCallback(
+    (transaction: PaymentTransaction | null) => {
+      if (!transaction) {
+        paymentLifecycle.hydrate("idle");
+        return;
+      }
+
+      paymentLifecycle.hydrate(transaction.status, {
+        failureReason: transaction.failureReason,
+        rejectionReason: transaction.rejectionReason,
+      });
+    },
+    [paymentLifecycle]
+  );
 
   const refreshTransactions = useCallback(async () => {
     if (!supabase) return;
     if (!userId || userId === "") return;
 
-    let query = supabase
-      .from("transactions")
-      .select("*")
-      .order("created_at", { ascending: false });
+    let query = supabase.from("transactions").select("*").order("created_at", { ascending: false });
 
     if (userId !== "admin") {
       query = query.eq("user_id", userId);
@@ -119,45 +132,57 @@ export function usePayment(userId?: string) {
 
     const pending: PendingPayment[] = transactions
       .filter(
-        (t) =>
-          (t.status === "awaiting-confirmation" || t.status === "awaiting-verification") &&
-          (userId === "admin" || t.userId === userId)
+        (transaction) =>
+          (transaction.status === "awaiting-confirmation" ||
+            transaction.status === "awaiting-verification") &&
+          (userId === "admin" || transaction.userId === userId)
       )
-      .map((t) => ({
-        transactionId: t.id,
-        userId: t.userId,
-        userType: t.userType,
-        amount: t.amount,
-        method: t.method,
-        requestedAt: t.createdAt,
+      .map((transaction) => ({
+        transactionId: transaction.id,
+        userId: transaction.userId,
+        userType: transaction.userType,
+        amount: transaction.amount,
+        method: transaction.method,
+        requestedAt: transaction.createdAt,
+        proofOfPaymentUrl: transaction.proofOfPaymentUrl,
       }));
+
     dispatch({ type: "SET_PENDING_PAYMENTS", payments: pending });
   }, [userId]);
-  
-  const fetchTransaction = useCallback(
-    async (transactionId: string): Promise<PaymentTransaction | null> => {
-      if (!supabase) return null;
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("id", transactionId)
-        .single();
 
-      if (error || !data) {
-        console.error("Transaction not found:", error);
-        return null;
-      }
-      return rowToTransaction(data as TransactionRow);
-    },
-    []
-  );
+  const fetchTransaction = useCallback(async (transactionId: string): Promise<PaymentTransaction | null> => {
+    if (!supabase) return null;
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("id", transactionId)
+      .single();
+
+    if (error || !data) {
+      console.error("Transaction not found:", error);
+      return null;
+    }
+
+    return rowToTransaction(data as TransactionRow);
+  }, []);
 
   useEffect(() => {
     if (!userId) return;
     refreshTransactions();
   }, [refreshTransactions, userId]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
+  const hydrateTransactionState = useCallback(
+    async (transactionId: string) => {
+      const transaction = await fetchTransaction(transactionId);
+      if (!transaction) {
+        throw new Error("Transaction not found");
+      }
+
+      restoreLifecycle(transaction);
+      return transaction;
+    },
+    [fetchTransaction, restoreLifecycle]
+  );
 
   const initializePayment = useCallback(
     async (
@@ -168,10 +193,12 @@ export function usePayment(userId?: string) {
       proofOfPayment?: string
     ): Promise<PaymentTransaction | null> => {
       if (!supabase) return null;
-      try {
-        dispatch({ type: "SET_STATUS", status: "processing" });
 
-        // Upload proof image to Storage if provided
+      try {
+        dispatch({ type: "SET_TRANSACTION", transaction: null });
+        paymentLifecycle.hydrate("idle");
+        paymentLifecycle.initiate();
+
         let proofUrl: string | null = null;
         if (proofOfPayment && method === "online") {
           const base64Data = proofOfPayment.split(",")[1];
@@ -185,26 +212,34 @@ export function usePayment(userId?: string) {
           for (let i = 0; i < byteCharacters.length; i++) {
             byteArray[i] = byteCharacters.charCodeAt(i);
           }
-          const blob = new Blob([byteArray], { type: mimeType });
 
+          const blob = new Blob([byteArray], { type: mimeType });
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from("payment-proofs")
             .upload(fileName, blob, { contentType: mimeType, upsert: false });
 
-          if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+          if (uploadError) {
+            throw new Error(`Upload failed: ${uploadError.message}`);
+          }
 
-          const { data: urlData } = supabase.storage
-            .from("payment-proofs")
-            .getPublicUrl(uploadData.path);
+          const { data: urlData } = supabase.storage.from("payment-proofs").getPublicUrl(uploadData.path);
           proofUrl = urlData.publicUrl;
-        } // ✅ if block ends here — insert happens for ALL methods below
+        }
 
         const initialStatus =
           method === "cash"
             ? "awaiting-confirmation"
             : method === "online"
-            ? "awaiting-verification"
-            : "paid";
+              ? "awaiting-verification"
+              : "paid";
+
+        if (initialStatus === "awaiting-confirmation") {
+          paymentLifecycle.requiresConfirmation();
+        } else if (initialStatus === "awaiting-verification") {
+          paymentLifecycle.requiresVerification();
+        } else {
+          paymentLifecycle.confirm();
+        }
 
         const { data, error } = await supabase
           .from("transactions")
@@ -220,29 +255,41 @@ export function usePayment(userId?: string) {
           .select()
           .single();
 
-        if (error || !data) throw new Error(error?.message ?? "Insert failed");
+        if (error || !data) {
+          throw new Error(error?.message ?? "Insert failed");
+        }
 
         const transaction = rowToTransaction(data as TransactionRow);
-        dispatch({ type: "SET_TRANSACTION", transaction });
-        dispatch({ type: "SET_STATUS", status: transaction.status });
+        commitTransaction(transaction);
 
         await refreshTransactions();
-
-        return transaction; // ✅ always returns transaction on success
+        return transaction;
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Payment failed";
+        paymentLifecycle.hydrate("failed", { failureReason: errorMsg });
+        dispatch({ type: "SET_TRANSACTION", transaction: null });
         dispatch({ type: "SET_ERROR", error: errorMsg });
-        return null; // ✅ returns null on failure
+        return null;
       }
     },
-    [refreshTransactions]
+    [commitTransaction, paymentLifecycle, refreshTransactions]
   );
 
   const confirmPayment = useCallback(
     async (transactionId: string) => {
       if (!supabase) return;
+
+      let originalTransaction: PaymentTransaction | null = null;
+
       try {
-        dispatch({ type: "SET_STATUS", status: "processing" });
+        paymentLifecycle.hydrate("processing");
+        originalTransaction = await hydrateTransactionState(transactionId);
+
+        if (!paymentLifecycle.state.canPerformAction("confirm")) {
+          throw new Error(`Cannot confirm payment while in ${paymentLifecycle.state.getStateName()} state`);
+        }
+
+        paymentLifecycle.confirm();
 
         const { data, error } = await supabase
           .from("transactions")
@@ -255,25 +302,36 @@ export function usePayment(userId?: string) {
           .select()
           .single();
 
-        if (error || !data) throw new Error(error?.message ?? "Confirm failed");
+        if (error || !data) {
+          throw new Error(error?.message ?? "Confirm failed");
+        }
 
         const transaction = rowToTransaction(data as TransactionRow);
-        dispatch({ type: "SET_TRANSACTION", transaction });
-        dispatch({ type: "SET_STATUS", status: "paid" });
+        commitTransaction(transaction);
 
         await refreshTransactions();
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Confirmation failed";
+        restoreLifecycle(originalTransaction);
+        dispatch({ type: "SET_TRANSACTION", transaction: originalTransaction });
         dispatch({ type: "SET_ERROR", error: errorMsg });
       }
     },
-    [refreshTransactions]
+    [commitTransaction, hydrateTransactionState, paymentLifecycle, refreshTransactions, restoreLifecycle]
   );
 
   const failPayment = useCallback(
     async (transactionId: string, reason: string) => {
       if (!supabase) return;
+
+      let originalTransaction: PaymentTransaction | null = null;
+
       try {
+        paymentLifecycle.hydrate("processing");
+        originalTransaction = await hydrateTransactionState(transactionId);
+
+        paymentLifecycle.fail(reason);
+
         const { data, error } = await supabase
           .from("transactions")
           .update({
@@ -285,19 +343,22 @@ export function usePayment(userId?: string) {
           .select()
           .single();
 
-        if (error || !data) throw new Error(error?.message ?? "Fail update failed");
+        if (error || !data) {
+          throw new Error(error?.message ?? "Fail update failed");
+        }
 
         const transaction = rowToTransaction(data as TransactionRow);
-        dispatch({ type: "SET_TRANSACTION", transaction });
-        dispatch({ type: "SET_ERROR", error: `Payment failed: ${reason}` });
+        commitTransaction(transaction);
 
         await refreshTransactions();
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Error marking payment as failed";
+        restoreLifecycle(originalTransaction);
+        dispatch({ type: "SET_TRANSACTION", transaction: originalTransaction });
         dispatch({ type: "SET_ERROR", error: errorMsg });
       }
     },
-    [refreshTransactions]
+    [commitTransaction, hydrateTransactionState, paymentLifecycle, refreshTransactions, restoreLifecycle]
   );
 
   const confirmCashPayment = useCallback(
@@ -310,8 +371,18 @@ export function usePayment(userId?: string) {
   const verifyOnlinePaymentProof = useCallback(
     async (transactionId: string) => {
       if (!supabase) return;
+
+      let originalTransaction: PaymentTransaction | null = null;
+
       try {
-        dispatch({ type: "SET_STATUS", status: "processing" });
+        paymentLifecycle.hydrate("processing");
+        originalTransaction = await hydrateTransactionState(transactionId);
+
+        if (!paymentLifecycle.state.canPerformAction("confirm")) {
+          throw new Error(`Cannot verify payment while in ${paymentLifecycle.state.getStateName()} state`);
+        }
+
+        paymentLifecycle.confirm();
 
         const { data, error } = await supabase
           .from("transactions")
@@ -325,26 +396,39 @@ export function usePayment(userId?: string) {
           .select()
           .single();
 
-        if (error || !data) throw new Error(error?.message ?? "Verify failed");
+        if (error || !data) {
+          throw new Error(error?.message ?? "Verify failed");
+        }
 
         const transaction = rowToTransaction(data as TransactionRow);
-        dispatch({ type: "SET_TRANSACTION", transaction });
-        dispatch({ type: "SET_STATUS", status: "paid" });
+        commitTransaction(transaction);
 
         await refreshTransactions();
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Verification failed";
+        restoreLifecycle(originalTransaction);
+        dispatch({ type: "SET_TRANSACTION", transaction: originalTransaction });
         dispatch({ type: "SET_ERROR", error: errorMsg });
       }
     },
-    [refreshTransactions]
+    [commitTransaction, hydrateTransactionState, paymentLifecycle, refreshTransactions, restoreLifecycle]
   );
 
   const rejectOnlinePaymentProof = useCallback(
     async (transactionId: string, reason: string) => {
       if (!supabase) return;
+
+      let originalTransaction: PaymentTransaction | null = null;
+
       try {
-        dispatch({ type: "SET_STATUS", status: "processing" });
+        paymentLifecycle.hydrate("processing");
+        originalTransaction = await hydrateTransactionState(transactionId);
+
+        if (!paymentLifecycle.state.canPerformAction("reject")) {
+          throw new Error(`Cannot reject payment while in ${paymentLifecycle.state.getStateName()} state`);
+        }
+
+        paymentLifecycle.reject(reason);
 
         const { data, error } = await supabase
           .from("transactions")
@@ -358,19 +442,22 @@ export function usePayment(userId?: string) {
           .select()
           .single();
 
-        if (error || !data) throw new Error(error?.message ?? "Reject failed");
+        if (error || !data) {
+          throw new Error(error?.message ?? "Reject failed");
+        }
 
         const transaction = rowToTransaction(data as TransactionRow);
-        dispatch({ type: "SET_TRANSACTION", transaction });
-        dispatch({ type: "SET_STATUS", status: "failed" });
+        commitTransaction(transaction);
 
         await refreshTransactions();
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : "Rejection failed";
+        restoreLifecycle(originalTransaction);
+        dispatch({ type: "SET_TRANSACTION", transaction: originalTransaction });
         dispatch({ type: "SET_ERROR", error: errorMsg });
       }
     },
-    [refreshTransactions]
+    [commitTransaction, hydrateTransactionState, paymentLifecycle, refreshTransactions, restoreLifecycle]
   );
 
   const getPendingPayments = useCallback(() => {
@@ -385,8 +472,15 @@ export function usePayment(userId?: string) {
     dispatch({ type: "CLEAR_ERROR" });
   }, []);
 
+  const paymentState: PaymentState = {
+    status: paymentLifecycle.state.getStateName() as PaymentState["status"],
+    currentTransaction: state.currentTransaction,
+    error: state.error,
+    pendingPayments: state.pendingPayments,
+  };
+
   return {
-    state,
+    state: paymentState,
     initializePayment,
     confirmPayment,
     failPayment,

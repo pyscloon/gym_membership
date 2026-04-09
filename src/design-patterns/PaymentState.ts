@@ -1,14 +1,21 @@
 /**
  * Payment State Design Pattern
- * 
+ *
  * Models the payment processing lifecycle:
- * Idle → Processing → AwaitingConfirmation/AwaitingVerification → Paid/Failed
- * 
+ * Idle -> Processing -> AwaitingConfirmation/AwaitingVerification -> Paid/Failed
+ *
  * Each state defines:
  * - What information is relevant (e.g., only awaiting states have confirmation handlers)
  * - What transitions are valid
  * - What actions can be performed
  */
+
+import type { PaymentStatus } from "../types/payment";
+
+type PaymentReasonMeta = {
+  failureReason?: string;
+  rejectionReason?: string;
+};
 
 /**
  * Base interface for payment states
@@ -321,6 +328,31 @@ export class PaymentStateContext {
     this.currentState = state;
   }
 
+  private createStateFromName(stateName: PaymentStatus): IPaymentState {
+    switch (stateName) {
+      case "idle":
+        return new IdlePaymentState(this);
+      case "processing":
+        return new ProcessingPaymentState(this);
+      case "awaiting-confirmation":
+        return new AwaitingConfirmationPaymentState(this);
+      case "awaiting-verification":
+        return new AwaitingVerificationPaymentState(this);
+      case "paid":
+        return new PaidPaymentState(this);
+      case "failed":
+        return new FailedPaymentState(this);
+      default:
+        return new IdlePaymentState(this);
+    }
+  }
+
+  hydrate(stateName: PaymentStatus, meta: PaymentReasonMeta = {}): void {
+    this.failureReason = meta.failureReason;
+    this.rejectionReason = meta.rejectionReason;
+    this.currentState = this.createStateFromName(stateName);
+  }
+
   getState(): IPaymentState {
     return this.currentState;
   }
@@ -344,16 +376,19 @@ export class PaymentStateContext {
 
   fail(reason?: string): void {
     this.failureReason = reason;
+    this.rejectionReason = undefined;
     this.currentState.toFailed();
   }
 
   reject(reason?: string): void {
     this.rejectionReason = reason;
+    this.failureReason = undefined;
     this.currentState.toFailed();
   }
 
   retry(): void {
     this.failureReason = undefined;
+    this.rejectionReason = undefined;
     this.currentState.toProcessing();
   }
 

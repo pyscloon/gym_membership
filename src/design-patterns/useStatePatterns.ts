@@ -12,6 +12,7 @@ import {
   PaymentStateContext,
 } from "./index";
 import type { Membership } from "../types/membership";
+import type { PaymentStatus } from "../types/payment";
 
 /**
  * useMembershipState - Hook to manage membership state machine
@@ -223,6 +224,16 @@ export function usePaymentState() {
     }
   }, [context]);
 
+  const hydrate = useCallback(
+    (status: PaymentStatus, meta?: { failureReason?: string; rejectionReason?: string }) => {
+      if (context) {
+        context.hydrate(status, meta);
+        forceUpdate();
+      }
+    },
+    [context]
+  );
+
   return {
     state: context,
     initiate,
@@ -232,5 +243,6 @@ export function usePaymentState() {
     fail,
     reject,
     retry,
+    hydrate,
   };
 }
