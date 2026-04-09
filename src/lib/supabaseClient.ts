@@ -1,10 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
+import { createMockSupabaseClient } from "./mockSupabaseClient";
 
 declare const __SUPABASE_URL__: string | undefined;
 declare const __SUPABASE_ANON_KEY__: string | undefined;
 
 const runtimeEnv = globalThis as typeof globalThis & {
   process?: { env?: Record<string, string | undefined> };
+  __PLAYWRIGHT_USE_MOCK_SUPABASE__?: boolean;
 };
 
 const supabaseUrl =
@@ -18,6 +20,8 @@ const supabaseAnonKey =
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl!, supabaseAnonKey!)
-  : null;
+export const supabase: any = runtimeEnv.__PLAYWRIGHT_USE_MOCK_SUPABASE__
+  ? createMockSupabaseClient()
+  : isSupabaseConfigured
+    ? createClient(supabaseUrl!, supabaseAnonKey!)
+    : null;

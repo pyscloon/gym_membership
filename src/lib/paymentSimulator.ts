@@ -137,7 +137,7 @@ async function fetchAllTransactionsFromDb(): Promise<PaymentTransaction[]> {
     return [];
   }
 
-  return (data ?? []).map((row) => rowToTransaction(row as TransactionRow));
+  return (data ?? []).map((row: unknown) => rowToTransaction(row as TransactionRow));
 }
 
 async function deleteAllTransactionsFromDb(): Promise<void> {

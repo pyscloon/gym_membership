@@ -19,6 +19,10 @@ interface QRScannerProps {
   onScanError?: (error: string) => void;
 }
 
+type PlaywrightQrScannerDriver = {
+  register: (handler: (decodedText: string) => void) => () => void;
+};
+
 export default function QRScanner({
   onScanSuccess,
   onScanError,
@@ -33,11 +37,23 @@ export default function QRScanner({
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
-  const isScannerRunningRef = useRef(false); // ✅ FIX
+  const isScannerRunningRef = useRef(false);
   const containerId = "qr-scanner-container";
 
   const lastScannedRef = useRef<string>("");
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const getPlaywrightDriver = useCallback((): PlaywrightQrScannerDriver | null => {
+    if (typeof window === "undefined") {
+      return null;
+    }
+
+    const testWindow = window as typeof window & {
+      __PLAYWRIGHT_QR_SCANNER__?: PlaywrightQrScannerDriver;
+    };
+
+    return testWindow.__PLAYWRIGHT_QR_SCANNER__ ?? null;
+  }, []);
 
   const handleQRCodeDetected = useCallback(
     async (decodedText: string) => {
@@ -128,9 +144,20 @@ export default function QRScanner({
   }, []);
 
   useEffect(() => {
+    const playwrightDriver = getPlaywrightDriver();
+
+    if (playwrightDriver && isScanning && user) {
+      setIsCameraLoading(false);
+      setCameraError(null);
+
+      return playwrightDriver.register((decodedText) => {
+        void handleQRCodeDetected(decodedText);
+      });
+    }
+
     const startScanner = async () => {
       if (!scannerRef.current || !isScanning || !user) return;
-      if (isScannerRunningRef.current) return; // ✅ prevent duplicate start
+      if (isScannerRunningRef.current) return;
 
       try {
         setIsCameraLoading(true);
@@ -140,7 +167,7 @@ export default function QRScanner({
           { facingMode: "environment" },
           { fps: 10, qrbox: { width: 250, height: 250 } },
           handleQRCodeDetected,
-          () => {} 
+          () => {}
         );
 
         isScannerRunningRef.current = true;
@@ -157,7 +184,7 @@ export default function QRScanner({
 
     const stopScanner = async () => {
       if (!scannerRef.current) return;
-      if (!isScannerRunningRef.current) return; 
+      if (!isScannerRunningRef.current) return;
 
       try {
         await scannerRef.current.stop();
@@ -173,7 +200,7 @@ export default function QRScanner({
     } else {
       stopScanner();
     }
-  }, [isScanning, user, handleQRCodeDetected]);
+  }, [getPlaywrightDriver, handleQRCodeDetected, isScanning, user]);
 
   const toggleScanning = () => {
     setIsScanning((prev) => !prev);
@@ -186,12 +213,12 @@ export default function QRScanner({
 
   return (
     <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-flexNavy">
             QR Scanner
           </p>
-          <p className="text-sm text-flexNavy/60 mt-0.5">
+          <p className="mt-0.5 text-sm text-flexNavy/60">
             {isScanning
               ? "Point camera at QR code"
               : "Click Start Scanning"}
@@ -200,7 +227,7 @@ export default function QRScanner({
 
         <button
           onClick={toggleScanning}
-          className={`px-4 py-2 rounded-lg font-semibold text-white transition ${
+          className={`rounded-lg px-4 py-2 font-semibold text-white transition ${
             isScanning
               ? "bg-red-600 hover:bg-red-700"
               : "bg-flexBlue hover:bg-flexNavy"
@@ -213,39 +240,39 @@ export default function QRScanner({
       <div className="relative mb-6">
         <div
           id={containerId}
-          className="rounded-xl overflow-hidden border border-flexNavy/10 shadow-sm"
+          className="overflow-hidden rounded-xl border border-flexNavy/10 shadow-sm"
           style={{ height: "400px" }}
         />
 
         {isCameraLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-100/90 rounded-xl">
+          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-gray-100/90">
             Loading camera...
           </div>
         )}
 
         {cameraError && (
-          <div className="absolute inset-0 bg-red-50 border border-red-200 p-4 text-red-700 text-sm rounded-xl">
+          <div className="absolute inset-0 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
             <p className="font-semibold">Camera Error</p>
-            <p className="text-xs mt-1">{cameraError}</p>
+            <p className="mt-1 text-xs">{cameraError}</p>
           </div>
         )}
       </div>
 
       {lastScan && (
         <div
-          className={`mb-6 p-4 rounded-xl border ${
+          className={`mb-6 rounded-xl border p-4 ${
             lastScan.type === "success"
-              ? "bg-green-50 border-green-200 text-green-700"
-              : "bg-red-50 border-red-200 text-red-700"
+              ? "border-green-200 bg-green-50 text-green-700"
+              : "border-red-200 bg-red-50 text-red-700"
           }`}
         >
-          <p className="font-semibold text-sm">{lastScan.message}</p>
+          <p className="text-sm font-semibold">{lastScan.message}</p>
         </div>
       )}
 
       {scanResults.length > 0 && (
         <div>
-          <div className="flex justify-between mb-3">
+          <div className="mb-3 flex justify-between">
             <p className="text-xs font-semibold">
               Scan History ({scanResults.length})
             </p>
@@ -254,14 +281,14 @@ export default function QRScanner({
             </button>
           </div>
 
-          <div className="space-y-2 max-h-64 overflow-y-auto">
+          <div className="max-h-64 space-y-2 overflow-y-auto">
             {scanResults.map((r) => (
               <div
                 key={r.id}
-                className={`p-3 rounded-lg border text-xs ${
+                className={`rounded-lg border p-3 text-xs ${
                   r.type === "success"
-                    ? "bg-green-50 border-green-200"
-                    : "bg-red-50 border-red-200"
+                    ? "border-green-200 bg-green-50"
+                    : "border-red-200 bg-red-50"
                 }`}
               >
                 {r.message}
