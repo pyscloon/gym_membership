@@ -13,7 +13,7 @@ import AdminLoginPage from "./pages/AdminLogin.tsx";
 import AdminDashboardPage from "./pages/AdminDashboard.tsx";
 import AdminProtectedRoute from "./components/AdminProtectedRoute";
 import TransactionHistory from "./pages/TransactionHistory.tsx";
-
+import AnalyticsDashboard from "./components/AnalyticsDashboard.tsx";
 export default function AppRoutes() {
   return (
     <BrowserRouter>
@@ -45,6 +45,7 @@ export default function AppRoutes() {
             </AdminProtectedRoute>
           }
         />
+        <Route path="/admin/analytics" element={<AnalyticsDashboard />} />
         <Route
           path="/profile"
           element={

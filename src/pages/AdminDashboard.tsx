@@ -9,7 +9,7 @@ import type { MembershipTier } from "../types/membership";
 import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
-import AnalyticsDashboard from "../components/AnalyticsDashboard";
+import AnalyticsDashboardButton from "../components/AnalysticsDashboardBtn";
 import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
@@ -302,7 +302,7 @@ const handleAdminConfirmPayment = async (
         <TransactionHistory transactions={transactionHistory} />
 
         {/* Analytics Dashboard */}
-        <AnalyticsDashboard />
+        <AnalyticsDashboardButton />
 
         {/* Crowd Estimation */}
         <CrowdEstimationPanel showAdminControls />
