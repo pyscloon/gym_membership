@@ -22,6 +22,7 @@ interface AdminPaymentPanelProps {
   onDeclinePayment: (transactionId: string, userId: string, userType: UserType) => Promise<void>;
   onVerifyOnlinePayment?: (transactionId: string, userId: string, userType: UserType) => Promise<void>;
   onRejectOnlinePayment?: (transactionId: string, userId: string, userType: UserType, reason: string) => Promise<void>;
+  onPendingCountChange?: (count: number) => void;
 }
 
 export default function AdminPaymentPanel({
@@ -29,6 +30,7 @@ export default function AdminPaymentPanel({
   onDeclinePayment,
   onVerifyOnlinePayment,
   onRejectOnlinePayment,
+  onPendingCountChange,
 }: AdminPaymentPanelProps) {
   const [pendingPayments, setPendingPayments] = useState<PendingPayment[]>([]);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
@@ -39,37 +41,38 @@ export default function AdminPaymentPanel({
 
   // ✅ Now fetches from Supabase instead of localStorage
   useEffect(() => {
-    const fetchPending = async () => {
-      if (!supabase) return;
+      const fetchPending = async () => {
+        if (!supabase) return;
 
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("*")
-        .in("status", ["awaiting-confirmation", "awaiting-verification"])
-        .order("created_at", { ascending: false });
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .in("status", ["awaiting-confirmation", "awaiting-verification"])
+          .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Failed to fetch pending payments:", error);
-        return;
-      }
+        if (error) {
+          console.error("Failed to fetch pending payments:", error);
+          return;
+        }
 
-      const pending = (data as TransactionRow[]).map<PendingPayment>((t) => ({
-        transactionId: t.id,
-        userId: t.user_id,
-        userType: t.user_type as UserType,
-        amount: t.amount,
-        method: t.method as PendingPayment["method"],
-        requestedAt: t.created_at,
-        proofOfPaymentUrl: t.proof_of_payment_url ?? undefined,
-      }));
+        const pending = (data as TransactionRow[]).map<PendingPayment>((t) => ({
+          transactionId: t.id,
+          userId: t.user_id,
+          userType: t.user_type as UserType,
+          amount: t.amount,
+          method: t.method as PendingPayment["method"],
+          requestedAt: t.created_at,
+          proofOfPaymentUrl: t.proof_of_payment_url ?? undefined,
+        }));
 
-      setPendingPayments(pending);
-    };
+        setPendingPayments(pending);
+        onPendingCountChange?.(pending.length);
+      };
 
-    fetchPending();
-    const interval = setInterval(fetchPending, 2000);
-    return () => clearInterval(interval);
-  }, [refreshTrigger]);
+      fetchPending();
+      const interval = setInterval(fetchPending, 2000);
+      return () => clearInterval(interval);
+    }, [refreshTrigger, onPendingCountChange]);
 
   const handleConfirm = async (transactionId: string, userId: string, userType: UserType) => {
     setConfirmingId(transactionId);

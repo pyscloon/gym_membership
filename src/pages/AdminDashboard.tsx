@@ -9,7 +9,7 @@ import type { MembershipTier } from "../types/membership";
 import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
-import AnalyticsDashboard from "../components/AnalyticsDashboard";
+import AnalyticsDashboardButton from "../components/AnalysticsDashboardBtn";
 import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
@@ -29,12 +29,16 @@ export default function AdminDashboard() {
   const [totalMembers, setTotalMembers] = useState(0);
   const [activePlans, setActivePlans] = useState(0);
   const [expiringSoon, setExpiringSoon] = useState(0);
+  const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
   const [recentCheckIns, setRecentCheckIns] = useState<RecentCheckInRecord[]>([]);
   const [todayCheckInCount, setTodayCheckInCount] = useState(0);
   const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const paymentHook = usePayment("admin");
   const transactionHistory = paymentHook.getTransactionHistory();
+  const [showScanner, setShowScanner] = useState(false);
+  const [showRecentCheckIns, setShowRecentCheckIns] = useState(false);
+  const [showPaymentPanel, setShowPaymentPanel] = useState(false);
   
   // Payment state tracking - to enforce state machine transitions
   const [paymentStateContexts, setPaymentStateContexts] = useState<Map<string, PaymentStateContext>>(new Map());
@@ -299,22 +303,134 @@ const handleAdminConfirmPayment = async (
           </article>
         </section>
 
-        <TransactionHistory transactions={transactionHistory} />
-
-        {/* Analytics Dashboard */}
-        <AnalyticsDashboard />
-
         {/* Crowd Estimation */}
         <CrowdEstimationPanel showAdminControls />
 
-        {/* Pending Payments Panel */}
+        <TransactionHistory transactions={transactionHistory} />
+
+          {/* Recent Check-Ins */}
+          {recentCheckIns.length > 0 && (
+            <section className="mt-6">
+              <button
+                onClick={() => setShowRecentCheckIns(!showRecentCheckIns)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-flexNavy/15 bg-flexWhite/70 text-flexNavy hover:bg-flexWhite transition-colors w-full justify-between"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-flexNavy/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-xs uppercase tracking-[0.18em]">Recent Activity</span>
+                  <span className="text-xs bg-flexNavy/10 text-flexNavy/60 px-2 py-0.5 rounded-full font-medium">
+                    {recentCheckIns.length}
+                  </span>
+                </div>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className={`h-4 w-4 text-flexNavy/40 transition-transform ${showRecentCheckIns ? "rotate-180" : ""}`}
+                  viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showRecentCheckIns && (
+                <div className="mt-2 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6">
+                  <p className="text-sm text-flexNavy/60 mb-4">Latest check-in records</p>
+                  <div className="space-y-3">
+                    {recentCheckIns.map((checkIn) => (
+                      <div key={checkIn.id} className="flex items-center justify-between p-3 rounded-lg bg-flexWhite/50 border border-flexNavy/10">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-3 h-3 rounded-full ${
+                            checkIn.walk_in_type === "checkin"
+                              ? "bg-blue-500"
+                              : checkIn.walk_in_type === "checkout"
+                                ? "bg-red-500"
+                                : "bg-green-500"
+                          }`}></div>
+                          <div>
+                            <p className="text-sm font-semibold text-flexBlack">
+                              {checkIn.walk_in_type === "checkin"
+                                ? "Member"
+                                : checkIn.walk_in_type === "checkout"
+                                  ? "Checked-Out"
+                                  : "Walk-In"}
+                            </p>
+                            <p className="text-xs text-flexNavy/60">
+                              {new Date(checkIn.walk_in_time).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${checkIn.status === "completed" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+                          {checkIn.status || "Completed"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+                
+          {/* Pending Payments Panel */}
+          <section className="mt-6">
+            <button
+              onClick={() => setShowPaymentPanel(!showPaymentPanel)}
+              className="relative flex items-center gap-2 px-4 py-2 rounded-lg border border-flexNavy/15 bg-flexWhite/70 text-flexNavy hover:bg-flexWhite transition-colors w-full justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-flexNavy/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                </svg>
+                <span className="text-xs uppercase tracking-[0.18em]">Pending Payments</span>
+                {pendingPaymentCount > 0 && (
+                  <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">
+                    {pendingPaymentCount}
+                  </span>
+                )}
+              </div>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className={`h-4 w-4 text-flexNavy/40 transition-transform ${showPaymentPanel ? "rotate-180" : ""}`}
+                viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showPaymentPanel && (
+              <div className="mt-2">
+                <AdminPaymentPanel
+                  onConfirmPayment={handleAdminConfirmPayment}
+                  onDeclinePayment={handleAdminDeclinePayment}
+                  onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
+                  onRejectOnlinePayment={handleAdminRejectOnlinePayment}
+                  onPendingCountChange={setPendingPaymentCount}
+                />
+              </div>
+            )}
+          </section>
+
         <section className="mt-6">
-          <AdminPaymentPanel
-            onConfirmPayment={handleAdminConfirmPayment}
-            onDeclinePayment={handleAdminDeclinePayment}
-            onVerifyOnlinePayment={handleAdminVerifyOnlinePayment}
-            onRejectOnlinePayment={handleAdminRejectOnlinePayment}
-          />
+          <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <AnalyticsDashboardButton className="inline-flex min-w-[240px] items-center justify-center gap-3 rounded-xl border border-flexNavy/20 bg-flexWhite px-8 py-4 text-base font-semibold text-flexBlack shadow-sm transition hover:bg-gray-50" />
+
+            <button
+              onClick={() => setShowScanner(!showScanner)}
+              className="inline-flex min-w-[240px] items-center justify-center gap-3 rounded-xl bg-blue-600 px-8 py-4 text-base font-semibold text-white shadow-sm transition-colors hover:bg-blue-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" />
+                <rect x="7" y="7" width="10" height="10" rx="1" />
+              </svg>
+              {showScanner ? "Close Scanner" : "Scan QR Code"}
+            </button>
+          </div>
+
+          {showScanner && (
+            <div className="mt-4">
+              <QRScanner onScanSuccess={handleScanSuccess} onScanError={handleScanError} />
+            </div>
+          )}
         </section>
 
         {/* Scan Status Message */}
@@ -328,54 +444,6 @@ const handleAdminConfirmPayment = async (
           >
             <p className="font-semibold text-sm">{scanMessage.text}</p>
           </div>
-        )}
-
-        {/* QR Scanner Section */}
-        <section className="mt-6">
-          <QRScanner onScanSuccess={handleScanSuccess} onScanError={handleScanError} />
-        </section>
-
-        {/* Recent Check-Ins */}
-        {recentCheckIns.length > 0 && (
-          <section className="mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-flexNavy">Recent Activity</p>
-                <p className="text-sm text-flexNavy/60 mt-0.5">Latest check-in records</p>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {recentCheckIns.map((checkIn) => (
-                <div key={checkIn.id} className="flex items-center justify-between p-3 rounded-lg bg-flexWhite/50 border border-flexNavy/10">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      checkIn.walk_in_type === "checkin"
-                        ? "bg-blue-500"
-                        : checkIn.walk_in_type === "checkout"
-                          ? "bg-red-500"
-                          : "bg-green-500"
-                    }`}></div>
-                    <div>
-                      <p className="text-sm font-semibold text-flexBlack">
-                        {checkIn.walk_in_type === "checkin"
-                          ? "Member"
-                          : checkIn.walk_in_type === "checkout"
-                            ? "Checked-Out"
-                            : "Walk-In"}
-                      </p>
-                      <p className="text-xs text-flexNavy/60">
-                        {new Date(checkIn.walk_in_time).toLocaleTimeString()}
-                      </p>
-                    </div>
-                  </div>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${checkIn.status === "completed" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
-                    {checkIn.status || "Completed"}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </section>
         )}
       </section>
     </main>
