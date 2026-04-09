@@ -133,7 +133,6 @@ export function usePayment(userId?: string) {
       }));
     dispatch({ type: "SET_PENDING_PAYMENTS", payments: pending });
   }, [userId]);
-  console.log("Fetching transactions for userId:", userId);
   
   const fetchTransaction = useCallback(
     async (transactionId: string): Promise<PaymentTransaction | null> => {

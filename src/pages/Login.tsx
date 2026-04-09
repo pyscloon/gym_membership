@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { syncProfile } from "../lib/profile";
+import { debounce } from "../lib/debounce";
 
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? "").toLowerCase();
 
@@ -12,6 +13,37 @@ export default function Login() {
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
+
+    const clearErrorDebounced = useMemo(
+        () => debounce(() => setErrorMessage(""), 120),
+        []
+    );
+
+    useEffect(() => {
+        return () => {
+            clearErrorDebounced.cancel();
+        };
+    }, [clearErrorDebounced]);
+
+    const handleEmailChange = useCallback(
+        (value: string) => {
+            setEmail(value);
+            if (errorMessage) {
+                clearErrorDebounced();
+            }
+        },
+        [clearErrorDebounced, errorMessage]
+    );
+
+    const handlePasswordChange = useCallback(
+        (value: string) => {
+            setPassword(value);
+            if (errorMessage) {
+                clearErrorDebounced();
+            }
+        },
+        [clearErrorDebounced, errorMessage]
+    );
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -92,7 +124,7 @@ export default function Login() {
                                 <input
                                     type="email"
                                     value={email}
-                                    onChange={(event) => setEmail(event.target.value)}
+                                    onChange={(event) => handleEmailChange(event.target.value)}
                                     className="mt-1 w-full rounded-lg border border-flexNavy/35 bg-white px-3 py-2.5 text-flexBlack outline-none transition focus:border-flexBlue focus:ring-2 focus:ring-flexBlue/25"
                                     placeholder="you@example.com"
                                     autoComplete="email"
@@ -104,7 +136,7 @@ export default function Login() {
                                 <input
                                     type="password"
                                     value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
+                                    onChange={(event) => handlePasswordChange(event.target.value)}
                                     className="mt-1 w-full rounded-lg border border-flexNavy/35 bg-white px-3 py-2.5 text-flexBlack outline-none transition focus:border-flexBlue focus:ring-2 focus:ring-flexBlue/25"
                                     placeholder="Your password"
                                     autoComplete="current-password"

@@ -1,3 +1,4 @@
+import { memo } from "react";
 import type { ReactNode } from "react";
 import type { MembershipTier } from "../types/membership";
 import PlanCard from "./PlanCard";
@@ -21,10 +22,10 @@ type PricingSectionProps = {
   isLoading?: boolean;
   isSubscriberView?: boolean;
   currentTier?: MembershipTier | null;
-  onSelectPlan: (plan: PricingPlan) => void;
+  onSelectPlan: (tier: MembershipTier) => void;
 };
 
-export default function PricingSection({
+function PricingSection({
   plans,
   isLoading = false,
   isSubscriberView = false,
@@ -89,6 +90,7 @@ export default function PricingSection({
         {plans.map((plan) => (
           <PlanCard
             key={plan.title}
+            tier={plan.tier}
             badge={plan.badge}
             title={plan.title}
             amount={plan.amount}
@@ -102,10 +104,12 @@ export default function PricingSection({
             isLoading={isLoading}
             showCta={!isSubscriberView}
             isCurrentSubscription={isSubscriberView && currentTier === plan.tier}
-            onSelect={() => onSelectPlan(plan)}
+            onSelectPlan={onSelectPlan}
           />
         ))}
       </div>
     </section>
   );
 }
+
+export default memo(PricingSection);
