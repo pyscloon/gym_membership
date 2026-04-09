@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import {
@@ -14,6 +14,8 @@ import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
 import TransactionHistory from "../components/TransactionHistory";
+import { ErrorBoundary } from "../components/ErrorBoundary";
+import { safeSteateUpdate, executeWithRetry, DEFAULT_RETRY_CONFIG } from "../lib/stabilityUtils";
 
 type RecentCheckInRecord = {
   id: string;
@@ -23,116 +25,139 @@ type RecentCheckInRecord = {
   status: string;
 };
 
-
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [totalMembers, setTotalMembers] = useState(0);
-  const [activePlans, setActivePlans] = useState(0);
-  const [expiringSoon, setExpiringSoon] = useState(0);
-  const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
-  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
-  const [recentCheckIns, setRecentCheckIns] = useState<RecentCheckInRecord[]>([]);
-  const [todayCheckInCount, setTodayCheckInCount] = useState(0);
-  const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
-  const paymentHook = usePayment("admin");
-  const transactionHistory = paymentHook.getTransactionHistory();
+  const isMountedRef = useRef(true);
+
+  // ✅ Basic UI state
   const [showScanner, setShowScanner] = useState(false);
   const [showRecentCheckIns, setShowRecentCheckIns] = useState(false);
   const [showPaymentPanel, setShowPaymentPanel] = useState(false);
-  
-  // Payment state tracking - to enforce state machine transitions
+  const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
+  const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+
+  // ✅ Data state
+  const [totalMembers, setTotalMembers] = useState(0);
+  const [activePlans, setActivePlans] = useState(0);
+  const [expiringSoon, setExpiringSoon] = useState(0);
+  const [recentCheckIns, setRecentCheckIns] = useState<RecentCheckInRecord[]>([]);
+  const [todayCheckInCount, setTodayCheckInCount] = useState(0);
+  const [isLoadingMembers, setIsLoadingMembers] = useState(true);
+
+  // ✅ Payment state tracking - enforce state machine transitions
   const [paymentStateContexts, setPaymentStateContexts] = useState<Map<string, PaymentStateContext>>(new Map());
 
+  const paymentHook = usePayment("admin");
+  const transactionHistory = paymentHook.getTransactionHistory();
+
+  // ✅ Safe dashboard data loading
   useEffect(() => {
-    let isMounted = true;
+    isMountedRef.current = true;
 
     const loadDashboardData = async () => {
-      setIsLoadingMembers(true);
-const [stats, checkIns] = await Promise.all([
-  fetchDashboardStats(),
-  getRecentCheckIns(5),
-]);
-const { totalMembers: membersCount, activePlans: activePlansCount, expiringSoon: expiringSoonCount } = stats;
-      if (isMounted) {
-        setTotalMembers(membersCount);
-        setActivePlans(activePlansCount);
-        setExpiringSoon(expiringSoonCount);
-        setRecentCheckIns(checkIns);
-        setIsLoadingMembers(false);
+      try {
+        safeSteateUpdate(isMountedRef.current, setIsLoadingMembers, true, "AdminDashboard");
+        safeSteateUpdate(isMountedRef.current, setDashboardError, null, "AdminDashboard");
+
+        // Load stats with retry logic
+        const stats = await executeWithRetry(
+          fetchDashboardStats,
+          "fetchDashboardStats",
+          DEFAULT_RETRY_CONFIG
+        );
+
+        if (!stats && isMountedRef.current) {
+          safeSteateUpdate(
+            isMountedRef.current,
+            setDashboardError,
+            "Failed to load dashboard statistics. Please try again.",
+            "AdminDashboard"
+          );
+          return;
+        }
+
+        // Load check-ins with retry logic
+        const checkIns = await executeWithRetry(
+          () => getRecentCheckIns(5),
+          "getRecentCheckIns",
+          DEFAULT_RETRY_CONFIG
+        );
+
+        if (isMountedRef.current && stats) {
+          const {
+            totalMembers: membersCount,
+            activePlans: activePlansCount,
+            expiringSoon: expiringSoonCount,
+          } = stats;
+          safeSteateUpdate(isMountedRef.current, setTotalMembers, membersCount, "AdminDashboard");
+          safeSteateUpdate(isMountedRef.current, setActivePlans, activePlansCount, "AdminDashboard");
+          safeSteateUpdate(isMountedRef.current, setExpiringSoon, expiringSoonCount, "AdminDashboard");
+          safeSteateUpdate(
+            isMountedRef.current,
+            setRecentCheckIns,
+            checkIns || [],
+            "AdminDashboard"
+          );
+          safeSteateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
+        }
+
+        // Load today's count separately to prevent blocking
+        await fetchTodayWalkInCount();
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Unknown error";
+        console.error("Dashboard load error:", errorMsg);
+        if (isMountedRef.current) {
+          safeSteateUpdate(
+            isMountedRef.current,
+            setDashboardError,
+            errorMsg,
+            "AdminDashboard"
+          );
+          safeSteateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
+        }
       }
-      await fetchTodayWalkInCount();
     };
 
     loadDashboardData();
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
   }, []);
   const fetchTodayWalkInCount = async () => {
     if (!supabase) return;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
 
-    const { count } = await supabase
-      .from("walk_ins")
-      .select("*", { count: "exact", head: true })
-      .gte("walk_in_time", today.toISOString())
-      .lt("walk_in_time", tomorrow.toISOString());
+      const { count, error } = await supabase
+        .from("walk_ins")
+        .select("*", { count: "exact", head: true })
+        .gte("walk_in_time", today.toISOString())
+        .lt("walk_in_time", tomorrow.toISOString());
 
-    setTodayCheckInCount(count ?? 0);
+      if (error) {
+        console.error("Error fetching walk-in count:", error);
+        return;
+      }
+
+      if (isMountedRef.current) {
+        safeSteateUpdate(isMountedRef.current, setTodayCheckInCount, count ?? 0, "fetchTodayWalkInCount");
+      }
+    } catch (err) {
+      console.error("fetchTodayWalkInCount error:", err);
+    }
   };
 
-const recordWalkIn = async (userId: string) => {
-  if (!supabase) return;
-
-  const { data: { session } } = await supabase.auth.getSession();
-  const adminId = session?.user?.id ?? null;
-
-  const { data: membership } = await supabase
-    .from("memberships")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("status", "active")
-    .single();
-
-  const { error } = await supabase.from("walk_ins").insert({
-    user_id: userId,
-    membership_id: membership?.id ?? null,
-    validated_by: adminId,
-    walk_in_type: "walk_in",
-    walk_in_time: new Date().toISOString(),
-    qr_data: {},
-    status: "completed",
-  });
-
-  console.log("recordWalkIn result:", JSON.stringify(error));
-  if (error) return;
-
-  await fetchTodayWalkInCount();
-};
-
-  const handleScanSuccess = (result: CheckInResponse) => {
-    setScanMessage({ text: result.message, type: "success" });
-    setTodayCheckInCount((prev) => prev + 1);
-    // Reload recent check-ins
-    getRecentCheckIns(5).then((checkIns) => {
-      setRecentCheckIns(checkIns);
-    });
-    setTimeout(() => setScanMessage(null), 4000);
-  };
-
-  const handleScanError = (error: string) => {
-    setScanMessage({ text: `Scan Error: ${error}`, type: "error" });
-    setTimeout(() => setScanMessage(null), 4000);
-  };
-  // Helper to restore a PaymentStateContext to match a transaction's real status
+  // ✅ Helper to restore a PaymentStateContext to match a transaction's real status
   const getOrRestoreStateContext = (
     transactionId: string,
     status: "awaiting-confirmation" | "awaiting-verification"
-  ) => {
+  ): PaymentStateContext => {
     const existing = paymentStateContexts.get(transactionId);
     if (existing && existing.isAwaitingAction()) return existing;
 
@@ -145,32 +170,134 @@ const recordWalkIn = async (userId: string) => {
       ctx.requiresProofVerification(); // processing → awaiting-verification
     }
     return ctx;
-    };
-    
-const handleAdminConfirmPayment = async (
-  transactionId: string,
-  userId: string,
-  userType: MembershipTier
-) => {
-  try {
-    const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
+  };
 
-    if (stateContext.canPerformAction("confirm")) {
-      stateContext.confirm();
-      await paymentHook.confirmPayment(transactionId);
-      await applyMembership(userId, userType);
-      if (userType === "walk-in"){
-        await recordWalkIn(userId);
+  const recordWalkIn = async (userId: string): Promise<boolean> => {
+    if (!supabase) {
+      console.error("Supabase client not available");
+      return false;
+    }
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminId = session?.user?.id ?? null;
+
+      const { data: membership, error: membershipError } = await supabase
+        .from("memberships")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .single();
+
+      if (membershipError && membershipError.code !== "PGRST116") {
+        // PGRST116 = no rows found, which is ok for walk-ins
+        console.error("Error fetching membership:", membershipError);
       }
 
-      const newContexts = new Map(paymentStateContexts);
-      newContexts.set(transactionId, stateContext);
-      setPaymentStateContexts(newContexts);
+      const { error: insertError } = await supabase.from("walk_ins").insert({
+        user_id: userId,
+        membership_id: membership?.id ?? null,
+        validated_by: adminId,
+        walk_in_type: "walk_in",
+        walk_in_time: new Date().toISOString(),
+        qr_data: {},
+        status: "completed",
+      });
+
+      if (insertError) {
+        console.error("Error recording walk-in:", insertError);
+        return false;
+      }
+
+      if (isMountedRef.current) {
+        await fetchTodayWalkInCount();
+      }
+      return true;
+    } catch (err) {
+      console.error("recordWalkIn error:", err);
+      return false;
     }
-  } catch (err) {
-    console.error("Failed to apply membership after confirmation:", err);
-  }
-};
+  };
+
+  const handleScanSuccess = (result: CheckInResponse) => {
+    setScanMessage({ text: result.message, type: "success" });
+    setTodayCheckInCount((prev) => prev + 1);
+    // Reload recent check-ins
+    getRecentCheckIns(5)
+      .then((checkIns) => {
+        if (isMountedRef.current) {
+          safeSteateUpdate(isMountedRef.current, setRecentCheckIns, checkIns, "handleScanSuccess");
+        }
+      })
+      .catch((err) => {
+        console.error("Error reloading check-ins:", err);
+      });
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setScanMessage(null);
+      }
+    }, 4000);
+  };
+
+  const handleScanError = (error: string) => {
+    setScanMessage({ text: `Scan Error: ${error}`, type: "error" });
+    setTimeout(() => {
+      if (isMountedRef.current) {
+        setScanMessage(null);
+      }
+    }, 4000);
+  };
+  const handleAdminConfirmPayment = async (
+    transactionId: string,
+    userId: string,
+    userType: MembershipTier
+  ) => {
+    try {
+      const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
+
+      if (!stateContext.canPerformAction("confirm")) {
+        console.warn("Cannot confirm payment: invalid state");
+        return;
+      }
+
+      stateContext.confirm();
+      
+      // Execute operations in sequence to ensure atomicity
+      await paymentHook.confirmPayment(transactionId);
+
+      const membershipResult = await applyMembership(userId, userType);
+      if (!membershipResult.success) {
+        console.error("Failed to apply membership:", membershipResult.error);
+        return;
+      }
+
+      if (userType === "walk-in") {
+        const walkInResult = await recordWalkIn(userId);
+        if (!walkInResult) {
+          console.warn("Failed to record walk-in, but membership was applied");
+        }
+      }
+
+      if (isMountedRef.current) {
+        const newContexts = new Map(paymentStateContexts);
+        newContexts.set(transactionId, stateContext);
+        safeSteateUpdate(
+          isMountedRef.current,
+          setPaymentStateContexts,
+          newContexts,
+          "handleAdminConfirmPayment"
+        );
+      }
+    } catch (err) {
+      console.error("Failed to confirm payment:", err);
+      safeSteateUpdate(
+        isMountedRef.current,
+        setDashboardError,
+        `Payment confirmation failed: ${err instanceof Error ? err.message : "Unknown error"}`,
+        "handleAdminConfirmPayment"
+      );
+    }
+  };
 
   const handleAdminDeclinePayment = async (
     transactionId: string,
@@ -180,17 +307,32 @@ const handleAdminConfirmPayment = async (
     try {
       const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
 
-      if (stateContext.canPerformAction("reject")) {
-        stateContext.reject("Declined by admin");
+      if (!stateContext.canPerformAction("reject")) {
+        console.warn("Cannot reject payment: invalid state");
+        return;
+      }
 
-        await paymentHook.failPayment(transactionId, "Declined by admin");
+      stateContext.reject("Declined by admin");
+      await paymentHook.failPayment(transactionId, "Declined by admin");
 
+      if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
-        setPaymentStateContexts(newContexts);
+        safeSteateUpdate(
+          isMountedRef.current,
+          setPaymentStateContexts,
+          newContexts,
+          "handleAdminDeclinePayment"
+        );
       }
     } catch (error) {
       console.error("Failed to decline payment:", error);
+      safeSteateUpdate(
+        isMountedRef.current,
+        setDashboardError,
+        `Payment decline failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "handleAdminDeclinePayment"
+      );
     }
   };
 
@@ -202,21 +344,46 @@ const handleAdminConfirmPayment = async (
     try {
       const stateContext = getOrRestoreStateContext(transactionId, "awaiting-verification");
 
-      if (stateContext.canPerformAction("confirm")) {
-        stateContext.confirm(); // awaiting-verification → paid
+      if (!stateContext.canPerformAction("confirm")) {
+        console.warn("Cannot verify payment: invalid state");
+        return;
+      }
 
-        await paymentHook.verifyOnlinePaymentProof(transactionId);
-        await applyMembership(userId, userType);
-        if(userType === "walk-in"){
-          await recordWalkIn(userId);
+      stateContext.confirm(); // awaiting-verification → paid
+
+      await paymentHook.verifyOnlinePaymentProof(transactionId);
+
+      const membershipResult = await applyMembership(userId, userType);
+      if (!membershipResult.success) {
+        console.error("Failed to apply membership:", membershipResult.error);
+        return;
+      }
+
+      if (userType === "walk-in") {
+        const walkInResult = await recordWalkIn(userId);
+        if (!walkInResult) {
+          console.warn("Failed to record walk-in, but membership was applied");
         }
+      }
 
+      if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
-        setPaymentStateContexts(newContexts);
+        safeSteateUpdate(
+          isMountedRef.current,
+          setPaymentStateContexts,
+          newContexts,
+          "handleAdminVerifyOnlinePayment"
+        );
       }
     } catch (error) {
       console.error("Failed to verify online payment:", error);
+      safeSteateUpdate(
+        isMountedRef.current,
+        setDashboardError,
+        `Payment verification failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "handleAdminVerifyOnlinePayment"
+      );
     }
   };
 
@@ -229,59 +396,112 @@ const handleAdminConfirmPayment = async (
     try {
       const stateContext = getOrRestoreStateContext(transactionId, "awaiting-verification");
 
-      if (stateContext.canPerformAction("reject")) {
-        stateContext.reject(reason);
+      if (!stateContext.canPerformAction("reject")) {
+        console.warn("Cannot reject payment: invalid state");
+        return;
+      }
 
-        await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
+      stateContext.reject(reason);
+      await paymentHook.rejectOnlinePaymentProof(transactionId, reason);
 
+      if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
-        setPaymentStateContexts(newContexts);
+        safeSteateUpdate(
+          isMountedRef.current,
+          setPaymentStateContexts,
+          newContexts,
+          "handleAdminRejectOnlinePayment"
+        );
       }
     } catch (error) {
       console.error("Failed to reject online payment:", error);
+      safeSteateUpdate(
+        isMountedRef.current,
+        setDashboardError,
+        `Payment rejection failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+        "handleAdminRejectOnlinePayment"
+      );
     }
   };
 
   const handleLogout = async () => {
-    if (supabase) {
-      await supabase.auth.signOut();
+    try {
+      if (supabase) {
+        await supabase.auth.signOut();
+      }
+      navigate("/admin/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+      // Force navigate even if signOut fails
+      navigate("/admin/login");
     }
-
-    navigate("/admin/login");
   };
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-flexBlack via-flexNavy to-flexBlue p-4 sm:p-8">
-      <section className="mx-auto max-w-6xl rounded-2xl border border-flexNavy/20 bg-white p-6 shadow-2xl sm:p-8">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="inline-flex rounded-full bg-flexBlue/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-flexNavy ring-1 ring-flexBlue/20">
-              Admin
-            </p>
-            <h1 className="mt-2 text-2xl font-bold text-flexBlack sm:text-3xl">Admin Dashboard</h1>
-            <p className="mt-1 text-sm text-flexNavy">
-              Manage your gym operations from one place.
-            </p>
-          </div>
+    <ErrorBoundary onError={(error) => console.error("Dashboard error:", error)}>
+      <main className="min-h-screen bg-gradient-to-br from-flexBlack via-flexNavy to-flexBlue p-4 sm:p-8">
+        <section className="mx-auto max-w-6xl rounded-2xl border border-flexNavy/20 bg-white p-6 shadow-2xl sm:p-8">
+          <header className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="inline-flex rounded-full bg-flexBlue/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-flexNavy ring-1 ring-flexBlue/20">
+                Admin
+              </p>
+              <h1 className="mt-2 text-2xl font-bold text-flexBlack sm:text-3xl">Admin Dashboard</h1>
+              <p className="mt-1 text-sm text-flexNavy">
+                Manage your gym operations from one place.
+              </p>
+            </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
-            >
-              Logout Admin
-            </button>
-          </div>
-        </header>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+              >
+                Logout Admin
+              </button>
+            </div>
+          </header>
 
-        <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {/* ✅ Error Display - Prominent and dismissible */}
+          {dashboardError && (
+            <div className="mb-4 flex items-start gap-4 rounded-lg border border-red-200 bg-red-50 p-4">
+              <div className="mt-0.5">
+                <svg className="h-5 w-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-red-900">Something went wrong</p>
+                <p className="mt-1 text-sm text-red-700">{dashboardError}</p>
+              </div>
+              <button
+                onClick={() => setDashboardError(null)}
+                className="text-red-700 hover:text-red-900"
+              >
+                <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </div>
+          )}
+
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <article className="rounded-xl border border-flexNavy/15 bg-flexWhite p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Total Members</p>
-            <p className="mt-2 text-3xl font-bold text-flexBlack">
-              {isLoadingMembers ? "..." : totalMembers}
-            </p>
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-3xl font-bold text-flexBlack">
+                {isLoadingMembers ? (
+                  <svg className="h-8 w-8 animate-spin text-flexBlue" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : (
+                  totalMembers
+                )}
+              </p>
+            </div>
           </article>
           <article className="rounded-xl border border-flexNavy/15 bg-flexWhite p-4">
             <p className="text-xs uppercase tracking-[0.16em] text-flexNavy">Active Plans</p>
@@ -447,5 +667,6 @@ const handleAdminConfirmPayment = async (
         )}
       </section>
     </main>
+    </ErrorBoundary>
   );
 }
