@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks";
@@ -31,6 +31,7 @@ import PaymentModal from "./PaymentModal";
 import activeIconGif from "../assets/Active icon.gif";
 import { MEMBERSHIP_PRICES } from "../types/payment";
 import { generateTransactionId, saveTransaction } from "../lib/paymentSimulator";
+import { shouldProcessInteraction } from "../lib/interaction";
 
 type Toast = {
   id: string;
@@ -51,6 +52,7 @@ export default function MembershipDashboard() {
   const { user } = useAuth();
   const { session: walkInSession, startSession: startWalkIn, clearSession: clearWalkIn } = useWalkIn();
   const paymentHook = usePayment(user?.id);
+  const { clearError } = paymentHook;
   const [membership, setMembership] = useState<Membership | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -60,6 +62,7 @@ export default function MembershipDashboard() {
   const [isDev] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [devShowMembership, setDevShowMembership] = useState(false);
+  const lastInteractionRef = useRef(0);
 
   useEffect(() => {
   const checkAdmin = async () => {
@@ -94,8 +97,23 @@ export default function MembershipDashboard() {
   const [renewalPaymentTier, setRenewalPaymentTier] = useState<MembershipTier | null>(null);
 
   const displayMembership = membership;
-  const displayStats = displayMembership ? calculateMembershipStats(displayMembership) : null;
-  const isSubscribedUser = Boolean(displayMembership && displayMembership.status === "active");
+  const displayStats = useMemo(
+    () => (displayMembership ? calculateMembershipStats(displayMembership) : null),
+    [displayMembership]
+  );
+  const isSubscribedUser = useMemo(
+    () => Boolean(displayMembership && displayMembership.status === "active"),
+    [displayMembership]
+  );
+
+  const canHandleUserInteraction = useCallback(() => {
+    const now = Date.now();
+    if (!shouldProcessInteraction(lastInteractionRef.current, now)) {
+      return false;
+    }
+    lastInteractionRef.current = now;
+    return true;
+  }, []);
 
   const toggleAdminView = () => {
     setIsAdmin(!isAdmin);
@@ -149,14 +167,22 @@ export default function MembershipDashboard() {
     };
   }, [showCheckInConfirmation]);
 
-  const qrValue = JSON.stringify({
-    id: user?.id,
-    type: attendanceSessionContext?.getStateName() === "checked-in" ? "checkout" : "checkin",
-    tier: displayMembership?.tier,
-    timestamp: new Date().toISOString(),
-  });
+  const qrValue = useMemo(
+    () =>
+      JSON.stringify({
+        id: user?.id,
+        type: attendanceSessionContext?.getStateName() === "checked-in" ? "checkout" : "checkin",
+        tier: displayMembership?.tier,
+        timestamp: new Date().toISOString(),
+      }),
+    [attendanceSessionContext, displayMembership?.tier, user?.id]
+  );
 
   const handleGenerateCheckIn = () => {
+    if (!canHandleUserInteraction()) {
+      return;
+    }
+
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(true);
       addToast("Check-in QR generated! Show this to the admin.", "success");
@@ -174,6 +200,10 @@ export default function MembershipDashboard() {
   };
 
   const handleGenerateCheckOut = () => {
+    if (!canHandleUserInteraction()) {
+      return;
+    }
+
     if (attendanceSessionContext?.canPerformAction("checkOut")) {
       setShowQR(true);
       setStateUpdateTrigger((prev) => prev + 1);
@@ -184,6 +214,10 @@ export default function MembershipDashboard() {
   };
 
   const handleCloseQR = () => {
+    if (!canHandleUserInteraction()) {
+      return;
+    }
+
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
     if (sessionStage === "checked-in") {
@@ -237,14 +271,14 @@ export default function MembershipDashboard() {
     setRenewalPaymentTier(pendingMembershipTier);
     setShowChangeMembershipModal(false);
     setPendingMembershipTier(null);
-    paymentHook.clearError();
+    clearError();
     setShowPaymentModal(true);
   };
 
   const handleCloseChangeMembership = () => {
     setShowChangeMembershipModal(false);
     setPendingMembershipTier(null);
-    paymentHook.clearError();
+    clearError();
   };
 
   const handleApply = useCallback(async (tier: MembershipTier = "monthly") => {
@@ -266,7 +300,7 @@ export default function MembershipDashboard() {
     if (!user) return;
     setSelectedPlanTier(displayMembership?.tier ?? "monthly");
     setRenewalPaymentTier(displayMembership?.tier ?? null);
-    paymentHook.clearError();
+    clearError();
     setShowPaymentModal(true);
   };
 
@@ -418,11 +452,11 @@ export default function MembershipDashboard() {
     }
   };
 
-  const handleSelectPlan = (tier: UserType) => {
+  const handleSelectPlan = useCallback((tier: UserType) => {
     setSelectedPlanTier(tier);
-    paymentHook.clearError();
+    clearError();
     setShowPaymentModal(true);
-  };
+  }, [clearError]);
 
   // ✅ FIXED: captures returned transaction instead of reading stale hook state
   const handleInitiatePayment = async (method: "cash" | "card" | "online", proofOfPayment?: string) => {
@@ -498,7 +532,18 @@ export default function MembershipDashboard() {
     await handleApply(transaction.userType);
     addToast("Payment completed! Your membership is now active.", "success");
     navigate("/dashboard");
-  }, [addToast, completedTransactionId, guestTransaction, handleApply, handleWalkInApply, navigate, paymentHook.state.currentTransaction, user]);
+  }, [
+    addToast,
+    completedTransactionId,
+    guestTransaction,
+    handleApply,
+    handleWalkInApply,
+    navigate,
+    paymentHook.state.currentTransaction,
+    pendingMembershipTier,
+    renewalPaymentTier,
+    user,
+  ]);
 
   useEffect(() => {
     const transaction = paymentHook.state.currentTransaction;
@@ -511,7 +556,7 @@ export default function MembershipDashboard() {
     }
   }, [completedTransactionId, handlePaymentComplete, paymentHook.state.currentTransaction]);
 
-  const plans = [
+  const plans = useMemo(() => [
     {
       badge: "Starter",
       title: "Monthly",
@@ -583,7 +628,7 @@ export default function MembershipDashboard() {
         </svg>
       ),
     },
-  ];
+  ], []);
 
   const renderPaymentFlow = () => (
     <>
@@ -593,12 +638,12 @@ export default function MembershipDashboard() {
         onClose={() => {
           setShowPaymentModal(false);
           setRenewalPaymentTier(null);
-          paymentHook.clearError();
+          clearError();
         }}
         onInitiatePayment={handleInitiatePayment}
         isLoading={paymentHook.state.status === "processing"}
         error={paymentHook.state.error}
-        onClearError={paymentHook.clearError}
+        onClearError={clearError}
       />
       <PaymentConfirmation
         transaction={paymentHook.state.currentTransaction ?? guestTransaction}
@@ -619,7 +664,7 @@ export default function MembershipDashboard() {
         isLoading={actionLoading}
         isSubscriberView={Boolean(user && isSubscribedUser)}
         currentTier={displayMembership?.tier ?? null}
-        onSelectPlan={(plan) => handleSelectPlan(plan.tier)}
+        onSelectPlan={handleSelectPlan}
       />
       {renderPaymentFlow()}
     </>

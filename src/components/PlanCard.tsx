@@ -1,6 +1,9 @@
+import { memo, useCallback } from "react";
 import type { ReactNode } from "react";
+import type { MembershipTier } from "../types/membership";
 
 type PlanCardProps = {
+  tier: MembershipTier;
   badge: string;
   title: string;
   amount: string;
@@ -14,10 +17,11 @@ type PlanCardProps = {
   isLoading?: boolean;
   showCta?: boolean;
   isCurrentSubscription?: boolean;
-  onSelect: () => void;
+  onSelectPlan: (tier: MembershipTier) => void;
 };
 
-export default function PlanCard({
+function PlanCard({
+  tier,
   badge,
   title,
   amount,
@@ -31,8 +35,12 @@ export default function PlanCard({
   isLoading = false,
   showCta = true,
   isCurrentSubscription = false,
-  onSelect,
+  onSelectPlan,
 }: PlanCardProps) {
+  const handleSelect = useCallback(() => {
+    onSelectPlan(tier);
+  }, [onSelectPlan, tier]);
+
   return (
     <article
       className={`group relative flex h-full flex-col rounded-[24px] border p-6 transition-all duration-300 ${
@@ -108,7 +116,7 @@ export default function PlanCard({
       {showCta && !isCurrentSubscription ? (
         <button
           type="button"
-          onClick={onSelect}
+          onClick={handleSelect}
           disabled={isLoading}
           className={`mt-auto w-full rounded-xl py-4 text-sm font-bold tracking-widest text-white uppercase transition-all active:scale-[0.98] disabled:opacity-50
             bg-[#0c2149] border border-blue-900/30
@@ -123,3 +131,5 @@ export default function PlanCard({
     </article>
   );
 }
+
+export default memo(PlanCard);
