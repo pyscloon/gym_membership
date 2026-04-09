@@ -114,7 +114,8 @@ interface PaymentModalProps {
     proofOfPayment?: string,
     discountCategory?: DiscountCategory,
     discountIdProof?: string,
-    voucherCode?: string
+    voucherCode?: string,
+    finalAmount?: number
   ) => Promise<void>;
   isLoading: boolean;
   error: string | null;
@@ -217,7 +218,8 @@ export default function PaymentModal({
         photoPreview || undefined,
         discountCategory || undefined,
         discountIdPreview || undefined,
-        appliedVoucher?.code
+        appliedVoucher?.code,
+        finalAmount
       );
 
       setSelectedMethod(null);
