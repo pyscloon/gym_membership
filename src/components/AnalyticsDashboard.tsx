@@ -32,23 +32,63 @@ export default function AnalyticsDashboard() {
   );
   const [timeRange, setTimeRange] = useState<30 | 60 | 90>(30);
   const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadAnalytics = () => {
+    let isMounted = true;
+
+    const loadAnalytics = async () => {
       setIsLoading(true);
-      const data = getWalkInVsMemberAnalyticsByDays(timeRange);
-      setAnalyticsData(data);
-      setIsLoading(false);
+      setErrorMessage(null);
+
+      try {
+        const data = await getWalkInVsMemberAnalyticsByDays(timeRange);
+
+        if (!isMounted) return;
+        setAnalyticsData(data);
+      } catch (error) {
+        if (!isMounted) return;
+        setAnalyticsData(null);
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "Unable to load analytics right now."
+        );
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
     };
 
     loadAnalytics();
+
+    const refreshInterval = window.setInterval(loadAnalytics, 30000);
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(refreshInterval);
+    };
   }, [timeRange]);
 
-  if (isLoading || !analyticsData) {
+  if (isLoading) {
     return (
       <section className="mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6">
         <p className="text-center text-sm text-flexNavy py-8">
           Loading analytics...
+        </p>
+      </section>
+    );
+  }
+
+  if (errorMessage || !analyticsData) {
+    return (
+      <section className="mt-6 rounded-2xl border border-red-200 bg-red-50/80 p-6">
+        <p className="text-center text-sm font-semibold text-red-700 py-2">
+          Unable to load analytics data
+        </p>
+        <p className="text-center text-sm text-red-600/90">
+          {errorMessage ?? "No analytics data is available."}
         </p>
       </section>
     );
