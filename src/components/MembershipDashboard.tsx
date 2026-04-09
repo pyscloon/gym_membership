@@ -459,7 +459,16 @@ export default function MembershipDashboard() {
   }, [clearError]);
 
   // ✅ FIXED: captures returned transaction instead of reading stale hook state
-  const handleInitiatePayment = async (method: "cash" | "card" | "online", proofOfPayment?: string) => {
+  const handleInitiatePayment = async (
+    method: "cash" | "card" | "online",
+    proofOfPayment?: string,
+    _discountCategory?: string,
+    _discountIdProof?: string,
+    _voucherCode?: string,
+    finalAmount?: number
+    ) => {
+    const amount = finalAmount ?? MEMBERSHIP_PRICES[selectedPlanTier];
+    
     if (!user) {
       const transactionId = generateTransactionId();
       const now = new Date().toISOString();
@@ -467,7 +476,7 @@ export default function MembershipDashboard() {
         id: transactionId,
         userId: "guest",
         userType: selectedPlanTier,
-        amount: MEMBERSHIP_PRICES[selectedPlanTier],
+        amount: amount,
         method,
         status: method === "online" ? "awaiting-verification" : "awaiting-confirmation",
         createdAt: now,
@@ -487,7 +496,7 @@ export default function MembershipDashboard() {
     const transaction = await paymentHook.initializePayment(
       user.id,
       selectedPlanTier,
-      MEMBERSHIP_PRICES[selectedPlanTier],
+      amount,
       method,
       proofOfPayment
     );
