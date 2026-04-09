@@ -42,7 +42,7 @@ const mockOnRejectOnlinePayment = async (transactionId: string, userId: string, 
 const createTestTransaction = (
   method: 'cash' | 'online',
   userType: UserType = 'monthly',
-  userId = 'user123'
+  userId = '11111111-1111-4111-8111-111111111111'
 ): PaymentTransaction => {
   // Get base price for tier and add some variance (platform fee, tax, etc)
   const basePrice = MEMBERSHIP_PRICES[userType];
@@ -66,9 +66,9 @@ const createTestTransaction = (
 /**
  * Helper to set up story with specific transactions
  */
-const setupTransactions = (transactions: PaymentTransaction[]) => {
-  clearAllTransactions();
-  transactions.forEach(t => saveTransaction(t));
+const setupTransactions = async (transactions: PaymentTransaction[]) => {
+  await clearAllTransactions();
+  await Promise.all(transactions.map((t) => saveTransaction(t)));
 };
 
 const meta = {
@@ -100,7 +100,7 @@ export const NoPendingPayments: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([]);
+    void setupTransactions([]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -128,8 +128,8 @@ export const SingleCashPayment: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('cash', 'monthly', 'user_john_doe'),
+    void setupTransactions([
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -158,11 +158,11 @@ export const MultipleCashPayments: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('cash', 'semi-yearly', 'user_jane_smith'),
-      createTestTransaction('cash', 'yearly', 'user_mike_wilson'),
-      createTestTransaction('cash', 'walk-in', 'user_sarah_jones'),
+    void setupTransactions([
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
+      createTestTransaction('cash', 'semi-yearly', '11111111-1111-4111-8111-111111111113'),
+      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111114'),
+      createTestTransaction('cash', 'walk-in', '11111111-1111-4111-8111-111111111115'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -191,8 +191,8 @@ export const SingleOnlinePayment: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('online', 'yearly', 'user_alex_patel'),
+    void setupTransactions([
+      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111116'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -221,10 +221,10 @@ export const MultipleOnlinePayments: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('online', 'yearly', 'user_emma_brown'),
-      createTestTransaction('online', 'monthly', 'user_david_lee'),
+    void setupTransactions([
+      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
+      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111117'),
+      createTestTransaction('online', 'monthly', '11111111-1111-4111-8111-111111111118'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -253,12 +253,12 @@ export const MixedPaymentTypes: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('cash', 'yearly', 'user_jane_smith'),
-      createTestTransaction('online', 'walk-in', 'user_emma_brown'),
-      createTestTransaction('cash', 'monthly', 'user_mike_wilson'),
+    void setupTransactions([
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
+      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
+      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111113'),
+      createTestTransaction('online', 'walk-in', '11111111-1111-4111-8111-111111111117'),
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111114'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -287,10 +287,10 @@ export const MobileView: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('online', 'yearly', 'user_alex_patel'),
-      createTestTransaction('cash', 'semi-yearly', 'user_jane_smith'),
+    void setupTransactions([
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
+      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111116'),
+      createTestTransaction('cash', 'semi-yearly', '11111111-1111-4111-8111-111111111113'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -322,11 +322,11 @@ export const TabletView: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('cash', 'yearly', 'user_jane_smith'),
-      createTestTransaction('online', 'walk-in', 'user_emma_brown'),
+    void setupTransactions([
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
+      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
+      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111113'),
+      createTestTransaction('online', 'walk-in', '11111111-1111-4111-8111-111111111117'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -358,13 +358,13 @@ export const DesktopView: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('cash', 'yearly', 'user_jane_smith'),
-      createTestTransaction('online', 'monthly', 'user_emma_brown'),
-      createTestTransaction('cash', 'walk-in', 'user_mike_wilson'),
-      createTestTransaction('online', 'yearly', 'user_david_lee'),
+    void setupTransactions([
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
+      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
+      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111113'),
+      createTestTransaction('online', 'monthly', '11111111-1111-4111-8111-111111111117'),
+      createTestTransaction('cash', 'walk-in', '11111111-1111-4111-8111-111111111114'),
+      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111118'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -397,7 +397,7 @@ export const HighVolumePayments: Story = {
   },
   render: (args) => {
     const payments: PaymentTransaction[] = [];
-    const userIds = ['user_john', 'user_jane', 'user_mike', 'user_sarah', 'user_alex', 'user_emma', 'user_david', 'user_lisa', 'user_james', 'user_maria', 'user_robert', 'user_anna'];
+    const userIds = ['11111111-1111-4111-8111-111111111119', '11111111-1111-4111-8111-111111111120', '11111111-1111-4111-8111-111111111121', '11111111-1111-4111-8111-111111111122', '11111111-1111-4111-8111-111111111123', '11111111-1111-4111-8111-111111111124', '11111111-1111-4111-8111-111111111125', '11111111-1111-4111-8111-111111111126', '11111111-1111-4111-8111-111111111127', '11111111-1111-4111-8111-111111111128', '11111111-1111-4111-8111-111111111129', '11111111-1111-4111-8111-111111111130'];
     const tiers: UserType[] = ['monthly', 'semi-yearly', 'yearly', 'walk-in'];
     const methods: ('cash' | 'online')[] = ['cash', 'online'];
     
@@ -406,7 +406,7 @@ export const HighVolumePayments: Story = {
       const method = methods[i % 2];
       payments.push(createTestTransaction(method, tier, userIds[i]));
     }
-    setupTransactions(payments);
+    void setupTransactions(payments);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -433,9 +433,9 @@ export const InteractiveCashDemo: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('cash', 'monthly', 'user_john_doe'),
-      createTestTransaction('cash', 'yearly', 'user_mike_wilson'),
+    void setupTransactions([
+      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
+      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111114'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
@@ -466,9 +466,9 @@ export const InteractiveOnlineDemo: Story = {
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
   render: (args) => {
-    setupTransactions([
-      createTestTransaction('online', 'semi-yearly', 'user_alex_patel'),
-      createTestTransaction('online', 'yearly', 'user_emma_brown'),
+    void setupTransactions([
+      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
+      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111117'),
     ]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">

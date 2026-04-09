@@ -38,12 +38,12 @@ export default function PaymentPanel() {
   };
 
   const handleDeclinePayment = async (transactionId: string, _userId: string, _userType: UserType) => {
-    const existing = getStoredTransaction(transactionId);
+    const existing = await getStoredTransaction(transactionId);
     if (existing) {
       existing.status = "failed";
       existing.failureReason = "Declined from payment panel";
       existing.updatedAt = new Date().toISOString();
-      saveTransaction(existing as PaymentTransaction);
+      await saveTransaction(existing as PaymentTransaction);
     }
     navigate("/subscription-tier");
   };

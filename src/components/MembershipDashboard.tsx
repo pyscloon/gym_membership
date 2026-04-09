@@ -442,7 +442,7 @@ export default function MembershipDashboard() {
         paymentProofStatus: method === "online" ? "pending" : undefined,
       };
 
-      saveTransaction(guestPayment);
+      await saveTransaction(guestPayment);
       setGuestTransaction(guestPayment);
       addToast("Payment request created.", "success");
       setShowPaymentModal(false);

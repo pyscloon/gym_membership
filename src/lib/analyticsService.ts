@@ -3,6 +3,38 @@
  */
 
 import { getAllTransactions } from "./paymentSimulator";
+import { supabase } from "./supabaseClient";
+import type { PaymentMethod, PaymentStatus, PaymentTransaction, UserType } from "../types/payment";
+
+const ANALYTICS_TIMEZONE = "Asia/Manila";
+const VALID_ANALYTICS_STATUSES: PaymentStatus[] = [
+  "paid",
+  "awaiting-confirmation",
+  "awaiting-verification",
+];
+
+type TransactionRow = {
+  id: string;
+  user_id: string;
+  user_type: string;
+  amount: number;
+  method: string;
+  status: string;
+  payment_proof_status: string | null;
+  proof_of_payment_url: string | null;
+  rejection_reason: string | null;
+  failure_reason: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: ANALYTICS_TIMEZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
 
 export interface DailyStats {
   date: string;
@@ -17,8 +49,8 @@ export interface AggregateStats {
   totalMemberRevenue: number;
   totalWalkIns: number;
   totalWalkInRevenue: number;
-  memberRatio: number; // percentage
-  walkInRatio: number; // percentage
+  memberRatio: number;
+  walkInRatio: number;
 }
 
 export interface AnalyticsData {
@@ -26,32 +58,56 @@ export interface AnalyticsData {
   aggregateStats: AggregateStats;
 }
 
-/**
- * Format date to YYYY-MM-DD for grouping
- */
 function formatDateKey(dateString: string): string {
-  const date = new Date(dateString);
-  return date.toISOString().split("T")[0];
+  return dateKeyFormatter.format(new Date(dateString));
 }
 
-/**
- * Get analytics data for walk-in vs members over time
- * @returns Analytics data with daily trends and aggregate stats
- */
-export function getWalkInVsMemberAnalytics(): AnalyticsData {
-  const transactions = getAllTransactions();
+function rowToTransaction(row: TransactionRow): PaymentTransaction {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    userType: row.user_type as UserType,
+    amount: row.amount,
+    method: row.method as PaymentMethod,
+    status: row.status as PaymentStatus,
+    paymentProofStatus: (row.payment_proof_status as PaymentTransaction["paymentProofStatus"]) ?? undefined,
+    proofOfPaymentUrl: row.proof_of_payment_url ?? undefined,
+    rejectionReason: row.rejection_reason ?? undefined,
+    failureReason: row.failure_reason ?? undefined,
+    confirmedAt: row.confirmed_at ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
 
-  // Filter only completed or paid transactions
-  const validTransactions = transactions.filter(
-    (t) => t.status === "paid" || t.status === "awaiting-confirmation"
+async function fetchTransactions(): Promise<PaymentTransaction[]> {
+  if (!supabase) {
+    return getAllTransactions();
+  }
+
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .in("status", VALID_ANALYTICS_STATUSES)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message || "Failed to fetch analytics transactions");
+  }
+
+  return ((data ?? []) as TransactionRow[]).map(rowToTransaction);
+}
+
+function buildAnalyticsData(transactions: PaymentTransaction[]): AnalyticsData {
+  const validTransactions = transactions.filter((transaction) =>
+    VALID_ANALYTICS_STATUSES.includes(transaction.status)
   );
 
-  // Group transactions by date
   const dailyMap = new Map<string, DailyStats>();
 
   validTransactions.forEach((transaction) => {
     const dateKey = formatDateKey(transaction.createdAt);
-    
+
     if (!dailyMap.has(dateKey)) {
       dailyMap.set(dateKey, {
         date: dateKey,
@@ -73,22 +129,16 @@ export function getWalkInVsMemberAnalytics(): AnalyticsData {
     }
   });
 
-  // Convert to sorted array
-  const dailyStats = Array.from(dailyMap.values()).sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  const dailyStats = Array.from(dailyMap.values()).sort((a, b) =>
+    a.date.localeCompare(b.date)
   );
 
-  // Calculate aggregate stats
-  const totalMembers = validTransactions.filter(
-    (t) => t.userType !== "walk-in"
-  ).length;
+  const totalMembers = validTransactions.filter((t) => t.userType !== "walk-in").length;
   const totalMemberRevenue = validTransactions
     .filter((t) => t.userType !== "walk-in")
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const totalWalkIns = validTransactions.filter(
-    (t) => t.userType === "walk-in"
-  ).length;
+  const totalWalkIns = validTransactions.filter((t) => t.userType === "walk-in").length;
   const totalWalkInRevenue = validTransactions
     .filter((t) => t.userType === "walk-in")
     .reduce((sum, t) => sum + t.amount, 0);
@@ -110,22 +160,21 @@ export function getWalkInVsMemberAnalytics(): AnalyticsData {
   };
 }
 
-/**
- * Get last N days of analytics data
- * @param days - Number of days to retrieve
- */
-export function getWalkInVsMemberAnalyticsByDays(
+export async function getWalkInVsMemberAnalytics(): Promise<AnalyticsData> {
+  const transactions = await fetchTransactions();
+  return buildAnalyticsData(transactions);
+}
+
+export async function getWalkInVsMemberAnalyticsByDays(
   days: number = 30
-): AnalyticsData {
-  const analytics = getWalkInVsMemberAnalytics();
+): Promise<AnalyticsData> {
+  const analytics = await getWalkInVsMemberAnalytics();
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
+  const cutoffKey = formatDateKey(cutoffDate.toISOString());
 
-  const filteredDailyStats = analytics.dailyStats.filter(
-    (stat) => new Date(stat.date) >= cutoffDate
-  );
+  const filteredDailyStats = analytics.dailyStats.filter((stat) => stat.date >= cutoffKey);
 
-  // Recalculate aggregate for the filtered period
   let totalMembers = 0;
   let totalMemberRevenue = 0;
   let totalWalkIns = 0;
