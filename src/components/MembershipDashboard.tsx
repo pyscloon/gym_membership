@@ -463,7 +463,7 @@ export default function MembershipDashboard() {
     method: "cash" | "card" | "online",
     proofOfPayment?: string,
     _discountCategory?: string,
-    _discountIdProof?: string,
+    discountIdProof?: string,
     _voucherCode?: string,
     finalAmount?: number
     ) => {
@@ -498,7 +498,8 @@ export default function MembershipDashboard() {
       selectedPlanTier,
       amount,
       method,
-      proofOfPayment
+      proofOfPayment,
+      discountIdProof
     );
 
     if (!transaction) {

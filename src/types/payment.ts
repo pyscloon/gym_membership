@@ -24,6 +24,7 @@ export interface PaymentTransaction {
   failureReason?: string;
   // Online payment proof
   proofOfPaymentUrl?: string; // base64 encoded image
+  discountIdProofUrl?: string;
   paymentProofStatus?: "pending" | "verified" | "rejected";
   rejectionReason?: string;
 }
@@ -36,7 +37,8 @@ export interface PendingPayment {
   method: PaymentMethod;
   requestedAt: string;
   confirmedAt?: string;
-  proofOfPaymentUrl?: string
+  proofOfPaymentUrl?: string;
+  discountIdProofUrl?: string;
 }
 
 export interface PaymentState {
