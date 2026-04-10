@@ -14,6 +14,7 @@ type TransactionRow = {
   method: string;
   status: string;
   proof_of_payment_url: string | null;
+  discount_id_proof_url: string | null;
   created_at: string;
 };
 
@@ -36,7 +37,7 @@ export default function AdminPaymentPanel({
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [decliningId, setDecliningId] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const [selectedEvidenceId, setSelectedEvidenceId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState<{ [key: string]: string }>({});
 
   // ✅ Now fetches from Supabase instead of localStorage
@@ -63,6 +64,7 @@ export default function AdminPaymentPanel({
           method: t.method as PendingPayment["method"],
           requestedAt: t.created_at,
           proofOfPaymentUrl: t.proof_of_payment_url ?? undefined,
+          discountIdProofUrl: t.discount_id_proof_url ?? undefined,
         }));
 
         setPendingPayments(pending);
@@ -182,6 +184,10 @@ export default function AdminPaymentPanel({
         <div className="space-y-3 max-h-[600px] overflow-y-auto">
           {pendingPayments.map((payment) => {
             const isOnline = payment.method === "online";
+            const paymentProofKey = `${payment.transactionId}:payment-proof`;
+            const discountIdKey = `${payment.transactionId}:discount-id`;
+            const isPaymentProofVisible = selectedEvidenceId === paymentProofKey;
+            const isDiscountIdVisible = selectedEvidenceId === discountIdKey;
 
             return (
               <div
@@ -230,7 +236,7 @@ export default function AdminPaymentPanel({
                 {/* Online Payment Photo Proof */}
                 {isOnline && payment.proofOfPaymentUrl && (
                   <div className="mb-4">
-                    {selectedPhotoId === payment.transactionId ? (
+                    {isPaymentProofVisible ? (
                       <div className="rounded-lg bg-gray-50 p-3 mb-3">
                         <img
                           src={payment.proofOfPaymentUrl}
@@ -238,7 +244,7 @@ export default function AdminPaymentPanel({
                           className="w-full max-h-72 object-contain rounded-lg mb-3"
                         />
                         <button
-                          onClick={() => setSelectedPhotoId(null)}
+                          onClick={() => setSelectedEvidenceId(null)}
                           className="text-xs text-flexNavy/60 hover:text-flexNavy underline"
                         >
                           Hide Photo
@@ -246,7 +252,7 @@ export default function AdminPaymentPanel({
                       </div>
                     ) : (
                       <button
-                        onClick={() => setSelectedPhotoId(payment.transactionId)}
+                        onClick={() => setSelectedEvidenceId(paymentProofKey)}
                         className="text-xs text-purple-600 hover:text-purple-700 underline font-semibold mb-3"
                       >
                         View Payment Proof Photo →
@@ -255,8 +261,35 @@ export default function AdminPaymentPanel({
                   </div>
                 )}
 
+                {payment.discountIdProofUrl && (
+                  <div className="mb-4">
+                    {isDiscountIdVisible ? (
+                      <div className="rounded-lg bg-gray-50 p-3 mb-3">
+                        <img
+                          src={payment.discountIdProofUrl}
+                          alt="Discount ID proof"
+                          className="w-full max-h-72 object-contain rounded-lg mb-3"
+                        />
+                        <button
+                          onClick={() => setSelectedEvidenceId(null)}
+                          className="text-xs text-flexNavy/60 hover:text-flexNavy underline"
+                        >
+                          Hide ID Photo
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedEvidenceId(discountIdKey)}
+                        className="text-xs text-blue-600 hover:text-blue-700 underline font-semibold mb-3"
+                      >
+                        View Discount ID Photo
+                      </button>
+                    )}
+                  </div>
+                )}
+
                 {/* Rejection Reason for Online */}
-                {isOnline && selectedPhotoId === payment.transactionId && (
+                {isOnline && (isPaymentProofVisible || isDiscountIdVisible) && (
                   <div className="mb-3">
                     <label className="text-xs font-semibold text-flexNavy block mb-1">
                       Rejection Reason (if rejecting)

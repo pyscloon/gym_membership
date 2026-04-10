@@ -46,6 +46,7 @@ type MockTransactionRow = {
   status: "idle" | "processing" | "awaiting-confirmation" | "awaiting-verification" | "paid" | "failed";
   payment_proof_status: "pending" | "verified" | "rejected" | null;
   proof_of_payment_url: string | null;
+  discount_id_proof_url: string | null;
   rejection_reason: string | null;
   failure_reason: string | null;
   confirmed_at: string | null;
@@ -412,6 +413,7 @@ class MockQueryBuilder<T extends keyof MockTableMap> implements PromiseLike<Quer
         currency: "PHP",
         payment_proof_status: null,
         proof_of_payment_url: null,
+        discount_id_proof_url: null,
         rejection_reason: null,
         failure_reason: null,
         confirmed_at: null,

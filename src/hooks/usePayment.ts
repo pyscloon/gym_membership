@@ -18,12 +18,38 @@ type TransactionRow = {
   status: string;
   payment_proof_status: string | null;
   proof_of_payment_url: string | null;
+  discount_id_proof_url: string | null;
   rejection_reason: string | null;
   failure_reason: string | null;
   confirmed_at: string | null;
   created_at: string;
   updated_at: string;
 };
+
+const UPLOADS_BUCKET = "uploads";
+
+function dataUrlToBlob(dataUrl: string): { blob: Blob; mimeType: string; extension: string } {
+  const base64Data = dataUrl.split(",")[1];
+  if (!base64Data) {
+    throw new Error("Invalid image data.");
+  }
+
+  const mimeMatch = dataUrl.match(/data:(.*?);base64/);
+  const mimeType = mimeMatch?.[1] ?? "image/jpeg";
+  const extension = mimeType.split("/")[1] ?? "jpg";
+
+  const byteCharacters = atob(base64Data);
+  const byteArray = new Uint8Array(byteCharacters.length);
+  for (let index = 0; index < byteCharacters.length; index += 1) {
+    byteArray[index] = byteCharacters.charCodeAt(index);
+  }
+
+  return {
+    blob: new Blob([byteArray], { type: mimeType }),
+    mimeType,
+    extension,
+  };
+}
 
 function rowToTransaction(row: TransactionRow): PaymentTransaction {
   return {
@@ -38,6 +64,7 @@ function rowToTransaction(row: TransactionRow): PaymentTransaction {
     confirmedAt: row.confirmed_at ?? undefined,
     failureReason: row.failure_reason ?? undefined,
     proofOfPaymentUrl: row.proof_of_payment_url ?? undefined,
+    discountIdProofUrl: row.discount_id_proof_url ?? undefined,
     paymentProofStatus: row.payment_proof_status as PaymentTransaction["paymentProofStatus"],
     rejectionReason: row.rejection_reason ?? undefined,
   };
@@ -190,7 +217,8 @@ export function usePayment(userId?: string) {
       userType: UserType,
       amount: number,
       method: PaymentMethod,
-      proofOfPayment?: string
+      proofOfPayment?: string,
+      discountIdProof?: string
     ): Promise<PaymentTransaction | null> => {
       if (!supabase) return null;
 
@@ -199,32 +227,30 @@ export function usePayment(userId?: string) {
         paymentLifecycle.hydrate("idle");
         paymentLifecycle.initiate();
 
-        let proofUrl: string | null = null;
-        if (proofOfPayment && method === "online") {
-          const base64Data = proofOfPayment.split(",")[1];
-          const mimeMatch = proofOfPayment.match(/data:(.*?);base64/);
-          const mimeType = mimeMatch?.[1] ?? "image/jpeg";
-          const extension = mimeType.split("/")[1] ?? "jpg";
-          const fileName = `proof_${paramUserId}_${Date.now()}.${extension}`;
+        const uploadProofImage = async (imageData: string, prefix: string) => {
+          const { blob, mimeType, extension } = dataUrlToBlob(imageData);
+          const fileName = `${prefix}_${paramUserId}_${Date.now()}.${extension}`;
 
-          const byteCharacters = atob(base64Data);
-          const byteArray = new Uint8Array(byteCharacters.length);
-          for (let i = 0; i < byteCharacters.length; i++) {
-            byteArray[i] = byteCharacters.charCodeAt(i);
-          }
-
-          const blob = new Blob([byteArray], { type: mimeType });
           const { data: uploadData, error: uploadError } = await supabase.storage
-            .from("payment-proofs")
+            .from(UPLOADS_BUCKET)
             .upload(fileName, blob, { contentType: mimeType, upsert: false });
 
           if (uploadError) {
             throw new Error(`Upload failed: ${uploadError.message}`);
           }
 
-          const { data: urlData } = supabase.storage.from("payment-proofs").getPublicUrl(uploadData.path);
-          proofUrl = urlData.publicUrl;
+          const { data: urlData } = supabase.storage.from(UPLOADS_BUCKET).getPublicUrl(uploadData.path);
+          return urlData.publicUrl;
+        };
+
+        let proofUrl: string | null = null;
+        if (proofOfPayment && method === "online") {
+          proofUrl = await uploadProofImage(proofOfPayment, "payment-proof");
         }
+
+        const discountIdProofUrl = discountIdProof
+          ? await uploadProofImage(discountIdProof, "discount-id")
+          : null;
 
         const initialStatus =
           method === "cash"
@@ -250,6 +276,7 @@ export function usePayment(userId?: string) {
             method,
             status: initialStatus,
             proof_of_payment_url: proofUrl,
+            discount_id_proof_url: discountIdProofUrl,
             payment_proof_status: proofUrl ? "pending" : null,
           })
           .select()

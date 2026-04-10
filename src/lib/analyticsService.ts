@@ -22,6 +22,7 @@ type TransactionRow = {
   status: string;
   payment_proof_status: string | null;
   proof_of_payment_url: string | null;
+  discount_id_proof_url: string | null;
   rejection_reason: string | null;
   failure_reason: string | null;
   confirmed_at: string | null;
@@ -72,6 +73,7 @@ function rowToTransaction(row: TransactionRow): PaymentTransaction {
     status: row.status as PaymentStatus,
     paymentProofStatus: (row.payment_proof_status as PaymentTransaction["paymentProofStatus"]) ?? undefined,
     proofOfPaymentUrl: row.proof_of_payment_url ?? undefined,
+    discountIdProofUrl: row.discount_id_proof_url ?? undefined,
     rejectionReason: row.rejection_reason ?? undefined,
     failureReason: row.failure_reason ?? undefined,
     confirmedAt: row.confirmed_at ?? undefined,
