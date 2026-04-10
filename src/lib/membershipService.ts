@@ -13,7 +13,7 @@ import { AccessFactory } from "../design-patterns";
 
 function getRenewalDays(tier: MembershipTier): number {
   // exclude the walk in 
-  if (tier === "walk-in") return 30;
+  if (tier === "walk-in") return 1;
 
   return AccessFactory.create_access(tier).get_duration();
 }
