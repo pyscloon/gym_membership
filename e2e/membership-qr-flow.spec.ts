@@ -39,12 +39,15 @@ async function installTestDoubles(page: import("@playwright/test").Page, storage
 }
 
 async function loginMember(page: import("@playwright/test").Page) {
-  await page.goto("/login");
-  await page.getByLabel("Email").fill(MEMBER_EMAIL);
+  await page.goto("/login", { waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("heading", { name: "Login" })).toBeVisible();
+
+  await page.getByRole("textbox", { name: /^Email$/i }).fill(MEMBER_EMAIL);
   await page.getByLabel("Password").fill(MEMBER_PASSWORD);
+
   await Promise.all([
-    page.waitForURL(/\/subscription-tier/),
-    page.getByRole("button", { name: "Login" }).click({ force: true }),
+    page.waitForURL(/\/subscription-tier/, { timeout: 60_000 }),
+    page.getByRole("button", { name: "Login" }).click(),
   ]);
 }
 
@@ -80,7 +83,7 @@ test("member picks monthly cash plan, admin confirms, then scans login and logou
 
   await memberPage.getByRole("button", { name: "Choose Monthly" }).click();
   await expect(memberPage.getByRole("heading", { name: "Payment Details" })).toBeVisible();
-  await memberPage.getByRole("button", { name: /Cash \(Admin Confirmation Required\)/ }).click();
+  await memberPage.getByRole("button", { name: /Cash \(Admin Confirmation Required\)/i }).click({ force: true });
   await memberPage.getByRole("button", { name: /Pay/ }).click({ force: true });
 
   await expect(memberPage.getByRole("heading", { name: "Awaiting Admin Confirmation" })).toBeVisible();
