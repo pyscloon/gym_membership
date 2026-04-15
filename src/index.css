@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-navy: #000033;
+  --color-royal: #0066cc;
+  --color-sky: #0099ff;
+  --color-offwhite: #eeeeee;
+  --font-headline: "Barlow", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Space Mono", monospace;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -9,7 +19,8 @@
 body {
   margin: 0;
   min-width: 320px;
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: var(--font-body);
+  line-height: 1.7;
 }
 
 #root {
@@ -38,4 +49,181 @@ body {
 
 .session-light-sweep {
   animation: session-light-sweep 2.8s linear infinite;
+}
+
+@keyframes fr-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fr-heading {
+  display: inline-block;
+  font-family: var(--font-headline);
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-transform: uppercase;
+  transform: none;
+  transform-origin: left center;
+}
+
+.fr-heading-hero {
+  font-style: italic;
+  transform: skewX(-10deg);
+}
+
+.fr-label {
+  font-family: var(--font-label);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fr-quote {
+  font-family: "Playfair Display", serif;
+}
+
+.fr-noise {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.15;
+  mix-blend-mode: soft-light;
+  background-image:
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px),
+    repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0 1px, transparent 1px 3px);
+  background-size: 130px 130px, 150px 150px, 5px 5px;
+}
+
+.fr-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.16;
+  background-image:
+    linear-gradient(rgba(0, 102, 204, 0.22) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 102, 204, 0.22) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+.fr-tech-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 0, 51, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 51, 0.02) 1px, transparent 1px);
+  background-size: 38px 38px;
+}
+
+.fr-road-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0, 0, 51, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 51, 0.02) 1px, transparent 1px),
+    linear-gradient(18deg, transparent 43%, rgba(0, 102, 204, 0.1) 50%, transparent 57%),
+    linear-gradient(-18deg, transparent 43%, rgba(0, 102, 204, 0.1) 50%, transparent 57%);
+  background-size: 38px 38px, 38px 38px, 100% 100%, 100% 100%;
+}
+
+@keyframes fr-road-pulse {
+  0% {
+    filter: drop-shadow(0 0 0 rgba(0, 153, 255, 0));
+    opacity: 0.8;
+  }
+  50% {
+    filter: drop-shadow(0 0 10px rgba(0, 153, 255, 0.85));
+    opacity: 1;
+  }
+  100% {
+    filter: drop-shadow(0 0 0 rgba(0, 153, 255, 0));
+    opacity: 0.8;
+  }
+}
+
+.fr-road-glow {
+  animation: fr-road-pulse 1.8s ease-in-out infinite;
+}
+
+.fr-watermark {
+  color: rgba(0, 0, 51, 0.028);
+  user-select: none;
+  z-index: 0;
+}
+
+.fr-watermark-strong {
+  color: rgba(0, 0, 51, 0.04);
+}
+
+@keyframes fr-sonar {
+  0% {
+    transform: translate(-50%, -50%) scale(0.75);
+    opacity: 0.85;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(2.4);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.6);
+    opacity: 0;
+  }
+}
+
+.fr-sonar-dot {
+  position: absolute;
+  right: 0.25rem;
+  top: 0.25rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-sky);
+}
+
+.fr-sonar-dot::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 153, 255, 0.45);
+  animation: fr-sonar 2.1s linear infinite;
+}
+
+.fr-cta-glow {
+  box-shadow: 0 0 18px rgba(0, 153, 255, 0.28);
+}
+
+.fr-icon-glow {
+  box-shadow: 0 0 16px rgba(0, 153, 255, 0.24);
+}
+
+@keyframes fr-breathe {
+  0% {
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 28px rgba(0, 153, 255, 0.65);
+  }
+  100% {
+    box-shadow: 0 0 16px rgba(0, 153, 255, 0.35);
+  }
+}
+
+.fr-breathe-glow {
+  animation: fr-breathe 2.6s ease-in-out infinite;
 }

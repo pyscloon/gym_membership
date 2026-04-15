@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import Header from "../components/Header";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import { getStoredTransaction, rejectOnlinePayment, saveTransaction, simulateAdminConfirmation, verifyOnlinePayment } from "../lib/paymentSimulator";
 import { applyMembership, changeMembership, fetchUserMembership, renewMembership } from "../lib/membershipService";
 import type { UserType, PaymentTransaction } from "../types/payment";
 import { recordConfirmedWalkIn } from "../lib/checkInService";
+import { DataCard, FadeInSection, PageHeader } from "../components/ui";
+import AppTopBar from "../components/ui/AppTopBar";
 
 
 export default function PaymentPanel() {
@@ -62,23 +63,27 @@ export default function PaymentPanel() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-white via-[#f0f7ff] to-[#e3f2fd]">
-      <Header />
-      <main className="mx-auto w-full max-w-7xl px-6 py-10 sm:px-10 lg:px-14">
-        <section className="mb-8 rounded-3xl bg-gradient-to-br from-[#000033] via-[#0a2d5c] to-[#1a4d8a] px-8 py-10 text-white">
-          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-flexBlue">Payment Review</p>
-          <h1 className="mt-2 text-3xl font-black sm:text-4xl">Admin Payment Panel</h1>
-          <p className="mt-3 max-w-3xl text-white/85">
-            Your payment request has been submitted here so the admin can confirm, decline, verify, or reject it.
-          </p>
-        </section>
+    <div className="min-h-screen w-full bg-[#EEEEEE]">
+      <AppTopBar />
+      <main className="mx-auto w-full max-w-7xl px-6 pb-10 pt-28 sm:px-10 lg:px-14">
+        {/* Section 1 — Payment Panel Header */}
+        <FadeInSection>
+          <PageHeader
+            eyebrow="Payment Review"
+            title="Admin Payment Panel"
+            subtitle="Review incoming transactions and apply membership changes with brand-consistent controls and motion."
+          />
+        </FadeInSection>
 
-        <AdminPaymentPanel
-          onConfirmPayment={handleConfirmPayment}
-          onDeclinePayment={handleDeclinePayment}
-          onVerifyOnlinePayment={handleVerifyOnlinePayment}
-          onRejectOnlinePayment={handleRejectOnlinePayment}
-        />
+        {/* Section 2 — Payment Review Panel */}
+        <DataCard>
+          <AdminPaymentPanel
+            onConfirmPayment={handleConfirmPayment}
+            onDeclinePayment={handleDeclinePayment}
+            onVerifyOnlinePayment={handleVerifyOnlinePayment}
+            onRejectOnlinePayment={handleRejectOnlinePayment}
+          />
+        </DataCard>
       </main>
     </div>
   );
