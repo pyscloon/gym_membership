@@ -1,8 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import Header from "../components/Header";
-import MemberTransactionHistory, {
-  type MemberTransaction,
-} from "../components/MemberTransactionHistory";
+import { DataCard, FadeInSection, PageHeader, SecondaryButton } from "../components/ui";
+import type { MemberTransaction } from "../components/MemberTransactionHistory";
+import AppTopBar from "../components/ui/AppTopBar";
 
 type LocationState = {
   transactions?: MemberTransaction[];
@@ -14,49 +13,68 @@ export default function TransactionHistoryPage() {
   const { transactions = [] } = (location.state as LocationState) ?? {};
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#f7fbff] via-[#f0f7ff] to-[#e3f2fd]">
-      <Header />
-      <main className="relative mx-auto w-full max-w-7xl px-6 py-10 sm:px-10 lg:px-14">
+    <div className="min-h-screen w-full bg-[#EEEEEE]">
+      <AppTopBar />
+      <main className="mx-auto w-full max-w-7xl px-6 pb-10 pt-28 sm:px-10 lg:px-14">
+        {/* Section 1 — Transaction Header */}
+        <FadeInSection>
+          <PageHeader
+            eyebrow="Billing"
+            title="Transaction History"
+            subtitle="Complete payment records with branded readability and clean hierarchy for fast account auditing."
+          />
+        </FadeInSection>
 
-        {/* Page Header */}
-        <section className="mb-8 overflow-hidden rounded-3xl border border-white/20 bg-gradient-to-r from-[#021738] via-[#0b2f63] to-[#0f4e8c] px-8 py-10 text-white shadow-[0_30px_65px_rgba(4,23,56,0.35)]">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-flexBlue">
-                Billing
-              </p>
-              <h1 className="mt-2 text-3xl font-black sm:text-5xl">
-                Transaction History
-              </h1>
-              <p className="mt-3 max-w-2xl text-white/85">
-                A full record of your membership payments and billing activity.
-              </p>
-            </div>
-            <button
-              onClick={() => navigate(-1)}
-              className="order-first inline-flex items-center gap-2 self-start rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-sm font-semibold text-white backdrop-blur-sm transition-all hover:bg-white/20 sm:order-last sm:self-center"
-            >
-              <svg
-                className="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
+        {/* Section 2 — Transaction Table */}
+        <FadeInSection>
+          <DataCard title="Payment Ledger">
+            <div className="mt-4 flex justify-end">
+              <SecondaryButton
+                type="button"
+                className="border-[rgba(0,0,51,0.2)] text-[#000033] hover:text-[#0099FF]"
+                onClick={() => navigate(-1)}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-              Back
-            </button>
-          </div>
-        </section>
+                Back
+              </SecondaryButton>
+            </div>
 
-        <div className="rounded-[2rem] border border-flexNavy/10 bg-white/95 p-5 shadow-[0_16px_38px_rgba(2,37,70,0.08)] backdrop-blur-sm sm:p-10">
-          <MemberTransactionHistory transactions={transactions} />
-        </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="fr-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.length > 0 ? (
+                    transactions.map((txn) => (
+                      <tr key={txn.id}>
+                        <td className="text-[#555555]">{new Date(txn.date).toLocaleDateString()}</td>
+                        <td className="[font-family:var(--font-label)] uppercase text-[#0066CC]">{txn.user_type}</td>
+                        <td className="text-[#000033]">₱{txn.amount.toLocaleString()}</td>
+                        <td>
+                          <span className="rounded-md bg-[rgba(0,102,204,0.12)] px-3 py-1 text-xs [font-family:var(--font-label)] uppercase text-[#0066CC]">
+                            {txn.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-[#555555]">
+                        <span className="block text-3xl text-[#000033]">◌</span>
+                        <span className="fr-label mt-2 inline-block">No transactions yet</span>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </DataCard>
+        </FadeInSection>
       </main>
     </div>
   );
