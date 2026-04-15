@@ -28,7 +28,6 @@ import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
 import PaymentConfirmation from "./PaymentConfirmation";
 import PaymentModal from "./PaymentModal";
-import activeIconGif from "../assets/Active icon.gif";
 import { MEMBERSHIP_PRICES } from "../types/payment";
 import { generateTransactionId, saveTransaction } from "../lib/paymentSimulator";
 import { shouldProcessInteraction } from "../lib/interaction";
@@ -95,6 +94,8 @@ export default function MembershipDashboard() {
   const [showChangeMembershipModal, setShowChangeMembershipModal] = useState(false);
   const [pendingMembershipTier, setPendingMembershipTier] = useState<MembershipTier | null>(null);
   const [renewalPaymentTier, setRenewalPaymentTier] = useState<MembershipTier | null>(null);
+  const [showSessionScanModal, setShowSessionScanModal] = useState(false);
+  const [sessionScanMode, setSessionScanMode] = useState<"checkin" | "checkout">("checkin");
 
   const displayMembership = membership;
   const displayStats = useMemo(
@@ -220,21 +221,20 @@ export default function MembershipDashboard() {
 
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
-    if (sessionStage === "checked-in") {
-      setAttendanceSessionContext(new AttendanceSessionContext("regular"));
-      setSessionStage("idle");
-      setStateUpdateTrigger((prev) => prev + 1);
-      addToast("Checked out successfully! See you next time!", "success");
-    } else {
-      
-      attendanceSessionContext?.checkIn();
-      setSessionStage("checked-in");
-      setStateUpdateTrigger((prev) => prev + 1);
-      setShowCheckInConfirmation(true);
-      addToast("Check-in approved. Session is active.", "success");
+      if (sessionStage === "checked-in") {
+        setAttendanceSessionContext(new AttendanceSessionContext("regular"));
+        setSessionStage("idle");
+        setStateUpdateTrigger((prev) => prev + 1);
+        addToast("Checked out successfully! See you next time!", "success");
+      } else {
+        attendanceSessionContext?.checkIn();
+        setSessionStage("checked-in");
+        setStateUpdateTrigger((prev) => prev + 1);
+        setShowCheckInConfirmation(true);
+        addToast("Check-in approved. Session is active.", "success");
+      }
+      return;
     }
-    return;
-  }
 
 
     setShowQR(false);
@@ -249,13 +249,28 @@ export default function MembershipDashboard() {
     setStateUpdateTrigger((prev) => prev + 1);
   };
 
-  const handleOpenChangeMembership = () => {
-    if (!displayMembership) return;
+  const handleOpenSessionScanFromFab = () => {
+    if (!canHandleUserInteraction()) {
+      return;
+    }
 
-    setShowPaymentModal(false);
-    setShowPaymentConfirmation(false);
-    setPendingMembershipTier(null);
-    setShowChangeMembershipModal(true);
+    if (sessionStage === "checked-in") {
+      setSessionScanMode("checkout");
+      handleGenerateCheckOut();
+    } else {
+      setSessionScanMode("checkin");
+      handleGenerateCheckIn();
+    }
+
+    setShowSessionScanModal(true);
+  };
+
+  const handleCloseSessionScanModal = () => {
+    if (!canHandleUserInteraction()) {
+      return;
+    }
+
+    setShowSessionScanModal(false);
   };
 
   const handleSelectMembershipTier = (tier: MembershipTier) => {
@@ -764,141 +779,73 @@ export default function MembershipDashboard() {
 
     return (
       <div className="space-y-6">
-        <section
-          className={`relative overflow-hidden rounded-3xl border p-6 transition-all duration-700 ${
-            sessionStage === "checked-in"
-              ? "border-flexBlue/30 bg-gradient-to-r from-white via-[#eef6ff] to-white shadow-[0_20px_55px_rgba(28,102,191,0.18)]"
-              : "border-flexBlue/25 bg-gradient-to-r from-white via-[#eef6ff] to-[#e8f2ff] shadow-[0_20px_55px_rgba(28,102,191,0.18)]"
-          }`}
-        >
-          {sessionStage === "checked-in" && (
-            <div
-              className="session-light-sweep pointer-events-none absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-transparent via-white/80 to-transparent"
-              aria-hidden="true"
-            />
-          )}
-          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-flexBlue/20 blur-3xl" aria-hidden="true" />
-          <div className="absolute -left-20 -bottom-20 h-56 w-56 rounded-full bg-[#9fd2ff]/30 blur-3xl" aria-hidden="true" />
+        {showSessionScanModal && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4 py-6">
+            <div className="relative w-full max-w-6xl rounded-3xl border border-[#d7e4f6] bg-[#f4f6fb] p-6 shadow-[0_22px_60px_rgba(12,33,73,0.25)] sm:p-8">
+              <button
+                type="button"
+                onClick={handleCloseSessionScanModal}
+                className="absolute right-4 top-4 rounded-full border border-[#b7c9e5] bg-white px-3 py-1 text-xs font-semibold text-[#1b5fb3]"
+              >
+                Close
+              </button>
 
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-flexBlue">Session Access</p>
-              <h3 className="mt-2 text-2xl font-black text-[#04223d] sm:text-3xl">Gym Session</h3>
-              <p className="mt-2 text-sm text-slate-600">Log your session, generate your check-in QR, and log out when you are done.</p>
-            </div>
+              <div className="mx-auto flex max-w-4xl flex-col items-center gap-5">
+                <p className="text-xl font-black tracking-[0.2em] text-[#1b5fb3] uppercase">
+                  {sessionScanMode === "checkout" ? "CHECK-OUT QR CODE" : "CHECK-IN QR CODE"}
+                </p>
 
-            <div className="inline-flex items-center gap-2 self-start rounded-full border border-flexBlue/35 bg-white px-4 py-2 text-sm font-semibold text-flexNavy shadow-sm">
-              {sessionStage === "checked-in" ? (
-                <img
-                  src={activeIconGif}
-                  alt="Active"
-                  className="h-4 w-4 rounded-sm object-contain"
-                />
-              ) : (
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-300" />
-              )}
-              {sessionStage === "checked-in" ? "Active Session" : "No Active Session"}
-            </div>
-          </div>
-
-          <div className="relative mt-6 rounded-2xl border border-flexBlue/20 bg-white/85 p-5 backdrop-blur-sm">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Quick Actions</p>
-
-            {showQR && (
-              <div className="mt-4 flex flex-col items-center gap-4 rounded-2xl border border-flexNavy/10 bg-white p-5 shadow-sm">
-                <p className="text-xs font-bold tracking-widest text-flexNavy uppercase">Check-In QR Code</p>
-                <div className="rounded-xl border border-flexNavy/10 bg-white p-3 shadow-sm">
-                  <QRCodeSVG value={qrValue} size={180} bgColor="#ffffff" fgColor="#0a0a2e" level="H" />
+                <div className="rounded-3xl border border-[#c7d9ef] bg-[#f6f8fc] p-6 shadow-sm">
+                  {showQR ? (
+                    <QRCodeSVG value={qrValue} size={360} bgColor="#ffffff" fgColor="#111244" level="H" />
+                  ) : (
+                    <div className="flex h-[360px] w-[360px] items-center justify-center text-sm font-semibold text-[#6b90c0]">
+                      Generating QR...
+                    </div>
+                  )}
                 </div>
-                <p className="text-center text-xs text-flexNavy/50">Show this to the admin at the front desk to check in.</p>
+
+                <p className="text-center text-xl text-[#6fa4dc]">
+                  {sessionScanMode === "checkout"
+                    ? "Show this to the admin at the front desk to check out."
+                    : "Show this to the admin at the front desk to check in."}
+                </p>
+
                 <button
-                  onClick={handleCloseQR}
-                  className="w-full rounded-xl border border-flexBlue/40 bg-gradient-to-r from-flexBlue to-[#1c8ee6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(28,102,191,0.28)] transition hover:-translate-y-0.5 hover:from-[#1c8ee6] hover:to-flexBlue"
+                  type="button"
+                  onClick={() => {
+                    handleCloseQR();
+                    setShowSessionScanModal(false);
+                  }}
+                  className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-5 text-5xl font-semibold text-white"
                 >
                   Admin Confirmed Scan
                 </button>
               </div>
-            )}
-
-            {!showQR && (
-              <div className="mt-4">
-                {sessionStage === "checked-in" ? (
-                  <button
-                    type="button"
-                    onClick={handleGenerateCheckOut}
-                    className="w-full rounded-xl border border-red-200 bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:from-red-500 hover:to-red-600"
-                  >
-                    Log Out Session
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleGenerateCheckIn}
-                    className="w-full rounded-xl border border-flexBlue/35 bg-gradient-to-r from-[#1a5fb8] to-flexBlue px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(28,102,191,0.38)]"
-                  >
-                    Log In Session
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-flexBlue/20 bg-gradient-to-br from-white via-[#f7fbff] to-[#eef6ff] p-6 shadow-[0_20px_45px_rgba(12,33,73,0.12)] backdrop-blur">
-          <div className="flex flex-col gap-4 text-center lg:flex-row lg:items-center lg:justify-between lg:text-left">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.25em] text-flexBlue">Membership Overview</p>
-              <h4 className="mt-2 text-2xl font-black text-[#071731]">{TIER_LABELS[displayMembership.tier]} Plan</h4>
-            </div>
-
-            <span
-              className={`inline-flex items-center rounded-full border px-4 py-2 text-sm font-semibold ${
-                displayMembership.status === "active"
-                  ? "border-flexBlue/25 bg-[#edf6ff] text-flexBlue"
-                  : displayMembership.status === "expired"
-                    ? "border-red-200 bg-red-50 text-red-700"
-                    : "border-yellow-200 bg-yellow-50 text-yellow-700"
-              }`}
-            >
-              {displayMembership.status.charAt(0).toUpperCase() + displayMembership.status.slice(1)}
-            </span>
-          </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-flexBlue/10 bg-white p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wider text-slate-500">Started</p>
-              <p className="mt-2 font-semibold text-slate-900">{new Date(displayMembership.start_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
-            </div>
-            <div className="rounded-2xl border border-flexBlue/10 bg-white p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wider text-slate-500">Renews</p>
-              <p className="mt-2 font-semibold text-slate-900">{new Date(displayMembership.renewal_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</p>
-            </div>
-            <div className="rounded-2xl border border-flexBlue/10 bg-white p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wider text-slate-500">Days Remaining</p>
-              <p className="mt-2 font-semibold text-slate-900">{displayStats?.daysUntilRenewal ?? 0}</p>
-            </div>
-            <div className="rounded-2xl border border-flexBlue/10 bg-white p-4 shadow-sm">
-              <p className="text-xs uppercase tracking-wider text-slate-500">Days Active</p>
-              <p className="mt-2 font-semibold text-slate-900">{displayStats?.daysActive ?? 0}</p>
             </div>
           </div>
+        )}
 
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            {membershipStateContext?.canPerformAction("renew") && (
-              <button onClick={handleRenew} disabled={actionLoading} className="min-w-[220px] rounded-xl border border-flexBlue/35 bg-gradient-to-r from-flexBlue to-[#1c8ee6] px-5 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 hover:from-[#1c8ee6] hover:to-flexBlue disabled:cursor-not-allowed disabled:opacity-70">
-                {actionLoading ? "Renewing..." : "Renew Membership"}
-              </button>
-            )}
-            <button onClick={handleOpenChangeMembership} disabled={actionLoading} className="min-w-[220px] rounded-xl border border-flexNavy/20 bg-gradient-to-r from-[#0f2a54] to-[#1a3f73] px-5 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(10,38,79,0.28)] transition hover:-translate-y-0.5 hover:from-[#123466] hover:to-[#1f4f90] disabled:cursor-not-allowed disabled:opacity-70">
-              Change Membership
-            </button>
-            {membershipStateContext?.canPerformAction("reactivate") && (
-              <button onClick={handleReactivate} disabled={actionLoading} className="min-w-[220px] rounded-xl border border-[#1c8ee6]/35 bg-gradient-to-r from-[#2563eb] to-[#1c8ee6] px-5 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(37,99,235,0.28)] transition hover:-translate-y-0.5 hover:from-[#1d4ed8] hover:to-[#1c8ee6] disabled:cursor-not-allowed disabled:opacity-70">
-                {actionLoading ? "Reactivating..." : "Reactivate Membership"}
-              </button>
-            )}
-          </div>
-        </section>
+        <button
+          type="button"
+          onClick={handleOpenSessionScanFromFab}
+          aria-label={sessionStage === "checked-in" ? "Check out" : "Check in"}
+          className={`fixed bottom-6 right-6 z-[65] inline-flex h-16 w-16 items-center justify-center rounded-full text-white ${
+            sessionStage === "checked-in"
+              ? "border border-red-300 bg-gradient-to-br from-[#ef4444] via-[#dc2626] to-[#b91c1c] shadow-[0_0_0_8px_rgba(239,68,68,0.2),0_16px_34px_rgba(185,28,28,0.4)]"
+              : "border border-[#57baff] bg-gradient-to-br from-[#27a5ff] via-[#1688f1] to-[#0a59c7] shadow-[0_0_0_8px_rgba(22,136,241,0.2),0_16px_34px_rgba(14,90,198,0.45)]"
+          }`}
+        >
+          {sessionStage === "checked-in" ? (
+            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" />
+            </svg>
+          ) : (
+            <svg className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          )}
+        </button>
 
         {showChangeMembershipModal && (
           <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#071731]/70 px-2 py-3 backdrop-blur-sm sm:px-4 sm:py-6 lg:items-center lg:py-8">
@@ -1111,21 +1058,10 @@ export default function MembershipDashboard() {
 
         {!showQR && (
           <div className="mt-2">
-            {attendanceSessionContext?.canPerformAction("checkIn") && (
-              <button
-                onClick={handleGenerateCheckIn}
-                className="w-full rounded-xl border border-flexBlue/35 bg-gradient-to-r from-[#1a5fb8] to-flexBlue px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 hover:shadow-[0_16px_34px_rgba(28,102,191,0.38)] flex items-center justify-center gap-2"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Log In Session
-              </button>
-            )}
             {attendanceSessionContext?.canPerformAction("checkOut") && (
               <button
                 onClick={handleGenerateCheckOut}
-                className="w-full rounded-xl border border-red-200 bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(220,38,38,0.28)] transition hover:-translate-y-0.5 hover:from-red-500 hover:to-red-600 flex items-center justify-center gap-2"
+                className="w-full rounded-xl border border-red-200 bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(220,38,38,0.28)] flex items-center justify-center gap-2"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7" />
