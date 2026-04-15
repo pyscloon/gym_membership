@@ -106,6 +106,7 @@ type QueryResult<T> = {
 type MockOperation = "select" | "insert" | "update" | "upsert";
 const MOCK_STORAGE_KEY = "__playwright_mock_supabase_state__";
 const MOCK_SESSION_KEY = "__playwright_mock_supabase_session__";
+const PAYMENT_TRANSACTIONS_FUNCTION = "payment-transactions";
 
 function createNow(): string {
   return new Date().toISOString();
@@ -117,6 +118,19 @@ function clone<T>(value: T): T {
 
 function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+function getRenewalDays(tier: MockMembershipRow["tier"]): number {
+  switch (tier) {
+    case "monthly":
+      return 30;
+    case "semi-yearly":
+      return 182;
+    case "yearly":
+      return 365;
+    case "walk-in":
+      return 1;
+  }
 }
 
 function createDefaultState(): MockDatabaseState {
@@ -295,6 +309,7 @@ class MockQueryBuilder<T extends keyof MockTableMap> implements PromiseLike<Quer
   }
 
   select(_columns = "*", options?: { count?: "exact"; head?: boolean }) {
+    void _columns;
     this.countExact = options?.count === "exact";
     this.headOnly = Boolean(options?.head);
     return this;
@@ -610,6 +625,226 @@ class MockStorageBucket {
   }
 }
 
+function isUrl(value: string) {
+  return /^https?:\/\//i.test(value) || value.startsWith("data:");
+}
+
+function getCurrentMockUser(state: MockDatabaseState): MockAuthUser | null {
+  const userId = state.session?.user.id;
+  if (!userId) return null;
+  return state.users.find((entry) => entry.id === userId) ?? null;
+}
+
+function ensureAdminUser(state: MockDatabaseState): MockAuthUser {
+  const user = getCurrentMockUser(state);
+  if (!user) {
+    throw new Error("Unauthorized");
+  }
+
+  if (user.role !== "admin") {
+    throw new Error("Forbidden");
+  }
+
+  return user;
+}
+
+function resolveEvidenceUrl(value?: string | null): string | null {
+  if (!value) return null;
+  if (isUrl(value)) return value;
+  return `https://mock-storage.local/uploads/${value}`;
+}
+
+function applyMembershipForPayment(
+  state: MockDatabaseState,
+  userId: string,
+  tier: MockMembershipRow["tier"]
+) {
+  if (tier === "walk-in") return;
+
+  const now = createNow();
+  const renewalDate = new Date(new Date(now).getTime() + getRenewalDays(tier) * 86400000).toISOString();
+  const activeMembership = state.tables.memberships.find(
+    (membership) => membership.user_id === userId && membership.status === "active"
+  );
+
+  if (activeMembership) {
+    activeMembership.tier = tier;
+    activeMembership.start_date = now;
+    activeMembership.renewal_date = renewalDate;
+    activeMembership.cancel_at_period_end = false;
+    activeMembership.status = "active";
+    activeMembership.updated_at = now;
+    return;
+  }
+
+  state.tables.memberships.push({
+    id: createId("membership"),
+    user_id: userId,
+    status: "active",
+    tier,
+    start_date: now,
+    renewal_date: renewalDate,
+    cancel_at_period_end: false,
+    created_at: now,
+    updated_at: now,
+  });
+}
+
+function createWalkInForPayment(
+  state: MockDatabaseState,
+  userId: string,
+  adminUserId: string,
+  transactionId: string
+) {
+  const now = createNow();
+  state.tables.walk_ins.push({
+    id: createId("check"),
+    user_id: userId,
+    membership_id: null,
+    validated_by: adminUserId,
+    walk_in_type: "walk_in",
+    walk_in_time: now,
+    qr_data: {},
+    status: "completed",
+    notes: `Created by payment approval for transaction ${transactionId}`,
+    created_at: now,
+    updated_at: now,
+  });
+}
+
+async function invokePaymentTransactions(
+  state: MockDatabaseState,
+  body: Record<string, unknown>
+): Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }> {
+  const action = String(body.action ?? "");
+  const user = getCurrentMockUser(state);
+
+  if (action === "submit") {
+    if (!user) {
+      return { data: null, error: { message: "Unauthorized" } };
+    }
+
+    const now = createNow();
+    const method = String(body.method ?? "") as MockTransactionRow["method"];
+    const userType = String(body.userType ?? "") as MockTransactionRow["user_type"];
+    const transaction: MockTransactionRow = {
+      id: createId("txn"),
+      user_id: user.id,
+      user_type: userType,
+      amount: Number(body.amount),
+      currency: "PHP",
+      method,
+      status: method === "online" ? "awaiting-verification" : "awaiting-confirmation",
+      payment_proof_status: method === "online" ? "pending" : null,
+      proof_of_payment_url: (body.proofOfPayment as string | undefined) ?? null,
+      discount_id_proof_url: (body.discountIdProof as string | undefined) ?? null,
+      rejection_reason: null,
+      failure_reason: null,
+      confirmed_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    state.tables.transactions.push(transaction);
+    persistState(state);
+    return { data: { transaction: clone(transaction) }, error: null };
+  }
+
+  if (action === "list_pending") {
+    ensureAdminUser(state);
+    const rows = state.tables.transactions
+      .filter((transaction) =>
+        transaction.status === "awaiting-confirmation" || transaction.status === "awaiting-verification"
+      )
+      .sort((left, right) => right.created_at.localeCompare(left.created_at))
+      .map((transaction) => ({
+        ...clone(transaction),
+        proof_of_payment_signed_url: resolveEvidenceUrl(transaction.proof_of_payment_url),
+        discount_id_proof_signed_url: resolveEvidenceUrl(transaction.discount_id_proof_url),
+      }));
+
+    return { data: { transactions: rows }, error: null };
+  }
+
+  ensureAdminUser(state);
+
+  const transactionId = String(body.transactionId ?? "");
+  const reason = String(body.reason ?? "");
+  const txIndex = state.tables.transactions.findIndex((transaction) => transaction.id === transactionId);
+
+  if (txIndex < 0) {
+    return { data: null, error: { message: "Transaction not found" } };
+  }
+
+  const originalTx = clone(state.tables.transactions[txIndex]);
+
+  if (action === "confirm_cash" || action === "verify_online") {
+    const expectedStatus =
+      action === "verify_online" ? "awaiting-verification" : "awaiting-confirmation";
+
+    if (originalTx.status !== expectedStatus) {
+      return { data: null, error: { message: `Transaction is not ${expectedStatus}` } };
+    }
+
+    const now = createNow();
+    const updatedTx: MockTransactionRow = {
+      ...state.tables.transactions[txIndex],
+      status: "paid",
+      payment_proof_status: action === "verify_online" ? "verified" : state.tables.transactions[txIndex].payment_proof_status,
+      confirmed_at: now,
+      updated_at: now,
+    };
+
+    state.tables.transactions[txIndex] = updatedTx;
+
+    try {
+      if (updatedTx.user_type === "walk-in") {
+        createWalkInForPayment(state, updatedTx.user_id, ensureAdminUser(state).id, updatedTx.id);
+      } else {
+        applyMembershipForPayment(state, updatedTx.user_id, updatedTx.user_type);
+      }
+      persistState(state);
+      return { data: { transaction: clone(updatedTx) }, error: null };
+    } catch (error) {
+      state.tables.transactions[txIndex] = originalTx;
+      persistState(state);
+      const message = error instanceof Error ? error.message : "Payment approval failed";
+      return { data: null, error: { message } };
+    }
+  }
+
+  if (action === "reject_online") {
+    const now = createNow();
+    const updatedTx: MockTransactionRow = {
+      ...state.tables.transactions[txIndex],
+      status: "failed",
+      payment_proof_status: "rejected",
+      rejection_reason: reason || "Rejected by admin",
+      updated_at: now,
+    };
+
+    state.tables.transactions[txIndex] = updatedTx;
+    persistState(state);
+    return { data: { transaction: clone(updatedTx) }, error: null };
+  }
+
+  if (action === "fail_payment") {
+    const now = createNow();
+    const updatedTx: MockTransactionRow = {
+      ...state.tables.transactions[txIndex],
+      status: "failed",
+      failure_reason: reason || "Declined by admin",
+      updated_at: now,
+    };
+
+    state.tables.transactions[txIndex] = updatedTx;
+    persistState(state);
+    return { data: { transaction: clone(updatedTx) }, error: null };
+  }
+
+  return { data: null, error: { message: "Unsupported action" } };
+}
+
 class MockAuthApi {
   private readonly state: MockDatabaseState;
 
@@ -758,6 +993,12 @@ class MockAuthApi {
 export type MockSupabaseClient = {
   auth: MockAuthApi;
   from: <T extends keyof MockTableMap>(tableName: T) => MockQueryBuilder<T>;
+  functions: {
+    invoke: (
+      name: string,
+      options?: { body?: Record<string, unknown> }
+    ) => Promise<{ data: Record<string, unknown> | null; error: { message: string } | null }>;
+  };
   rpc: (name: string) => Promise<{ data: Record<string, number>; error: null } | { data: null; error: { message: string } }>;
   storage: {
     from: (bucketName: string) => MockStorageBucket;
@@ -778,6 +1019,18 @@ export function createMockSupabaseClient(): MockSupabaseClient {
   return {
     auth: new MockAuthApi(state),
     from: <T extends keyof MockTableMap>(tableName: T) => new MockQueryBuilder(state, tableName),
+    functions: {
+      invoke: async (name: string, options?: { body?: Record<string, unknown> }) => {
+        if (name !== PAYMENT_TRANSACTIONS_FUNCTION) {
+          return {
+            data: null,
+            error: { message: `Unsupported function: ${name}` },
+          };
+        }
+
+        return invokePaymentTransactions(state, options?.body ?? {});
+      },
+    },
     rpc: async (name: string) => {
       if (name !== "get_membership_stats") {
         return {

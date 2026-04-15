@@ -8,9 +8,7 @@ import { usePayment } from "../hooks/usePayment";
 import {
   applyMembership,
   cancelMembership,
-  changeMembership,
   fetchUserMembership,
-  renewMembership,
   reactivateMembership,
 } from "../lib/membershipService";
 import {
@@ -94,7 +92,7 @@ export default function MembershipDashboard() {
   const [showCheckInConfirmation, setShowCheckInConfirmation] = useState(false);
   const [showChangeMembershipModal, setShowChangeMembershipModal] = useState(false);
   const [pendingMembershipTier, setPendingMembershipTier] = useState<MembershipTier | null>(null);
-  const [renewalPaymentTier, setRenewalPaymentTier] = useState<MembershipTier | null>(null);
+  const [, setRenewalPaymentTier] = useState<MembershipTier | null>(null);
   const [showSessionScanModal, setShowSessionScanModal] = useState(false);
   const [sessionScanMode, setSessionScanMode] = useState<"checkin" | "checkout">("checkin");
 
@@ -382,28 +380,22 @@ export default function MembershipDashboard() {
   ) => {
     try {
       await paymentHook.confirmPayment(transactionId);
-      const currentMembership = await fetchUserMembership(userId);
-      const result = currentMembership?.status === "active"
-        ? currentMembership.tier === userType
-          ? await renewMembership(userId)
-          : await changeMembership(userId, userType)
-        : await applyMembership(userId, userType);
+      const refreshedMembership = await fetchUserMembership(userId);
 
-      if (result.success && result.data) {
-        addToast(`Member ${userId} approved on ${userType} plan.`, "success");
-        setMembership(result.data);
-        setMembershipStateContext(new MembershipStateContext(result.data));
+      if (refreshedMembership) {
+        setMembership(refreshedMembership);
+        setMembershipStateContext(new MembershipStateContext(refreshedMembership));
         if (membershipStateContext) {
           membershipStateContext.confirmPayment();
           membershipStateContext.activate();
           setStateUpdateTrigger((prev) => prev + 1);
         }
-      } else {
-        addToast(`Membership apply warning: ${result.error}`, "error");
       }
+
+      addToast(`Member ${userId} approved on ${userType} plan.`, "success");
     } catch (err) {
       console.error("Admin confirm error:", err);
-      addToast("Failed to confirm payment or apply membership.", "error");
+      addToast("Failed to confirm payment.", "error");
     }
   };
 
@@ -432,28 +424,22 @@ export default function MembershipDashboard() {
   ) => {
     try {
       await paymentHook.verifyOnlinePaymentProof(transactionId);
-      const currentMembership = await fetchUserMembership(userId);
-      const result = currentMembership?.status === "active"
-        ? currentMembership.tier === userType
-          ? await renewMembership(userId)
-          : await changeMembership(userId, userType)
-        : await applyMembership(userId, userType);
+      const refreshedMembership = await fetchUserMembership(userId);
 
-      if (result.success && result.data) {
-        addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
-        setMembership(result.data);
-        setMembershipStateContext(new MembershipStateContext(result.data));
+      if (refreshedMembership) {
+        setMembership(refreshedMembership);
+        setMembershipStateContext(new MembershipStateContext(refreshedMembership));
         if (membershipStateContext) {
           membershipStateContext.confirmPayment();
           membershipStateContext.activate();
           setStateUpdateTrigger((prev) => prev + 1);
         }
-      } else {
-        addToast(`Membership apply warning: ${result.error}`, "error");
       }
+
+      addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
     } catch (err) {
       console.error("Admin verify online payment error:", err);
-      addToast("Failed to verify online payment or apply membership.", "error");
+      addToast("Failed to verify online payment.", "error");
     }
   };
 
@@ -550,32 +536,25 @@ export default function MembershipDashboard() {
       return;
     }
 
-    if (renewalPaymentTier || pendingMembershipTier) {
-      addToast("Your payment details were submitted. Admin confirmation is pending.", "success");
-      navigate("/payment-panel");
-      setRenewalPaymentTier(null);
-      return;
-    }
-
     if (transaction.userType === "walk-in") {
       handleWalkInApply();
       navigate("/walk-in");
       return;
     }
 
-    await handleApply(transaction.userType);
+    await loadMembership();
+    setRenewalPaymentTier(null);
+    setPendingMembershipTier(null);
     addToast("Payment completed! Your membership is now active.", "success");
     navigate("/dashboard");
   }, [
     addToast,
     completedTransactionId,
     guestTransaction,
-    handleApply,
     handleWalkInApply,
+    loadMembership,
     navigate,
     paymentHook.state.currentTransaction,
-    pendingMembershipTier,
-    renewalPaymentTier,
     user,
   ]);
 

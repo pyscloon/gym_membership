@@ -36,7 +36,7 @@ function transactionToRow(transaction: PaymentTransaction): TransactionRow {
     user_id: UUID_PATTERN.test(transaction.userId) ? transaction.userId : GUEST_USER_ID,
     user_type: transaction.userType,
     amount: transaction.amount,
-    method: transaction.method === "card" ? "online" : transaction.method,
+    method: transaction.method,
     status: transaction.status,
     payment_proof_status: transaction.paymentProofStatus ?? null,
     proof_of_payment_url: transaction.proofOfPaymentUrl ?? null,
@@ -50,19 +50,12 @@ function transactionToRow(transaction: PaymentTransaction): TransactionRow {
 }
 
 function rowToTransaction(row: TransactionRow): PaymentTransaction {
-  const isGuest = row.user_id === GUEST_USER_ID;
-  const isCardPayment =
-    row.method === "online" &&
-    row.payment_proof_status === null &&
-    row.proof_of_payment_url === null &&
-    row.status === "paid";
-
   return {
     id: row.id,
-    userId: isGuest ? "guest" : row.user_id,
+    userId: row.user_id === GUEST_USER_ID ? "guest" : row.user_id,
     userType: row.user_type as UserType,
     amount: row.amount,
-    method: (isCardPayment ? "card" : row.method) as PaymentMethod,
+    method: row.method as PaymentMethod,
     status: row.status as PaymentTransaction["status"],
     paymentProofStatus:
       row.payment_proof_status === null
@@ -175,7 +168,7 @@ export async function simulatePaymentTransaction(
       ? "awaiting-confirmation"
       : method === "online"
         ? "awaiting-verification"
-        : "paid";
+        : "awaiting-confirmation";
 
   const transaction: PaymentTransaction = {
     id: transactionId,
@@ -188,7 +181,6 @@ export async function simulatePaymentTransaction(
     proofOfPaymentUrl: proofOfPayment,
     createdAt: now,
     updatedAt: now,
-    ...(status === "paid" && { confirmedAt: now }),
   };
 
   const saved = await saveTransaction(transaction);
@@ -204,7 +196,7 @@ export async function simulateAdminConfirmation(
   await sleep(ADMIN_CONFIRMATION_DELAY);
 
   const stored = await getStoredTransaction(transactionId);
-  if (stored && stored.method === "cash") {
+  if (stored && (stored.method === "cash" || stored.method === "card")) {
     stored.status = "paid";
     stored.confirmedAt = new Date().toISOString();
     stored.updatedAt = new Date().toISOString();

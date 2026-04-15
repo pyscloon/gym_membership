@@ -141,10 +141,31 @@ export default function MembershipPage() {
     setShowPaymentModal(true);
   };
 
-  const handleInitiatePayment = async (method: PaymentMethod, proof?: string, _?: any, __?: any, ___?: any, finalAmount?: number) => {
+  const handleInitiatePayment = async (
+    method: PaymentMethod,
+    proof?: string,
+    discountCategory?: unknown,
+    discountIdProof?: unknown,
+    voucherCode?: unknown,
+    finalAmount?: number
+  ) => {
+    void discountCategory;
+    void discountIdProof;
+    void voucherCode;
     const amount = finalAmount ?? MEMBERSHIP_PRICES[selectedPlanTier];
     if (!user) {
-      const transaction: PaymentTransaction = { id: generateTransactionId(), userId: "guest", userType: selectedPlanTier, amount, method, status: "awaiting-confirmation", createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      const transaction: PaymentTransaction = {
+        id: generateTransactionId(),
+        userId: "guest",
+        userType: selectedPlanTier,
+        amount,
+        method,
+        status: method === "online" ? "awaiting-verification" : "awaiting-confirmation",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        proofOfPaymentUrl: proof,
+        paymentProofStatus: method === "online" ? "pending" : undefined,
+      };
       setGuestTransaction(transaction);
       setShowPaymentModal(false);
       setShowPaymentConfirmation(true);

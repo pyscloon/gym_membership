@@ -178,12 +178,18 @@ export default function AdminPaymentPanel({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v13m0-13V6a2 2 0 110-4h.01a2 2 0 110 4v1m6.168 1.832a2 2 0 002.21-2.012V6a2 2 0 10-2.22 2.007m0 0H18a2 2 0 100-4h-.01a2 2 0 00-2 2.007M6.168 4.832a2 2 0 002.21-2.012V6a2 2 0 10-2.22 2.007m0 0H6a2 2 0 100-4h-.01a2 2 0 00-2 2.007" />
           </svg>
           <p className="text-flexNavy/60 font-semibold">No Pending Payments</p>
-          <p className="text-sm text-flexNavy/50 mt-1">All cash payments have been confirmed</p>
+          <p className="text-sm text-flexNavy/50 mt-1">All pending payments have been processed</p>
         </div>
       ) : (
         <div className="space-y-3 max-h-[600px] overflow-y-auto">
           {pendingPayments.map((payment) => {
             const isOnline = payment.method === "online";
+            const paymentLabel =
+              payment.method === "online"
+                ? "Online Transfer"
+                : payment.method === "card"
+                  ? "Card"
+                  : "Cash";
             const paymentProofKey = `${payment.transactionId}:payment-proof`;
             const discountIdKey = `${payment.transactionId}:discount-id`;
             const isPaymentProofVisible = selectedEvidenceId === paymentProofKey;
@@ -205,7 +211,7 @@ export default function AdminPaymentPanel({
                           ? "bg-purple-100 text-purple-700"
                           : "bg-amber-100 text-amber-700"
                       }`}>
-                        {isOnline ? "Online Transfer" : "Cash"}
+                        {paymentLabel}
                       </span>
                     </div>
                     <p className="text-sm text-flexNavy/70">
