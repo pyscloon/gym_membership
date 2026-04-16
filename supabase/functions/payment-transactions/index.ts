@@ -1,4 +1,15 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Declare Deno for TypeScript - available at runtime in Supabase Edge Functions
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+  serve(
+    handler: (req: Request) => Response | Promise<Response>,
+  ): void;
+};
+
+// @ts-expect-error - ESM import available at runtime in Deno environment
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 type PaymentMethod = "cash" | "card" | "online";
 type MembershipTier = "monthly" | "semi-yearly" | "yearly" | "walk-in";
@@ -14,6 +25,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Max-Age": "86400",
 };
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -30,6 +42,17 @@ function json(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function corsPreflight(req: Request) {
+  const requestHeaders = req.headers.get("access-control-request-headers");
+  return new Response("ok", {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      ...(requestHeaders ? { "Access-Control-Allow-Headers": requestHeaders } : {}),
+    },
   });
 }
 
@@ -127,16 +150,18 @@ async function applyMembershipChange(userId: string, tier: MembershipTier) {
   const now = new Date();
   const renewalDate = new Date(now.getTime() + getRenewalDays(tier) * 86400000);
 
-  const { data: existingMembership, error: existingError } = await admin
+  const { data: existingData, error: existingError } = await admin
     .from("memberships")
     .select("id")
     .eq("user_id", userId)
     .eq("status", "active")
-    .maybeSingle();
+    .limit(1);
 
   if (existingError) {
     throw new Error(existingError.message);
   }
+
+  const existingMembership = existingData?.[0];
 
   if (existingMembership) {
     const { error } = await admin
@@ -185,10 +210,14 @@ async function createWalkInRecord(userId: string, adminUserId: string, transacti
   if (error) throw new Error(error.message);
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return corsPreflight(req);
 
   try {
+    if (req.method !== "POST") {
+      return json(405, { error: "Method not allowed" });
+    }
+
     const body = (await req.json()) as Record<string, unknown>;
     const action = getAction(body);
 

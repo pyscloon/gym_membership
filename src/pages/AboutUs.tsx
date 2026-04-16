@@ -1,8 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { Link } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
-import { useAuth } from "../hooks/useAuth";
-import { fetchUserMembership } from "../lib/membershipService";
 
 /**
  * Hook to animate numeric values
@@ -50,20 +48,6 @@ const StatCard = ({ stat, value, delay }: { stat: string; value: string; delay: 
 };
 
 export default function AboutUs() {
-  const { user } = useAuth();
-
-  useEffect(() => {
-    const loadMembership = async () => {
-      if (!user) {
-        return;
-      }
-
-      await fetchUserMembership(user.id);
-    };
-
-    void loadMembership();
-  }, [user]);
-
   const trainers = [
     { name: "Amiel Benedict Mirasol", role: "Elite Trainer", id: "A-001" },
     { name: "Ilon Ziv Barcelona", role: "Strength Coach", id: "A-002" },

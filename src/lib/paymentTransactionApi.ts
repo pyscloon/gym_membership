@@ -1,14 +1,7 @@
-import { supabase } from "./supabaseClient";
+import { supabase, supabaseConfig } from "./supabaseClient";
 import type { PaymentMethod, UserType } from "../types/payment";
 
 export const PAYMENT_TRANSACTIONS_FUNCTION = "payment-transactions";
-
-type FunctionsClient = {
-  invoke: (
-    name: string,
-    options?: { body?: PaymentTransactionAction }
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
-};
 
 export type PaymentTransactionAction =
   | {
@@ -35,18 +28,38 @@ export async function invokePaymentTransactions<TResponse>(
     throw new Error("Supabase client not initialized");
   }
 
-  const functions = (supabase as { functions?: FunctionsClient }).functions;
-  if (!functions?.invoke) {
-    throw new Error("Supabase functions client not available");
-  }
+  const edgeFunctionUrl = supabaseConfig.url
+    ? `${supabaseConfig.url.replace(/\/$/, "")}/functions/v1/${PAYMENT_TRANSACTIONS_FUNCTION}`
+    : "";
 
-  const { data, error } = await functions.invoke(PAYMENT_TRANSACTIONS_FUNCTION, {
-    body,
-  });
+  const sessionResult = await supabase.auth.getSession?.();
+  const accessToken = sessionResult?.data?.session?.access_token;
 
-  if (error) {
-    throw new Error(error.message || "Payment action failed");
-  }
+  const invokeDirect = async (): Promise<TResponse> => {
+    if (!edgeFunctionUrl) {
+      throw new Error("Supabase function URL missing");
+    }
 
-  return data as TResponse;
+    const response = await fetch(edgeFunctionUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: supabaseConfig.anonKey ?? "",
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await response.text();
+    const payload = text ? JSON.parse(text) : null;
+
+    if (!response.ok) {
+      const message = payload?.error || payload?.message || `Edge Function failed with ${response.status}`;
+      throw new Error(message);
+    }
+
+    return payload as TResponse;
+  };
+
+  return invokeDirect();
 }
