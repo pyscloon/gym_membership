@@ -92,9 +92,39 @@ async function requireUser(req: Request) {
   return data.user;
 }
 
-function requireAdminEmail(email?: string | null) {
-  const normalized = (email ?? "").toLowerCase();
-  if (!normalized || !adminEmails.includes(normalized)) {
+type AuthenticatedUser = {
+  id: string;
+  email?: string | null;
+  app_metadata?: Record<string, unknown>;
+  user_metadata?: Record<string, unknown>;
+};
+
+async function requireAdminAccess(user: AuthenticatedUser) {
+  const normalizedEmail = (user.email ?? "").toLowerCase();
+
+  const hasRoleMetadata =
+    String(user.app_metadata?.role ?? "").toLowerCase() === "admin" ||
+    String(user.user_metadata?.role ?? "").toLowerCase() === "admin";
+
+  if (hasRoleMetadata) {
+    return;
+  }
+
+  if (normalizedEmail && adminEmails.includes(normalizedEmail)) {
+    return;
+  }
+
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to verify admin role: ${error.message}`);
+  }
+
+  if (String(profile?.role ?? "").toLowerCase() !== "admin") {
     throw new Error("Forbidden");
   }
 }
@@ -237,8 +267,7 @@ Deno.serve(async (req: Request) => {
 
       const proofUrl =
         method === "online"
-          ? await uploadEvidence(user.id, "payment-proof", String(body.proofOfPayment ?? ""))
-          : null;
+          await uploadEvidence(user.id, "payment-proof", String(body.proofOfPayment ?? ""));
       const discountUrl = await uploadEvidence(user.id, "discount-id", String(body.discountIdProof ?? ""));
 
       const initialStatus = method === "online" ? "awaiting-verification" : "awaiting-confirmation";
@@ -263,7 +292,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const user = await requireUser(req);
-    requireAdminEmail(user.email);
+    await requireAdminAccess(user);
 
     if (action === "list_pending") {
       const { data, error } = await admin
