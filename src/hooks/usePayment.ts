@@ -8,6 +8,7 @@ import type {
 } from "../types/payment";
 import { supabase } from "../lib/supabaseClient";
 import { usePaymentState } from "../design-patterns/useStatePatterns";
+import { invokePaymentTransactions } from "../lib/paymentTransactionApi";
 
 type TransactionRow = {
   id: string;
@@ -25,31 +26,6 @@ type TransactionRow = {
   created_at: string;
   updated_at: string;
 };
-
-const UPLOADS_BUCKET = "uploads";
-
-function dataUrlToBlob(dataUrl: string): { blob: Blob; mimeType: string; extension: string } {
-  const base64Data = dataUrl.split(",")[1];
-  if (!base64Data) {
-    throw new Error("Invalid image data.");
-  }
-
-  const mimeMatch = dataUrl.match(/data:(.*?);base64/);
-  const mimeType = mimeMatch?.[1] ?? "image/jpeg";
-  const extension = mimeType.split("/")[1] ?? "jpg";
-
-  const byteCharacters = atob(base64Data);
-  const byteArray = new Uint8Array(byteCharacters.length);
-  for (let index = 0; index < byteCharacters.length; index += 1) {
-    byteArray[index] = byteCharacters.charCodeAt(index);
-  }
-
-  return {
-    blob: new Blob([byteArray], { type: mimeType }),
-    mimeType,
-    extension,
-  };
-}
 
 function rowToTransaction(row: TransactionRow): PaymentTransaction {
   return {
@@ -213,7 +189,7 @@ export function usePayment(userId?: string) {
 
   const initializePayment = useCallback(
     async (
-      paramUserId: string,
+      _paramUserId: string,
       userType: UserType,
       amount: number,
       method: PaymentMethod,
@@ -226,67 +202,16 @@ export function usePayment(userId?: string) {
         dispatch({ type: "SET_TRANSACTION", transaction: null });
         paymentLifecycle.hydrate("idle");
         paymentLifecycle.initiate();
+        const { transaction: submittedTransaction } = await invokePaymentTransactions<{ transaction: TransactionRow }>({
+          action: "submit",
+          userType,
+          amount,
+          method,
+          proofOfPayment,
+          discountIdProof,
+        });
 
-        const uploadProofImage = async (imageData: string, prefix: string) => {
-          const { blob, mimeType, extension } = dataUrlToBlob(imageData);
-          const fileName = `${prefix}_${paramUserId}_${Date.now()}.${extension}`;
-
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from(UPLOADS_BUCKET)
-            .upload(fileName, blob, { contentType: mimeType, upsert: false });
-
-          if (uploadError) {
-            throw new Error(`Upload failed: ${uploadError.message}`);
-          }
-
-          const { data: urlData } = supabase.storage.from(UPLOADS_BUCKET).getPublicUrl(uploadData.path);
-          return urlData.publicUrl;
-        };
-
-        let proofUrl: string | null = null;
-        if (proofOfPayment && method === "online") {
-          proofUrl = await uploadProofImage(proofOfPayment, "payment-proof");
-        }
-
-        const discountIdProofUrl = discountIdProof
-          ? await uploadProofImage(discountIdProof, "discount-id")
-          : null;
-
-        const initialStatus =
-          method === "cash"
-            ? "awaiting-confirmation"
-            : method === "online"
-              ? "awaiting-verification"
-              : "paid";
-
-        if (initialStatus === "awaiting-confirmation") {
-          paymentLifecycle.requiresConfirmation();
-        } else if (initialStatus === "awaiting-verification") {
-          paymentLifecycle.requiresVerification();
-        } else {
-          paymentLifecycle.confirm();
-        }
-
-        const { data, error } = await supabase
-          .from("transactions")
-          .insert({
-            user_id: paramUserId,
-            user_type: userType,
-            amount,
-            method,
-            status: initialStatus,
-            proof_of_payment_url: proofUrl,
-            discount_id_proof_url: discountIdProofUrl,
-            payment_proof_status: proofUrl ? "pending" : null,
-          })
-          .select()
-          .single();
-
-        if (error || !data) {
-          throw new Error(error?.message ?? "Insert failed");
-        }
-
-        const transaction = rowToTransaction(data as TransactionRow);
+        const transaction = rowToTransaction(submittedTransaction);
         commitTransaction(transaction);
 
         await refreshTransactions();
@@ -318,22 +243,12 @@ export function usePayment(userId?: string) {
 
         paymentLifecycle.confirm();
 
-        const { data, error } = await supabase
-          .from("transactions")
-          .update({
-            status: "paid",
-            confirmed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", transactionId)
-          .select()
-          .single();
+        const { transaction: updatedTransaction } = await invokePaymentTransactions<{ transaction: TransactionRow }>({
+          action: "confirm_cash",
+          transactionId,
+        });
 
-        if (error || !data) {
-          throw new Error(error?.message ?? "Confirm failed");
-        }
-
-        const transaction = rowToTransaction(data as TransactionRow);
+        const transaction = rowToTransaction(updatedTransaction);
         commitTransaction(transaction);
 
         await refreshTransactions();
@@ -359,22 +274,13 @@ export function usePayment(userId?: string) {
 
         paymentLifecycle.fail(reason);
 
-        const { data, error } = await supabase
-          .from("transactions")
-          .update({
-            status: "failed",
-            failure_reason: reason,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", transactionId)
-          .select()
-          .single();
+        const { transaction: updatedTransaction } = await invokePaymentTransactions<{ transaction: TransactionRow }>({
+          action: "fail_payment",
+          transactionId,
+          reason,
+        });
 
-        if (error || !data) {
-          throw new Error(error?.message ?? "Fail update failed");
-        }
-
-        const transaction = rowToTransaction(data as TransactionRow);
+        const transaction = rowToTransaction(updatedTransaction);
         commitTransaction(transaction);
 
         await refreshTransactions();
@@ -411,23 +317,12 @@ export function usePayment(userId?: string) {
 
         paymentLifecycle.confirm();
 
-        const { data, error } = await supabase
-          .from("transactions")
-          .update({
-            status: "paid",
-            payment_proof_status: "verified",
-            confirmed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", transactionId)
-          .select()
-          .single();
+        const { transaction: updatedTransaction } = await invokePaymentTransactions<{ transaction: TransactionRow }>({
+          action: "verify_online",
+          transactionId,
+        });
 
-        if (error || !data) {
-          throw new Error(error?.message ?? "Verify failed");
-        }
-
-        const transaction = rowToTransaction(data as TransactionRow);
+        const transaction = rowToTransaction(updatedTransaction);
         commitTransaction(transaction);
 
         await refreshTransactions();
@@ -457,23 +352,13 @@ export function usePayment(userId?: string) {
 
         paymentLifecycle.reject(reason);
 
-        const { data, error } = await supabase
-          .from("transactions")
-          .update({
-            status: "failed",
-            payment_proof_status: "rejected",
-            rejection_reason: reason,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", transactionId)
-          .select()
-          .single();
+        const { transaction: updatedTransaction } = await invokePaymentTransactions<{ transaction: TransactionRow }>({
+          action: "reject_online",
+          transactionId,
+          reason,
+        });
 
-        if (error || !data) {
-          throw new Error(error?.message ?? "Reject failed");
-        }
-
-        const transaction = rowToTransaction(data as TransactionRow);
+        const transaction = rowToTransaction(updatedTransaction);
         commitTransaction(transaction);
 
         await refreshTransactions();

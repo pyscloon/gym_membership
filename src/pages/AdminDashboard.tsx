@@ -1,10 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
-import {
-  applyMembership,
-  fetchDashboardStats,
-} from "../lib/membershipService";
+import { fetchDashboardStats } from "../lib/membershipService";
 import type { MembershipTier } from "../types/membership";
 import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
@@ -52,6 +49,34 @@ export default function AdminDashboard() {
   const transactionHistory = paymentHook.getTransactionHistory();
 
   // ✅ Safe dashboard data loading
+  const fetchTodayWalkInCount = async () => {
+    if (!supabase) return;
+    
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const { count, error } = await supabase
+        .from("walk_ins")
+        .select("*", { count: "exact", head: true })
+        .gte("walk_in_time", today.toISOString())
+        .lt("walk_in_time", tomorrow.toISOString());
+
+      if (error) {
+        console.error("Error fetching walk-in count:", error);
+        return;
+      }
+
+      if (isMountedRef.current) {
+        safeSteateUpdate(isMountedRef.current, setTodayCheckInCount, count ?? 0, "fetchTodayWalkInCount");
+      }
+    } catch (err) {
+      console.error("fetchTodayWalkInCount error:", err);
+    }
+  };
+
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -125,34 +150,6 @@ export default function AdminDashboard() {
       isMountedRef.current = false;
     };
   }, []);
-  const fetchTodayWalkInCount = async () => {
-    if (!supabase) return;
-    
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const { count, error } = await supabase
-        .from("walk_ins")
-        .select("*", { count: "exact", head: true })
-        .gte("walk_in_time", today.toISOString())
-        .lt("walk_in_time", tomorrow.toISOString());
-
-      if (error) {
-        console.error("Error fetching walk-in count:", error);
-        return;
-      }
-
-      if (isMountedRef.current) {
-        safeSteateUpdate(isMountedRef.current, setTodayCheckInCount, count ?? 0, "fetchTodayWalkInCount");
-      }
-    } catch (err) {
-      console.error("fetchTodayWalkInCount error:", err);
-    }
-  };
-
   // ✅ Helper to restore a PaymentStateContext to match a transaction's real status
   const getOrRestoreStateContext = (
     transactionId: string,
@@ -170,53 +167,6 @@ export default function AdminDashboard() {
       ctx.requiresProofVerification(); // processing → awaiting-verification
     }
     return ctx;
-  };
-
-  const recordWalkIn = async (userId: string): Promise<boolean> => {
-    if (!supabase) {
-      console.error("Supabase client not available");
-      return false;
-    }
-
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const adminId = session?.user?.id ?? null;
-
-      const { data: membership, error: membershipError } = await supabase
-        .from("memberships")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("status", "active")
-        .single();
-
-      if (membershipError && membershipError.code !== "PGRST116") {
-        // PGRST116 = no rows found, which is ok for walk-ins
-        console.error("Error fetching membership:", membershipError);
-      }
-
-      const { error: insertError } = await supabase.from("walk_ins").insert({
-        user_id: userId,
-        membership_id: membership?.id ?? null,
-        validated_by: adminId,
-        walk_in_type: "walk_in",
-        walk_in_time: new Date().toISOString(),
-        qr_data: {},
-        status: "completed",
-      });
-
-      if (insertError) {
-        console.error("Error recording walk-in:", insertError);
-        return false;
-      }
-
-      if (isMountedRef.current) {
-        await fetchTodayWalkInCount();
-      }
-      return true;
-    } catch (err) {
-      console.error("recordWalkIn error:", err);
-      return false;
-    }
   };
 
   const handleScanSuccess = (result: CheckInResponse) => {
@@ -252,6 +202,8 @@ export default function AdminDashboard() {
     userId: string,
     userType: MembershipTier
   ) => {
+    void userId;
+    void userType;
     try {
       const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
 
@@ -262,21 +214,7 @@ export default function AdminDashboard() {
 
       stateContext.confirm();
       
-      // Execute operations in sequence to ensure atomicity
       await paymentHook.confirmPayment(transactionId);
-
-      const membershipResult = await applyMembership(userId, userType);
-      if (!membershipResult.success) {
-        console.error("Failed to apply membership:", membershipResult.error);
-        return;
-      }
-
-      if (userType === "walk-in") {
-        const walkInResult = await recordWalkIn(userId);
-        if (!walkInResult) {
-          console.warn("Failed to record walk-in, but membership was applied");
-        }
-      }
 
       if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
@@ -301,9 +239,11 @@ export default function AdminDashboard() {
 
   const handleAdminDeclinePayment = async (
     transactionId: string,
-    _userId: string,
-    _userType: MembershipTier
+    userId: string,
+    userType: MembershipTier
   ) => {
+    void userId;
+    void userType;
     try {
       const stateContext = getOrRestoreStateContext(transactionId, "awaiting-confirmation");
 
@@ -341,6 +281,8 @@ export default function AdminDashboard() {
     userId: string,
     userType: MembershipTier
   ) => {
+    void userId;
+    void userType;
     try {
       const stateContext = getOrRestoreStateContext(transactionId, "awaiting-verification");
 
@@ -352,19 +294,6 @@ export default function AdminDashboard() {
       stateContext.confirm(); // awaiting-verification → paid
 
       await paymentHook.verifyOnlinePaymentProof(transactionId);
-
-      const membershipResult = await applyMembership(userId, userType);
-      if (!membershipResult.success) {
-        console.error("Failed to apply membership:", membershipResult.error);
-        return;
-      }
-
-      if (userType === "walk-in") {
-        const walkInResult = await recordWalkIn(userId);
-        if (!walkInResult) {
-          console.warn("Failed to record walk-in, but membership was applied");
-        }
-      }
 
       if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
@@ -389,10 +318,12 @@ export default function AdminDashboard() {
 
   const handleAdminRejectOnlinePayment = async (
     transactionId: string,
-    _userId: string,
-    _userType: MembershipTier,
+    userId: string,
+    userType: MembershipTier,
     reason: string
   ) => {
+    void userId;
+    void userType;
     try {
       const stateContext = getOrRestoreStateContext(transactionId, "awaiting-verification");
 

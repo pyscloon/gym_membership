@@ -8,9 +8,7 @@ import { usePayment } from "../hooks/usePayment";
 import {
   applyMembership,
   cancelMembership,
-  changeMembership,
   fetchUserMembership,
-  renewMembership,
   reactivateMembership,
 } from "../lib/membershipService";
 import {
@@ -58,6 +56,7 @@ export default function MembershipDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [showQR, setShowQR] = useState(false);
+  const [qrTimestamp, setQrTimestamp] = useState("");
   const [isDev] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [devShowMembership, setDevShowMembership] = useState(false);
@@ -93,7 +92,7 @@ export default function MembershipDashboard() {
   const [showCheckInConfirmation, setShowCheckInConfirmation] = useState(false);
   const [showChangeMembershipModal, setShowChangeMembershipModal] = useState(false);
   const [pendingMembershipTier, setPendingMembershipTier] = useState<MembershipTier | null>(null);
-  const [renewalPaymentTier, setRenewalPaymentTier] = useState<MembershipTier | null>(null);
+  const [, setRenewalPaymentTier] = useState<MembershipTier | null>(null);
   const [showSessionScanModal, setShowSessionScanModal] = useState(false);
   const [sessionScanMode, setSessionScanMode] = useState<"checkin" | "checkout">("checkin");
 
@@ -174,17 +173,22 @@ export default function MembershipDashboard() {
         id: user?.id,
         type: attendanceSessionContext?.getStateName() === "checked-in" ? "checkout" : "checkin",
         tier: displayMembership?.tier,
-        timestamp: new Date().toISOString(),
+        timestamp: qrTimestamp,
       }),
-    [attendanceSessionContext, displayMembership?.tier, user?.id]
+    [attendanceSessionContext, displayMembership?.tier, qrTimestamp, user?.id]
   );
 
-  const handleGenerateCheckIn = () => {
-    if (!canHandleUserInteraction()) {
+  const handleGenerateCheckIn = (skipInteractionGuard = false) => {
+    if (!skipInteractionGuard && !canHandleUserInteraction()) {
       return;
     }
 
     if (location.pathname === "/dashboard" && isSubscribedUser) {
+      if (attendanceSessionContext?.canPerformAction("checkIn")) {
+        attendanceSessionContext.checkIn();
+        setStateUpdateTrigger((prev) => prev + 1);
+      }
+      setQrTimestamp(new Date().toISOString());
       setShowQR(true);
       addToast("Check-in QR generated! Show this to the admin.", "success");
       return;
@@ -192,6 +196,7 @@ export default function MembershipDashboard() {
 
     if (membershipStateContext?.canPerformAction("checkIn")) {
       attendanceSessionContext?.checkIn();
+      setQrTimestamp(new Date().toISOString());
       setShowQR(true);
       setStateUpdateTrigger((prev) => prev + 1);
       addToast("Check-in QR generated! Show this to the admin.", "success");
@@ -200,12 +205,13 @@ export default function MembershipDashboard() {
     }
   };
 
-  const handleGenerateCheckOut = () => {
-    if (!canHandleUserInteraction()) {
+  const handleGenerateCheckOut = (skipInteractionGuard = false) => {
+    if (!skipInteractionGuard && !canHandleUserInteraction()) {
       return;
     }
 
     if (attendanceSessionContext?.canPerformAction("checkOut")) {
+      setQrTimestamp(new Date().toISOString());
       setShowQR(true);
       setStateUpdateTrigger((prev) => prev + 1);
       addToast("Check-out QR generated! Show this to the admin.", "success");
@@ -221,21 +227,22 @@ export default function MembershipDashboard() {
 
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
-      if (sessionStage === "checked-in") {
-        setAttendanceSessionContext(new AttendanceSessionContext("regular"));
-        setSessionStage("idle");
-        setStateUpdateTrigger((prev) => prev + 1);
-        addToast("Checked out successfully! See you next time!", "success");
-      } else {
-        attendanceSessionContext?.checkIn();
+      const currentState = attendanceSessionContext?.getStateName();
+      if (currentState === "checked-in") {
+        // Admin confirmed check-in QR — mark session as actively checked in
         setSessionStage("checked-in");
         setStateUpdateTrigger((prev) => prev + 1);
         setShowCheckInConfirmation(true);
         addToast("Check-in approved. Session is active.", "success");
+      } else if (sessionStage === "checked-in") {
+        // Admin confirmed check-out QR — end the session
+        setAttendanceSessionContext(new AttendanceSessionContext("regular"));
+        setSessionStage("idle");
+        setStateUpdateTrigger((prev) => prev + 1);
+        addToast("Checked out successfully! See you next time!", "success");
       }
       return;
     }
-
 
     setShowQR(false);
     const currentState = attendanceSessionContext?.getStateName();
@@ -243,7 +250,7 @@ export default function MembershipDashboard() {
       attendanceSessionContext?.checkOut();
       setAttendanceSessionContext(new AttendanceSessionContext("regular"));
       setSessionStage("idle");
-      setStateUpdateTrigger((prev)=> prev + 1);
+      setStateUpdateTrigger((prev) => prev + 1);
       addToast("Checked out successfully! See you next time!", "success");
     }
     setStateUpdateTrigger((prev) => prev + 1);
@@ -256,10 +263,10 @@ export default function MembershipDashboard() {
 
     if (sessionStage === "checked-in") {
       setSessionScanMode("checkout");
-      handleGenerateCheckOut();
+      handleGenerateCheckOut(true);
     } else {
       setSessionScanMode("checkin");
-      handleGenerateCheckIn();
+      handleGenerateCheckIn(true);
     }
 
     setShowSessionScanModal(true);
@@ -373,28 +380,22 @@ export default function MembershipDashboard() {
   ) => {
     try {
       await paymentHook.confirmPayment(transactionId);
-      const currentMembership = await fetchUserMembership(userId);
-      const result = currentMembership?.status === "active"
-        ? currentMembership.tier === userType
-          ? await renewMembership(userId)
-          : await changeMembership(userId, userType)
-        : await applyMembership(userId, userType);
+      const refreshedMembership = await fetchUserMembership(userId);
 
-      if (result.success && result.data) {
-        addToast(`Member ${userId} approved on ${userType} plan.`, "success");
-        setMembership(result.data);
-        setMembershipStateContext(new MembershipStateContext(result.data));
+      if (refreshedMembership) {
+        setMembership(refreshedMembership);
+        setMembershipStateContext(new MembershipStateContext(refreshedMembership));
         if (membershipStateContext) {
           membershipStateContext.confirmPayment();
           membershipStateContext.activate();
           setStateUpdateTrigger((prev) => prev + 1);
         }
-      } else {
-        addToast(`Membership apply warning: ${result.error}`, "error");
       }
+
+      addToast(`Member ${userId} approved on ${userType} plan.`, "success");
     } catch (err) {
       console.error("Admin confirm error:", err);
-      addToast("Failed to confirm payment or apply membership.", "error");
+      addToast("Failed to confirm payment.", "error");
     }
   };
 
@@ -423,28 +424,22 @@ export default function MembershipDashboard() {
   ) => {
     try {
       await paymentHook.verifyOnlinePaymentProof(transactionId);
-      const currentMembership = await fetchUserMembership(userId);
-      const result = currentMembership?.status === "active"
-        ? currentMembership.tier === userType
-          ? await renewMembership(userId)
-          : await changeMembership(userId, userType)
-        : await applyMembership(userId, userType);
+      const refreshedMembership = await fetchUserMembership(userId);
 
-      if (result.success && result.data) {
-        addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
-        setMembership(result.data);
-        setMembershipStateContext(new MembershipStateContext(result.data));
+      if (refreshedMembership) {
+        setMembership(refreshedMembership);
+        setMembershipStateContext(new MembershipStateContext(refreshedMembership));
         if (membershipStateContext) {
           membershipStateContext.confirmPayment();
           membershipStateContext.activate();
           setStateUpdateTrigger((prev) => prev + 1);
         }
-      } else {
-        addToast(`Membership apply warning: ${result.error}`, "error");
       }
+
+      addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
     } catch (err) {
       console.error("Admin verify online payment error:", err);
-      addToast("Failed to verify online payment or apply membership.", "error");
+      addToast("Failed to verify online payment.", "error");
     }
   };
 
@@ -541,32 +536,25 @@ export default function MembershipDashboard() {
       return;
     }
 
-    if (renewalPaymentTier || pendingMembershipTier) {
-      addToast("Your payment details were submitted. Admin confirmation is pending.", "success");
-      navigate("/payment-panel");
-      setRenewalPaymentTier(null);
-      return;
-    }
-
     if (transaction.userType === "walk-in") {
       handleWalkInApply();
       navigate("/walk-in");
       return;
     }
 
-    await handleApply(transaction.userType);
+    await loadMembership();
+    setRenewalPaymentTier(null);
+    setPendingMembershipTier(null);
     addToast("Payment completed! Your membership is now active.", "success");
     navigate("/dashboard");
   }, [
     addToast,
     completedTransactionId,
     guestTransaction,
-    handleApply,
     handleWalkInApply,
+    loadMembership,
     navigate,
     paymentHook.state.currentTransaction,
-    pendingMembershipTier,
-    renewalPaymentTier,
     user,
   ]);
 
@@ -781,8 +769,11 @@ export default function MembershipDashboard() {
     return (
       <div className="space-y-6">
         {showSessionScanModal && (
-          <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/30 px-4 py-6">
-            <div className="relative w-full max-w-6xl rounded-3xl border border-[#d7e4f6] bg-[#f4f6fb] p-6 shadow-[0_22px_60px_rgba(12,33,73,0.25)] sm:p-8">
+          <div 
+  className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6"
+  style={{ backgroundColor: "#081223" }}
+>
+            <div className="relative isolate w-full max-w-6xl rounded-3xl border border-[#d7e4f6] bg-white bg-clip-padding p-6 opacity-100 shadow-[0_22px_60px_rgba(12,33,73,0.25)] sm:p-8">
               <button
                 type="button"
                 onClick={handleCloseSessionScanModal}
@@ -791,7 +782,7 @@ export default function MembershipDashboard() {
                 Close
               </button>
 
-              <div className="mx-auto flex max-w-4xl flex-col items-center gap-5">
+                <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 bg-white">
                 <p className="text-xl font-black tracking-[0.2em] text-[#1b5fb3] uppercase">
                   {sessionScanMode === "checkout" ? "CHECK-OUT QR CODE" : "CHECK-IN QR CODE"}
                 </p>
@@ -812,16 +803,16 @@ export default function MembershipDashboard() {
                     : "Show this to the admin at the front desk to check in."}
                 </p>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleCloseQR();
-                    setShowSessionScanModal(false);
-                  }}
-                  className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-5 text-5xl font-semibold text-white"
-                >
-                  Admin Confirmed Scan
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCloseQR();
+                      setShowSessionScanModal(false);
+                    }}
+                    className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-4 text-xl font-semibold text-white shadow-lg sm:text-2xl"
+                  >
+                    Admin Confirmed Scan
+                  </button>
               </div>
             </div>
           </div>
@@ -1058,10 +1049,21 @@ export default function MembershipDashboard() {
         )}
 
         {!showQR && (
-          <div className="mt-2">
+          <div className="mt-2 flex flex-col gap-2">
+            {attendanceSessionContext?.canPerformAction("checkIn") && membershipStateContext?.canPerformAction("checkIn") && (
+              <button
+                onClick={() => handleGenerateCheckIn()}
+                className="w-full rounded-xl border border-flexBlue/30 bg-gradient-to-r from-flexBlue to-[#1c8ee6] px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(28,102,191,0.28)] flex items-center justify-center gap-2"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Generate Check-In QR
+              </button>
+            )}
             {attendanceSessionContext?.canPerformAction("checkOut") && (
               <button
-                onClick={handleGenerateCheckOut}
+                onClick={() => handleGenerateCheckOut()}
                 className="w-full rounded-xl border border-red-200 bg-gradient-to-r from-red-600 to-red-500 px-4 py-3 font-semibold text-white shadow-[0_12px_28px_rgba(220,38,38,0.28)] flex items-center justify-center gap-2"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

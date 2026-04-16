@@ -20,6 +20,11 @@ const supabaseAnonKey =
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
+export const supabaseConfig = {
+  url: supabaseUrl,
+  anonKey: supabaseAnonKey,
+};
+
 export const supabase: any = runtimeEnv.__PLAYWRIGHT_USE_MOCK_SUPABASE__
   ? createMockSupabaseClient()
   : isSupabaseConfigured

@@ -18,6 +18,10 @@ function getRenewalDays(tier: MembershipTier): number {
   return AccessFactory.create_access(tier).get_duration();
 }
 
+function isValidUserId(userId: string | undefined | null): userId is string {
+  return typeof userId === "string" && userId.trim().length > 0;
+}
+
 /**
  * Apply for membership - Creates a new membership record
  * @param userId - User's ID from auth
@@ -28,7 +32,7 @@ export async function applyMembership(
   userId: string,
   tier: MembershipTier = "monthly"
 ): Promise<MembershipResponse> {
-  if (!userId || userId === "walk-in-guest" || userId.startsWith("walk-in-")) {
+  if (!isValidUserId(userId) || userId === "walk-in-guest" || userId.startsWith("walk-in-")) {
     return { success: false, error: "Walk-in sessions cannot be stored in the database." };
   }
   if (!supabase) {
@@ -37,12 +41,14 @@ export async function applyMembership(
 
   try {
     // Check if user already has an active membership
-    const { data: existing } = await supabase
+    const { data: existingData } = await supabase
       .from("memberships")
       .select("id")
       .eq("user_id", userId)
       .eq("status", "active")
-      .single();
+      .limit(1);
+
+    const existing = existingData?.[0];
 
     if (existing) {
       return {
@@ -96,18 +102,23 @@ export async function applyMembership(
 export async function renewMembership(
   userId: string
 ): Promise<MembershipResponse> {
+  if (!isValidUserId(userId)) {
+    return { success: false, error: "Missing user ID" };
+  }
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" };
   }
 
   try {
     // Get current membership to determine tier
-    const { data: membership, error: fetchError } = await supabase
+    const { data: membershipData, error: fetchError } = await supabase
       .from("memberships")
       .select("tier")
       .eq("user_id", userId)
       .eq("status", "active")
-      .single();
+      .limit(1);
+
+    const membership = membershipData?.[0];
 
     if (fetchError || !membership) {
       return {
@@ -161,6 +172,9 @@ export async function renewMembership(
 export async function cancelMembership(
   userId: string
 ): Promise<MembershipResponse> {
+  if (!isValidUserId(userId)) {
+    return { success: false, error: "Missing user ID" };
+  }
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" };
   }
@@ -203,17 +217,22 @@ export async function changeMembership(
   userId: string,
   tier: MembershipTier
 ): Promise<MembershipResponse> {
+  if (!isValidUserId(userId)) {
+    return { success: false, error: "Missing user ID" };
+  }
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" };
   }
 
   try {
-    const { data: existingMembership, error: fetchError } = await supabase
+    const { data: existingData, error: fetchError } = await supabase
       .from("memberships")
       .select("id")
       .eq("user_id", userId)
       .eq("status", "active")
-      .single();
+      .limit(1);
+
+    const existingMembership = existingData?.[0];
 
     if (fetchError || !existingMembership) {
       return {
@@ -266,31 +285,54 @@ export async function changeMembership(
 export async function fetchUserMembership(
   userId: string
 ): Promise<Membership | null> {
+  if (!isValidUserId(userId)) {
+    return null;
+  }
   if (!supabase) {
     console.error("Supabase client not initialized");
     return null;
   }
 
   try {
-    // Try to get active membership first
-    const { data, error } = await supabase
+    // Prefer the active membership so the dashboard does not pick up stale rows.
+    const { data: activeData, error: activeError } = await supabase
       .from("memberships")
       .select("*")
       .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .single();
+      .eq("status", "active")
+      .limit(1);
 
-    if (error) {
-      // Expected error if no membership exists
-      if (error.code === "PGRST116") {
-        return null;
-      }
-      console.error("Error fetching membership:", error);
+    if (activeError) {
+      console.error("Error fetching active membership:", activeError);
       return null;
     }
 
-    return data as Membership;
+    if (activeData && activeData.length > 0) {
+      return activeData[0] as Membership;
+    }
+
+    const statusPriority: Membership["status"][] = ["pending", "expired"];
+
+    for (const status of statusPriority) {
+      const { data, error } = await supabase
+        .from("memberships")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("status", status)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error(`Error fetching ${status} membership:`, error);
+        return null;
+      }
+
+      if (data && data.length > 0) {
+        return data[0] as Membership;
+      }
+    }
+
+    return null;
   } catch (err) {
     console.error("Error in fetchUserMembership:", err);
     return null;
@@ -323,25 +365,30 @@ export function calculateDaysUntilRenewal(renewalDate: string): number {
 export async function reactivateMembership(
   userId: string
 ): Promise<MembershipResponse> {
+  if (!isValidUserId(userId)) {
+    return { success: false, error: "Missing user ID" };
+  }
   if (!supabase) {
     return { success: false, error: "Supabase client not initialized" };
   }
 
   try {
     // Get the canceled membership
-    const { data: membership, error: fetchError } = await supabase
+    const { data: membershipData, error: fetchError } = await supabase
       .from("memberships")
       .select("*")
       .eq("user_id", userId)
       .eq("cancel_at_period_end", true)
       .single();
 
-    if (fetchError || !membership) {
+    if (fetchError || !membershipData) {
       return {
         success: false,
         error: "No canceled membership found to reactivate",
       };
     }
+
+    const membership = membershipData;
 
     // Reactivate by resetting cancel flag and extending renewal date
     const now = new Date();

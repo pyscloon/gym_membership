@@ -40,6 +40,8 @@ const mockSupabase = {
       select() {
         return {
           async order(_column: string, _options: { ascending: boolean }) {
+            void _column;
+            void _options;
             const data = Array.from(transactionStore.values()).sort((left, right) =>
               right.created_at.localeCompare(left.created_at)
             );
@@ -127,8 +129,8 @@ describe("paymentSimulator unit tests", () => {
   });
 
   describe("saveTransaction / getStoredTransaction — Happy Path", () => {
-    it("saves and retrieves a paid card transaction", async () => {
-      const tx = makeTx();
+    it("saves and retrieves a card transaction awaiting confirmation", async () => {
+      const tx = makeTx({ status: "awaiting-confirmation", confirmedAt: undefined });
       await saveTransaction(tx);
       await expect(getStoredTransaction(tx.id)).resolves.toEqual(tx);
     });
@@ -210,7 +212,7 @@ describe("paymentSimulator unit tests", () => {
   });
 
   describe("simulatePaymentTransaction", () => {
-    it("creates and persists a paid card transaction", async () => {
+    it("creates and persists a card transaction awaiting confirmation", async () => {
       const transaction = await simulatePaymentTransaction(
         "txn_card_1",
         "11111111-1111-4111-8111-111111111222",
@@ -219,10 +221,10 @@ describe("paymentSimulator unit tests", () => {
         "card"
       );
 
-      expect(transaction.status).toBe("paid");
+      expect(transaction.status).toBe("awaiting-confirmation");
       expect(transaction.method).toBe("card");
       await expect(getStoredTransaction(transaction.id)).resolves.toMatchObject({
-        status: "paid",
+        status: "awaiting-confirmation",
         method: "card",
       });
     });
