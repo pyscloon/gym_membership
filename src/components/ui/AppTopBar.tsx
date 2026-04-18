@@ -18,8 +18,23 @@ export default function AppTopBar({ fixed = true }: AppTopBarProps) {
 
   useEffect(() => {
     const loadMembership = async () => {
-      if (!user || !supabase) { setIsActiveMember(false); return; }
-      const { data } = await supabase.from("memberships").select("status").eq("user_id", user.id).single();
+      if (!user || !supabase) {
+        setIsActiveMember(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("memberships")
+        .select("status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Failed to load membership status:", error);
+        setIsActiveMember(false);
+        return;
+      }
+
       setIsActiveMember(data?.status === "active");
     };
     void loadMembership();
