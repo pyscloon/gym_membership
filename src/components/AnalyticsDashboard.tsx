@@ -27,7 +27,13 @@ const WALKIN_COLOR = "#0f766e"; // flexNavy teal
 const MEMBER_REVENUE_COLOR = "#3b82f6"; // lighter blue
 const WALKIN_REVENUE_COLOR = "#14b8a6"; // teal
 
-export default function AnalyticsDashboard() {
+type AnalyticsDashboardProps = {
+  showBackButton?: boolean;
+};
+
+export default function AnalyticsDashboard({
+  showBackButton = true,
+}: AnalyticsDashboardProps) {
   const navigate = useNavigate();
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
@@ -117,26 +123,28 @@ export default function AnalyticsDashboard() {
       {/* Header and Time Range Controls */}
       <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6">
         <div className="flex flex-col gap-4 mb-6 md:flex-row md:items-center md:justify-between">
-          <button
-            type="button"
-            onClick={() => navigate("/admin/dashboard")}
-            className="inline-flex w-fit items-center gap-2 rounded-lg bg-flexBlue px-4 py-2 text-sm font-semibold text-white transition hover:bg-flexBlue/90"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+          {showBackButton && (
+            <button
+              type="button"
+              onClick={() => navigate("/admin/dashboard")}
+              className="inline-flex w-fit items-center gap-2 rounded-lg bg-flexBlue px-4 py-2 text-sm font-semibold text-white transition hover:bg-flexBlue/90"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
-            Back to Dashboard
-          </button>
+              <svg
+                className="h-4 w-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+              Back to Dashboard
+            </button>
+          )}
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-flexNavy font-semibold">
               Analytics & Trends

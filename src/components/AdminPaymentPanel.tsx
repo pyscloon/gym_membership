@@ -142,38 +142,24 @@ export default function AdminPaymentPanel({
   const totalAmount = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
 
   return (
-    <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-flexNavy font-semibold">Admin Dashboard</p>
-          <h3 className="text-2xl font-bold text-flexNavy mt-2">Pending Payments</h3>
-        </div>
-        <div className="text-right">
-          <p className="text-3xl font-bold text-flexBlue">{totalPending}</p>
-          <p className="text-xs text-flexNavy/60 uppercase tracking-wider mt-1">Awaiting Confirmation</p>
+    <div className="space-y-6">
+      {/* Summary Stats */}
+      <div className="mb-2">
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-flexNavy/70">Total Pending</p>
+            <p className="mt-1 text-2xl font-bold text-flexBlue">₱{totalAmount.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-xs text-flexNavy/70">Payment Requests</p>
+            <p className="mt-1 text-2xl font-bold text-flexNavy">{totalPending}</p>
+          </div>
         </div>
       </div>
 
-      {/* Summary Stats */}
-      {totalPending > 0 && (
-        <div className="mb-6 rounded-lg bg-flexBlue/8 p-4 border border-flexBlue/25">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-flexNavy/70">Total Pending</p>
-              <p className="text-2xl font-bold text-flexBlue mt-1">₱{totalAmount.toLocaleString()}</p>
-            </div>
-            <div>
-              <p className="text-xs text-flexNavy/70">Payment Requests</p>
-              <p className="text-2xl font-bold text-flexNavy mt-1">{totalPending}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Pending Payments List */}
       {pendingPayments.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-flexNavy/20 p-8 text-center">
+        <div className="py-8 text-center">
           <svg className="h-12 w-12 mx-auto text-flexNavy/30 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v13m0-13V6a2 2 0 110-4h.01a2 2 0 110 4v1m6.168 1.832a2 2 0 002.21-2.012V6a2 2 0 10-2.22 2.007m0 0H18a2 2 0 100-4h-.01a2 2 0 00-2 2.007M6.168 4.832a2 2 0 002.21-2.012V6a2 2 0 10-2.22 2.007m0 0H6a2 2 0 100-4h-.01a2 2 0 00-2 2.007" />
           </svg>
@@ -198,52 +184,50 @@ export default function AdminPaymentPanel({
             return (
               <div
                 key={payment.transactionId}
-                className="rounded-xl border border-flexNavy/15 bg-white p-4 hover:border-flexBlue/35 transition"
+                className="group relative overflow-hidden rounded-2xl border border-[#0066CC]/20 bg-gradient-to-br from-white/65 via-[#F5FAFF]/55 to-white/45 p-4 shadow-[0_8px_24px_rgba(0,51,102,0.08)] backdrop-blur-md transition hover:border-[#0066CC]/40 hover:shadow-[0_12px_32px_rgba(0,51,102,0.14)]"
               >
-                <div className="flex items-start justify-between mb-3">
+                <div className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-[#0099FF] via-[#0066CC] to-[#000033] opacity-70" />
+
+                <div className="mb-3 flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <p className="font-semibold text-flexNavy capitalize">
+                    <div className="mb-1 flex items-center gap-2">
+                      <p className="text-sm font-bold uppercase tracking-wide text-[#000033]">
                         {payment.userType} Membership
                       </p>
-                      <span className={`text-xs font-bold px-2 py-1 rounded-full ${
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide ${
                         isOnline
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-amber-100 text-amber-700"
+                          ? "bg-[#E8F2FF] text-[#005BB5]"
+                          : "bg-[#FFF4DE] text-[#B77700]"
                       }`}>
                         {paymentLabel}
                       </span>
                     </div>
-                    <p className="text-sm text-flexNavy/70">
-                      User ID: <span className="font-mono text-xs">{payment.userId}</span>
+                    <p className="text-sm text-[#00264D]/75">
+                      User ID: <span className="rounded bg-[#0066CC]/8 px-1.5 py-0.5 font-mono text-xs text-[#003D7A]">{payment.userId}</span>
                     </p>
-                    <p className="text-xs text-flexNavy/50 mt-1">
+                    <p className="mt-1 text-xs text-[#003D7A]/60">
                       Requested: {new Date(payment.requestedAt).toLocaleString()}
                     </p>
                   </div>
+
                   <div className="text-right">
-                    <p className="text-2xl font-bold text-flexBlue">
+                    <p className="text-[28px] font-black leading-none text-[#005BB5] drop-shadow-[0_1px_0_rgba(255,255,255,0.7)]">
                       ₱{payment.amount.toLocaleString()}
                     </p>
-                    <p className="text-xs text-flexNavy/60 mt-1">Total</p>
+                    <p className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-[#003D7A]/65">Total</p>
                   </div>
                 </div>
 
                 {/* Transaction ID */}
-                <p className="text-xs text-flexNavy/50 mb-4 font-mono bg-flexNavy/5 p-2 rounded">
+                <p className="mb-4 rounded-lg border border-[#0066CC]/15 bg-white/45 p-2 text-xs font-mono text-[#003D7A]/70">
                   TXN: {payment.transactionId}
-                </p>
-
-                {/* Membership Note */}
-                <p className="text-xs text-blue-600 mb-3">
-                  Accepting this payment will activate a <strong>{payment.userType}</strong> membership for user <strong>{payment.userId}</strong>.
                 </p>
 
                 {/* Online Payment Photo Proof */}
                 {isOnline && payment.proofOfPaymentUrl && (
                   <div className="mb-4">
                     {isPaymentProofVisible ? (
-                      <div className="rounded-lg bg-gray-50 p-3 mb-3">
+                      <div className="mb-3">
                         <img
                           src={payment.proofOfPaymentUrl}
                           alt="Payment proof"
@@ -270,7 +254,7 @@ export default function AdminPaymentPanel({
                 {payment.discountIdProofUrl && (
                   <div className="mb-4">
                     {isDiscountIdVisible ? (
-                      <div className="rounded-lg bg-gray-50 p-3 mb-3">
+                      <div className="mb-3">
                         <img
                           src={payment.discountIdProofUrl}
                           alt="Discount ID proof"
@@ -320,7 +304,7 @@ export default function AdminPaymentPanel({
                       <button
                         onClick={() => handleVerifyOnline(payment.transactionId, payment.userId, payment.userType)}
                         disabled={confirmingId === payment.transactionId || decliningId === payment.transactionId}
-                        className="flex-1 rounded-lg bg-green-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0066CC] to-[#0099FF] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {confirmingId === payment.transactionId ? (
                           <>
@@ -342,7 +326,7 @@ export default function AdminPaymentPanel({
                       <button
                         onClick={() => handleRejectOnline(payment.transactionId, payment.userId, payment.userType)}
                         disabled={confirmingId === payment.transactionId || decliningId === payment.transactionId}
-                        className="rounded-lg border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                        className="rounded-xl border border-red-200 bg-white/70 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         {decliningId === payment.transactionId ? "Rejecting..." : "Reject"}
                       </button>
@@ -352,7 +336,7 @@ export default function AdminPaymentPanel({
                       <button
                         onClick={() => handleConfirm(payment.transactionId, payment.userId, payment.userType)}
                         disabled={confirmingId === payment.transactionId || decliningId === payment.transactionId}
-                        className="flex-1 rounded-lg bg-green-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0066CC] to-[#0099FF] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         {confirmingId === payment.transactionId ? (
                           <>
@@ -374,7 +358,7 @@ export default function AdminPaymentPanel({
                       <button
                         onClick={() => handleDecline(payment.transactionId, payment.userId, payment.userType)}
                         disabled={confirmingId === payment.transactionId || decliningId === payment.transactionId}
-                        className="rounded-lg border border-red-200 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                        className="rounded-xl border border-red-200 bg-white/70 px-3 py-2.5 text-sm font-semibold text-red-600 transition hover:bg-red-50 disabled:opacity-50"
                       >
                         {decliningId === payment.transactionId ? "Declining..." : "Decline"}
                       </button>
@@ -387,12 +371,6 @@ export default function AdminPaymentPanel({
         </div>
       )}
 
-      {/* Footer Info */}
-      <div className="mt-6 rounded-lg bg-blue-50 p-4 border border-blue-200 text-sm text-blue-800">
-        <p className="text-xs">
-          This panel automatically refreshes every 2 seconds to show new payment requests.
-        </p>
-      </div>
     </div>
   );
 }
