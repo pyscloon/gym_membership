@@ -17,7 +17,7 @@ export default function AppTopBar({
   onLogout,
 }: AppTopBarProps) {
   const { user } = useAuth();
-  const { avatarLabel, notificationCount } = useAppUi();
+  const { avatarLabel } = useAppUi();
   const navigate = useNavigate();
   const location = useLocation();
   const [isActiveMember, setIsActiveMember] = useState<boolean | null>(null);
@@ -64,25 +64,17 @@ export default function AppTopBar({
           </div>
 
           <div className="flex items-center gap-3 text-white">
-            <button
-              type="button"
-              className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white transition hover:bg-white/10"
-              aria-label="Notifications"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V4a2 2 0 10-4 0v1.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17a3 3 0 006 0" />
-              </svg>
-              {notificationCount > 0 && (
-                <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ef4444] px-1 text-[10px] font-bold text-white">
-                  {notificationCount}
-                </span>
-              )}
-            </button>
-
-            <span className="hidden text-sm font-medium text-white/90 sm:inline">
-              {displayName}
-            </span>
+            <div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-2.5 py-1.5 text-white transition hover:bg-white/10">
+              <div className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#0066CC]/70 text-white">
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+                  <circle cx="12" cy="8" r="3.25" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18c1.5-2.5 4-3.75 6-3.75S16.5 15.5 18 18" />
+                </svg>
+              </div>
+              <span className="hidden text-sm font-medium text-white/90 sm:inline">
+                {displayName}
+              </span>
+            </div>
 
             <button
               type="button"
