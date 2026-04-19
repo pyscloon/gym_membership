@@ -92,6 +92,7 @@ type MockPersistedState = Omit<MockDatabaseState, "listeners" | "session">;
 
 type MockFilter =
   | { type: "eq"; column: string; value: unknown }
+  | { type: "neq"; column: string; value: unknown }
   | { type: "in"; column: string; value: unknown[] }
   | { type: "gte"; column: string; value: unknown }
   | { type: "lte"; column: string; value: unknown }
@@ -103,7 +104,7 @@ type QueryResult<T> = {
   count?: number | null;
 };
 
-type MockOperation = "select" | "insert" | "update" | "upsert";
+type MockOperation = "select" | "insert" | "update" | "upsert" | "delete";
 const MOCK_STORAGE_KEY = "__playwright_mock_supabase_state__";
 const MOCK_SESSION_KEY = "__playwright_mock_supabase_session__";
 const PAYMENT_TRANSACTIONS_FUNCTION = "payment-transactions";
@@ -336,6 +337,16 @@ class MockQueryBuilder<T extends keyof MockTableMap> implements PromiseLike<Quer
 
   eq(column: string, value: unknown) {
     this.filters.push({ type: "eq", column, value });
+    return this;
+  }
+
+  neq(column: string, value: unknown) {
+    this.filters.push({ type: "neq", column, value });
+    return this;
+  }
+
+  delete() {
+    this.operation = "delete";
     return this;
   }
 
@@ -582,6 +593,34 @@ class MockQueryBuilder<T extends keyof MockTableMap> implements PromiseLike<Quer
     return { data: clone(resultRows), error: null };
   }
 
+  
+  private executeDelete(): QueryResult<unknown> {
+    const rows = this.getRows();
+    const filteredRows = applyFilters(rows, this.filters);
+    const deleteIds = new Set(filteredRows.map((row) => String(row.id)));
+    const deletedRows: Record<string, unknown>[] = [];
+    
+    const nextRows = rows.filter((row) => {
+      if (deleteIds.has(String(row.id))) {
+        deletedRows.push(row);
+        return false;
+      }
+      return true;
+    });
+
+    this.setRows(nextRows);
+    persistState(this.state);
+
+    if (this.expectSingle) {
+      if (deletedRows.length === 0) {
+        return { data: null, error: { message: "No rows found", code: "PGRST116" } };
+      }
+      return { data: clone(deletedRows[0]), error: null };
+    }
+    
+    return { data: clone(deletedRows), error: null };
+  }
+
   private async execute(): Promise<QueryResult<unknown>> {
     switch (this.operation) {
       case "insert":
@@ -590,6 +629,8 @@ class MockQueryBuilder<T extends keyof MockTableMap> implements PromiseLike<Quer
         return this.executeUpdate();
       case "upsert":
         return this.executeUpsert();
+      case "delete":
+        return this.executeDelete();
       default:
         return this.executeSelect();
     }

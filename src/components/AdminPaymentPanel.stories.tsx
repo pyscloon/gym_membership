@@ -2,14 +2,14 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import AdminPaymentPanel from './AdminPaymentPanel';
 import type { UserType, PaymentTransaction } from '../types/payment';
 import { MEMBERSHIP_PRICES } from '../types/payment';
-import { clearAllTransactions, saveTransaction, generateTransactionId } from '../lib/paymentSimulator';
+import { clearAllTransactions, saveTransaction, generateTransactionId, simulateAdminConfirmation, verifyOnlinePayment, rejectOnlinePayment, getStoredTransaction } from '../lib/paymentSimulator';
 
 /**
  * Mock payment confirmation handler
  */
 const mockOnConfirmPayment = async (transactionId: string, userId: string, userType: UserType) => {
   console.log(`✅ Confirmed payment ${transactionId} for ${userType} user ${userId}`);
-  await new Promise(resolve => setTimeout(resolve, 800));
+  await simulateAdminConfirmation(transactionId);
 };
 
 /**
@@ -17,7 +17,11 @@ const mockOnConfirmPayment = async (transactionId: string, userId: string, userT
  */
 const mockOnDeclinePayment = async (transactionId: string, userId: string, userType: UserType) => {
   console.log(`❌ Declined payment ${transactionId} for ${userType} user ${userId}`);
-  await new Promise(resolve => setTimeout(resolve, 800));
+  const stored = await getStoredTransaction(transactionId);
+  if (stored) {
+    stored.status = 'failed';
+    await saveTransaction(stored);
+  }
 };
 
 /**
@@ -25,7 +29,7 @@ const mockOnDeclinePayment = async (transactionId: string, userId: string, userT
  */
 const mockOnVerifyOnlinePayment = async (transactionId: string, userId: string, userType: UserType) => {
   console.log(`✅ Verified online payment ${transactionId} for ${userType} user ${userId}`);
-  await new Promise(resolve => setTimeout(resolve, 800));
+  await verifyOnlinePayment(transactionId);
 };
 
 /**
@@ -33,7 +37,7 @@ const mockOnVerifyOnlinePayment = async (transactionId: string, userId: string, 
  */
 const mockOnRejectOnlinePayment = async (transactionId: string, userId: string, userType: UserType, reason: string) => {
   console.log(`❌ Rejected online payment ${transactionId} for ${userType} user ${userId} - Reason: ${reason}`);
-  await new Promise(resolve => setTimeout(resolve, 800));
+  await rejectOnlinePayment(transactionId, reason);
 };
 
 /**
@@ -99,8 +103,13 @@ export const NoPendingPayments: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
+  loaders: [
+    async () => {
+      await setupTransactions([]);
+      return { loaded: true };
+    }
+  ],
   render: (args) => {
-    void setupTransactions([]);
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -127,10 +136,15 @@ export const SingleCashPayment: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    void setupTransactions([
+  loaders: [
+    async () => {
+      await setupTransactions([
       createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
     ]);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -157,13 +171,18 @@ export const MultipleCashPayments: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    void setupTransactions([
+  loaders: [
+    async () => {
+      await setupTransactions([
       createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
       createTestTransaction('cash', 'semi-yearly', '11111111-1111-4111-8111-111111111113'),
       createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111114'),
       createTestTransaction('cash', 'walk-in', '11111111-1111-4111-8111-111111111115'),
     ]);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -190,10 +209,15 @@ export const SingleOnlinePayment: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    void setupTransactions([
+  loaders: [
+    async () => {
+      await setupTransactions([
       createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111116'),
     ]);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -220,12 +244,17 @@ export const MultipleOnlinePayments: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    void setupTransactions([
+  loaders: [
+    async () => {
+      await setupTransactions([
       createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
       createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111117'),
       createTestTransaction('online', 'monthly', '11111111-1111-4111-8111-111111111118'),
     ]);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -252,14 +281,19 @@ export const MixedPaymentTypes: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    void setupTransactions([
+  loaders: [
+    async () => {
+      await setupTransactions([
       createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
       createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
       createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111113'),
       createTestTransaction('online', 'walk-in', '11111111-1111-4111-8111-111111111117'),
       createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111114'),
     ]);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -276,115 +310,6 @@ export const MixedPaymentTypes: Story = {
 };
 
 /**
- * Mobile view - AdminPaymentPanel on small screen
- * Shows responsive layout on mobile devices
- */
-export const MobileView: Story = {
-  args: {
-    onConfirmPayment: mockOnConfirmPayment,
-    onDeclinePayment: mockOnDeclinePayment,
-    onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
-    onRejectOnlinePayment: mockOnRejectOnlinePayment,
-  },
-  render: (args) => {
-    void setupTransactions([
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
-      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111116'),
-      createTestTransaction('cash', 'semi-yearly', '11111111-1111-4111-8111-111111111113'),
-    ]);
-    return (
-      <div className="min-h-screen bg-flexBlack p-8">
-        <AdminPaymentPanel {...args} />
-      </div>
-    );
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'iphone14',
-    },
-    docs: {
-      description: {
-        story: 'Shows how the AdminPaymentPanel adapts to mobile viewport with mixed membership tiers. Buttons and content stack appropriately for smaller screens.',
-      },
-    },
-  },
-};
-
-/**
- * Tablet view - AdminPaymentPanel on tablet device
- * Shows responsive layout on tablet screens
- */
-export const TabletView: Story = {
-  args: {
-    onConfirmPayment: mockOnConfirmPayment,
-    onDeclinePayment: mockOnDeclinePayment,
-    onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
-    onRejectOnlinePayment: mockOnRejectOnlinePayment,
-  },
-  render: (args) => {
-    void setupTransactions([
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
-      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
-      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111113'),
-      createTestTransaction('online', 'walk-in', '11111111-1111-4111-8111-111111111117'),
-    ]);
-    return (
-      <div className="min-h-screen bg-flexBlack p-8">
-        <AdminPaymentPanel {...args} />
-      </div>
-    );
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'ipad',
-    },
-    docs: {
-      description: {
-        story: 'Shows the AdminPaymentPanel on tablet viewport with responsive spacing and layout adjustments for various tiers.',
-      },
-    },
-  },
-};
-
-/**
- * Desktop view - AdminPaymentPanel on full desktop screen
- * Shows optimal layout with full functionality
- */
-export const DesktopView: Story = {
-  args: {
-    onConfirmPayment: mockOnConfirmPayment,
-    onDeclinePayment: mockOnDeclinePayment,
-    onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
-    onRejectOnlinePayment: mockOnRejectOnlinePayment,
-  },
-  render: (args) => {
-    void setupTransactions([
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
-      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
-      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111113'),
-      createTestTransaction('online', 'monthly', '11111111-1111-4111-8111-111111111117'),
-      createTestTransaction('cash', 'walk-in', '11111111-1111-4111-8111-111111111114'),
-      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111118'),
-    ]);
-    return (
-      <div className="min-h-screen bg-flexBlack p-8">
-        <AdminPaymentPanel {...args} />
-      </div>
-    );
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Shows the AdminPaymentPanel on desktop viewport with full width and all membership tiers represented.',
-      },
-    },
-  },
-};
-
-/**
  * High volume payment requests
  * Shows the panel with many pending payments
  */
@@ -395,8 +320,9 @@ export const HighVolumePayments: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    const payments: PaymentTransaction[] = [];
+  loaders: [
+    async () => {
+      const payments: PaymentTransaction[] = [];
     const userIds = ['11111111-1111-4111-8111-111111111119', '11111111-1111-4111-8111-111111111120', '11111111-1111-4111-8111-111111111121', '11111111-1111-4111-8111-111111111122', '11111111-1111-4111-8111-111111111123', '11111111-1111-4111-8111-111111111124', '11111111-1111-4111-8111-111111111125', '11111111-1111-4111-8111-111111111126', '11111111-1111-4111-8111-111111111127', '11111111-1111-4111-8111-111111111128', '11111111-1111-4111-8111-111111111129', '11111111-1111-4111-8111-111111111130'];
     const tiers: UserType[] = ['monthly', 'semi-yearly', 'yearly', 'walk-in'];
     const methods: ('cash' | 'online')[] = ['cash', 'online'];
@@ -406,7 +332,11 @@ export const HighVolumePayments: Story = {
       const method = methods[i % 2];
       payments.push(createTestTransaction(method, tier, userIds[i]));
     }
-    void setupTransactions(payments);
+    await setupTransactions(payments);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -432,11 +362,16 @@ export const InteractiveCashDemo: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    void setupTransactions([
+  loaders: [
+    async () => {
+      await setupTransactions([
       createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
       createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111114'),
     ]);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
@@ -465,11 +400,16 @@ export const InteractiveOnlineDemo: Story = {
     onVerifyOnlinePayment: mockOnVerifyOnlinePayment,
     onRejectOnlinePayment: mockOnRejectOnlinePayment,
   },
-  render: (args) => {
-    void setupTransactions([
+  loaders: [
+    async () => {
+      await setupTransactions([
       createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
       createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111117'),
     ]);
+      return { loaded: true };
+    }
+  ],
+  render: (args) => {
     return (
       <div className="min-h-screen bg-flexBlack p-8">
         <AdminPaymentPanel {...args} />
