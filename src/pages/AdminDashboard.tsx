@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { fetchDashboardStats } from "../lib/membershipService";
 import type { MembershipTier } from "../types/membership";
-import { getRecentCheckIns, type CheckInResponse } from "../lib/checkInService";
+import { type CheckInResponse } from "../lib/checkInService";
 import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
@@ -16,16 +16,15 @@ import { safeSteateUpdate, executeWithRetry, DEFAULT_RETRY_CONFIG } from "../lib
 import AppTopBar from "../components/ui/AppTopBar";
 import AdminActionGrid, { type AdminActionKey } from "../components/ui/AdminActionGrid";
 
-type RecentCheckInRecord = {
+type RecentTransactionRecord = {
   id: string;
-  user_id: string | null;
-  walk_in_type: string;
-  walk_in_time: string;
-  status: string;
+  user_id: string;
+  user_name: string;
+  method: string;
+  created_at: string;
 };
 
 type DashboardSection = Exclude<AdminActionKey, "scanQr">;
-type TransactionFilter = "all" | "check-ins" | "payments";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -33,14 +32,14 @@ export default function AdminDashboard() {
 
   const [showScanner, setShowScanner] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("pendingPayment");
-  const [transactionFilter, setTransactionFilter] = useState<TransactionFilter>("all");
+  const [customerTier, setCustomerTier] = useState<MembershipTier>("monthly");
   const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
   const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   const [totalMembers, setTotalMembers] = useState(0);
   const [activePlans, setActivePlans] = useState(0);
-  const [recentCheckIns, setRecentCheckIns] = useState<RecentCheckInRecord[]>([]);
+  const [recentTransactions, setRecentTransactions] = useState<RecentTransactionRecord[]>([]);
   const [todayCheckInCount, setTodayCheckInCount] = useState(0);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
 
@@ -60,7 +59,7 @@ export default function AdminDashboard() {
         key: "scanQr" as const,
         label: "Scan QR Code",
         icon: (
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0F766E] text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#003B8F] text-white shadow-md">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2" />
               <rect x="7" y="7" width="10" height="10" rx="1" />
@@ -73,7 +72,7 @@ export default function AdminDashboard() {
         label: "Pending Payment",
         badgeCount: pendingPaymentCount,
         icon: (
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#B45309] text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0047AB] text-white shadow-md">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
             </svg>
@@ -84,7 +83,7 @@ export default function AdminDashboard() {
         key: "customers" as const,
         label: "Customers",
         icon: (
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#6D28D9] text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#005CC8] text-white shadow-md">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
               <circle cx="9" cy="7" r="4" />
@@ -98,7 +97,7 @@ export default function AdminDashboard() {
         key: "peakHours" as const,
         label: "Peak Hours",
         icon: (
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#C2410C] text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0066CC] text-white shadow-md">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <circle cx="12" cy="12" r="10" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" />
@@ -110,7 +109,7 @@ export default function AdminDashboard() {
         key: "recentTransactions" as const,
         label: "Transactions",
         icon: (
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#BE123C] text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0077D9] text-white shadow-md">
             <span className="text-3xl font-black leading-none">&#8369;</span>
           </div>
         ),
@@ -119,7 +118,7 @@ export default function AdminDashboard() {
         key: "analytics" as const,
         label: "Analytics",
         icon: (
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#166534] text-white shadow-md">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0099FF] text-white shadow-md">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 19h16M7 16V8m5 8V5m5 11v-6" />
             </svg>
@@ -130,8 +129,10 @@ export default function AdminDashboard() {
     [pendingPaymentCount]
   );
 
-  const shouldShowPayments = transactionFilter !== "check-ins";
-  const shouldShowCheckIns = transactionFilter !== "payments";
+  const customerTierOptions: MembershipTier[] = ["monthly", "semi-yearly", "yearly"];
+  const customerTransactions = transactionHistory.filter(
+    (transaction) => transaction.userType === customerTier
+  );
 
   const sectionTitleMap: Record<DashboardSection, string> = {
     pendingPayment: "Pending Payment",
@@ -169,6 +170,66 @@ export default function AdminDashboard() {
     }
   };
 
+  const fetchRecentTransactions = async () => {
+    if (!supabase) return;
+
+    try {
+      const { data: rows, error } = await supabase
+        .from("transactions")
+        .select("id, user_id, method, created_at")
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      if (error || !rows) {
+        console.error("Error fetching recent transactions:", error);
+        return;
+      }
+
+      const transactionRows = rows as Array<{
+        id: string;
+        user_id: string;
+        method: string;
+        created_at: string;
+      }>;
+
+      const userIds = [...new Set(transactionRows.map((row) => row.user_id).filter(Boolean))];
+      const nameMap = new Map<string, string>();
+
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", userIds);
+
+        for (const profile of profiles ?? []) {
+          nameMap.set(
+            profile.id,
+            profile.full_name?.trim() || profile.email || profile.id
+          );
+        }
+      }
+
+      const normalizedRows: RecentTransactionRecord[] = transactionRows.map((row) => ({
+        id: row.id,
+        user_id: row.user_id,
+        user_name: nameMap.get(row.user_id) || row.user_id,
+        method: row.method,
+        created_at: row.created_at,
+      }));
+
+      if (isMountedRef.current) {
+        safeSteateUpdate(
+          isMountedRef.current,
+          setRecentTransactions,
+          normalizedRows,
+          "fetchRecentTransactions"
+        );
+      }
+    } catch (err) {
+      console.error("fetchRecentTransactions error:", err);
+    }
+  };
+
   useEffect(() => {
     isMountedRef.current = true;
 
@@ -193,26 +254,14 @@ export default function AdminDashboard() {
           return;
         }
 
-        const checkIns = await executeWithRetry(
-          () => getRecentCheckIns(5),
-          "getRecentCheckIns",
-          DEFAULT_RETRY_CONFIG
-        );
-
         if (isMountedRef.current && stats) {
           const { totalMembers: membersCount, activePlans: activePlansCount } = stats;
           safeSteateUpdate(isMountedRef.current, setTotalMembers, membersCount, "AdminDashboard");
           safeSteateUpdate(isMountedRef.current, setActivePlans, activePlansCount, "AdminDashboard");
-          safeSteateUpdate(
-            isMountedRef.current,
-            setRecentCheckIns,
-            checkIns || [],
-            "AdminDashboard"
-          );
           safeSteateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
         }
 
-        await fetchTodayWalkInCount();
+        await Promise.all([fetchTodayWalkInCount(), fetchRecentTransactions()]);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         console.error("Dashboard load error:", errorMsg);
@@ -234,6 +283,10 @@ export default function AdminDashboard() {
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    void fetchRecentTransactions();
+  }, [transactionHistory.length]);
 
   const getOrRestoreStateContext = (
     transactionId: string,
@@ -259,19 +312,16 @@ export default function AdminDashboard() {
     }
 
     setActiveSection(key);
-    if (key === "recentTransactions") {
-      setTransactionFilter("all");
-    }
   };
 
   const renderRecentCheckInsList = () => (
     <section className="mt-4">
-      {recentCheckIns.length === 0 ? (
-        <p className="mt-3 text-sm text-gray-500">No recent check-ins available.</p>
+      {recentTransactions.length === 0 ? (
+        <p className="mt-3 text-sm text-gray-500">No recent transactions available.</p>
       ) : (
         <div className="space-y-1">
-          {recentCheckIns.map((checkIn) => (
-            <div key={checkIn.id} className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0 bg-transparent">
+          {recentTransactions.map((transaction) => (
+            <div key={transaction.id} className="flex items-center justify-between border-b border-gray-100 bg-transparent py-4 last:border-0">
               <div className="flex items-center gap-4">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100 text-gray-600">
                    <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -280,33 +330,22 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-[15px] font-bold text-gray-900">
-                    {checkIn.walk_in_type === "checkin"
-                      ? "Member Check-in"
-                      : checkIn.walk_in_type === "checkout"
-                        ? "Checked-Out"
-                        : "Walk-In"}
+                    {transaction.user_name}
                   </p>
                   <p className="text-[13px] text-gray-500 mt-0.5">
-                    Activity • {new Date(checkIn.walk_in_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {new Date(transaction.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </p>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
                 <span
-                  className={`rounded-full px-3 py-1 text-[11px] font-bold text-white tracking-wide ${
-                    checkIn.status === "completed"
-                      ? "bg-[#0FA989]"
-                      : "bg-[#FDB52A]"
-                  }`}
+                  className="rounded-full bg-[#005CC8] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
                 >
-                  {checkIn.status === "completed" ? "Paid" : "Pending"}
+                  {String(transaction.method)
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (char) => char.toUpperCase())}
                 </span>
-                <button className="text-gray-300 hover:text-gray-500 transition-colors">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-                  </svg>
-                </button>
               </div>
             </div>
           ))}
@@ -330,38 +369,47 @@ export default function AdminDashboard() {
       );
     }
 
+    if (activeSection === "customers") {
+      return (
+        <section className="mt-4">
+          <div className="mb-3 flex flex-wrap gap-2">
+            {customerTierOptions.map((tier) => (
+              <button
+                key={tier}
+                type="button"
+                onClick={() => setCustomerTier(tier)}
+                className={`rounded-full px-4 py-2 text-[13px] font-semibold capitalize transition-all duration-200 ${
+                  customerTier === tier
+                    ? "bg-[#0066CC] text-white shadow-sm"
+                    : "border border-[#0066CC]/20 bg-white text-[#003B8F] hover:bg-[#EAF4FF]"
+                }`}
+              >
+                {tier === "semi-yearly" ? "Semi-Yearly" : tier}
+              </button>
+            ))}
+          </div>
+          <TransactionHistory transactions={customerTransactions} defaultExpanded minimalView />
+        </section>
+      );
+    }
+
     if (activeSection === "peakHours") {
-      return <div className="mt-4"><CrowdEstimationPanel showAdminControls /></div>;
+      return <div className="mt-4"><CrowdEstimationPanel showAdminControls minimalView /></div>;
     }
 
     if (activeSection === "recentTransactions") {
       return (
         <section className="mt-2">
-          <div className="flex flex-wrap gap-2 mb-2">
-            {(["all", "check-ins", "payments"] as TransactionFilter[]).map((filter) => (
-              <button
-                key={filter}
-                type="button"
-                onClick={() => setTransactionFilter(filter)}
-                className={`rounded-full px-5 py-2 text-[13px] font-semibold transition-all duration-200 ${
-                  transactionFilter === filter
-                    ? "bg-[#0FA989] text-white shadow-sm"
-                    : "border border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                {filter === "all" ? "All invoices" : filter === "check-ins" ? "Check-ins" : "Payments"}
-              </button>
-            ))}
+          <div className="mb-2 inline-flex w-fit rounded-xl border border-[#0066CC]/20 bg-white/70 px-4 py-2">
+            <p className="text-sm font-semibold text-[#003B8F]">Invoices</p>
           </div>
-
-          {shouldShowPayments && <TransactionHistory transactions={transactionHistory} defaultExpanded />}
-          {shouldShowCheckIns && renderRecentCheckInsList()}
+          {renderRecentCheckInsList()}
         </section>
       );
     }
 
     if (activeSection === "analytics") {
-      return <div className="mt-4"><AnalyticsDashboard showBackButton={false} /></div>;
+      return <div className="mt-4"><AnalyticsDashboard showBackButton={false} minimalView /></div>;
     }
 
     return null;
@@ -370,15 +418,6 @@ export default function AdminDashboard() {
   const handleScanSuccess = (result: CheckInResponse) => {
     setScanMessage({ text: result.message, type: "success" });
     setTodayCheckInCount((prev) => prev + 1);
-    getRecentCheckIns(5)
-      .then((checkIns) => {
-        if (isMountedRef.current) {
-          safeSteateUpdate(isMountedRef.current, setRecentCheckIns, checkIns, "handleScanSuccess");
-        }
-      })
-      .catch((err) => {
-        console.error("Error reloading check-ins:", err);
-      });
     setTimeout(() => {
       if (isMountedRef.current) {
         setScanMessage(null);
@@ -570,12 +609,12 @@ export default function AdminDashboard() {
       <main className="min-h-screen bg-[#F8F9FA] relative font-sans">
         
         {/* Blue Grid Background Layer - Top */}
-        <div className="absolute top-0 left-0 right-0 h-72 bg-gradient-to-b from-[#0066CC]/35 via-[#0099FF]/20 to-transparent z-0 pointer-events-none rounded-b-[40px]">
+        <div className="absolute top-0 left-0 right-0 h-72 bg-gradient-to-b from-[#000033]/95 via-[#003B8F]/65 to-transparent z-0 pointer-events-none rounded-b-[40px]">
           <div className="fr-grid absolute inset-0 opacity-60" aria-hidden="true" />
         </div>
 
         {/* Blue Grid Background Layer - Bottom */}
-        <div className="absolute bottom-0 left-0 right-0 h-96 bg-gradient-to-t from-[#0066CC]/30 via-[#0099FF]/15 to-transparent z-0 pointer-events-none rounded-t-[40px]">
+        <div className="absolute bottom-0 left-0 right-0 h-96 bg-gradient-to-t from-[#000033]/42 via-[#003B8F]/22 to-transparent z-0 pointer-events-none rounded-t-[40px]">
           <div className="fr-grid absolute inset-0 opacity-50" aria-hidden="true" />
         </div>
 
@@ -659,6 +698,15 @@ export default function AdminDashboard() {
               </div>
             )}
           </section>
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-0 bottom-6 z-0 flex justify-center overflow-hidden px-4" aria-hidden="true">
+          <h2
+            className="select-none whitespace-nowrap text-[70px] font-black uppercase tracking-[0.18em] text-white/10 sm:text-[110px] lg:text-[150px]"
+            style={{ WebkitTextStroke: "1px rgba(255,255,255,0.14)", textShadow: "0 0 16px rgba(0,59,143,0.18)" }}
+          >
+            FLEX 
+          </h2>
         </div>
 
         {showScanner && (
