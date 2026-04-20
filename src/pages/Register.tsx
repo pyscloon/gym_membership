@@ -75,7 +75,7 @@ export default function Register() {
                     <div className="hidden bg-flexBlack p-10 text-flexWhite md:flex md:flex-col md:justify-between">
                         <div>
                             <p className="text-sm uppercase tracking-[0.35em] text-flexBlue">
-                                Flex Gym
+                                Flex Republic
                             </p>
                             <h1 className="mt-4 text-4xl font-semibold leading-tight">
                                 Build Your

@@ -65,7 +65,7 @@ export default function AdminLogin() {
         <section className="grid w-full overflow-hidden rounded-2xl bg-flexWhite/95 shadow-2xl ring-1 ring-flexBlack/15 md:grid-cols-2">
           <div className="hidden bg-flexBlack p-10 text-flexWhite md:flex md:flex-col md:justify-between">
             <div>
-              <p className="text-sm uppercase tracking-[0.35em] text-flexBlue">Flex Gym</p>
+              <p className="text-sm uppercase tracking-[0.35em] text-flexBlue">Flex Republic</p>
               <h1 className="mt-4 text-4xl font-semibold leading-tight">
                 Admin
                 <span className="block text-flexBlue">Portal</span>
