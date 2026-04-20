@@ -227,19 +227,18 @@ export default function MembershipDashboard() {
 
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
-      const currentState = attendanceSessionContext?.getStateName();
-      if (currentState === "checked-in") {
-        // Admin confirmed check-in QR — mark session as actively checked in
-        setSessionStage("checked-in");
-        setStateUpdateTrigger((prev) => prev + 1);
-        setShowCheckInConfirmation(true);
-        addToast("Check-in approved. Session is active.", "success");
-      } else if (sessionStage === "checked-in") {
+      if (sessionScanMode === "checkout" && sessionStage === "checked-in") {
         // Admin confirmed check-out QR — end the session
         setAttendanceSessionContext(new AttendanceSessionContext("regular"));
         setSessionStage("idle");
         setStateUpdateTrigger((prev) => prev + 1);
         addToast("Checked out successfully! See you next time!", "success");
+      } else {
+        // Admin confirmed check-in QR — mark session as actively checked in
+        setSessionStage("checked-in");
+        setStateUpdateTrigger((prev) => prev + 1);
+        setShowCheckInConfirmation(true);
+        addToast("Check-in approved. Session is active.", "success");
       }
       return;
     }

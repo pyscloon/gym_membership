@@ -14,6 +14,7 @@ type MockSessionUser = {
 
 type MockSession = {
   user: MockSessionUser;
+  access_token: string;
 };
 
 type MockProfileRow = {
@@ -119,6 +120,10 @@ function clone<T>(value: T): T {
 
 function createId(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}${Date.now().toString(36)}`;
+}
+
+function createAccessToken(userId: string): string {
+  return `mock-access-token-${userId}`;
 }
 
 function getRenewalDays(tier: MockMembershipRow["tier"]): number {
@@ -919,6 +924,7 @@ class MockAuthApi {
         email: user.email,
         user_metadata: clone(user.user_metadata),
       },
+      access_token: createAccessToken(user.id),
     };
     persistState(this.state);
     persistSession(this.state);
@@ -976,6 +982,7 @@ class MockAuthApi {
         email: user.email,
         user_metadata: clone(user.user_metadata),
       },
+      access_token: createAccessToken(user.id),
     };
     persistState(this.state);
     persistSession(this.state);
