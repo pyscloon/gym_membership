@@ -11,6 +11,7 @@ type ScanResult = {
   id: string;
   message: string;
   type: "success" | "error";
+  actionType?: "checkin" | "checkout" | "walk_in";
   timestamp: string;
 };
 
@@ -58,23 +59,11 @@ export default function QRScanner({
   const handleQRCodeDetected = useCallback(
     async (decodedText: string) => {
       try {
-        if (lastScannedRef.current === decodedText) return;
-
-        lastScannedRef.current = decodedText;
-
-        if (scanTimeoutRef.current) {
-          clearTimeout(scanTimeoutRef.current);
-        }
-
-        scanTimeoutRef.current = setTimeout(() => {
-          lastScannedRef.current = "";
-        }, 2000);
-
         const qrData: QRData = JSON.parse(decodedText);
 
         if (
           !qrData.type ||
-          !["checkin", "checkout", "walkin"].includes(qrData.type)
+          !["checkin", "checkout", "walk_in"].includes(qrData.type)
         ) {
           throw new Error("Invalid QR code format");
         }
@@ -83,12 +72,28 @@ export default function QRScanner({
           throw new Error("User not authenticated");
         }
 
+        // Dedup key includes both the raw payload AND the action type so that:
+        // • Identical scans within 2 s are suppressed (spam prevention).
+        // • A check-in followed by a check-out for the same member is always
+        //   allowed through immediately (different key → different action).
+        const dedupKey = `${decodedText}::${qrData.type}`;
+        if (lastScannedRef.current === dedupKey) return;
+        lastScannedRef.current = dedupKey;
+
+        if (scanTimeoutRef.current) {
+          clearTimeout(scanTimeoutRef.current);
+        }
+        scanTimeoutRef.current = setTimeout(() => {
+          lastScannedRef.current = "";
+        }, 2000);
+
         const result = await processQRCheckIn(qrData, user.id);
 
         const scanResult: ScanResult = {
           id: Date.now().toString(),
           message: result.message,
           type: result.success ? "success" : "error",
+          actionType: qrData.type,
           timestamp: new Date().toISOString(),
         };
 
@@ -266,7 +271,26 @@ export default function QRScanner({
               : "border-red-200 bg-red-50 text-red-700"
           }`}
         >
-          <p className="text-sm font-semibold">{lastScan.message}</p>
+          <div className="flex items-center gap-2">
+            {lastScan.actionType && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-bold uppercase tracking-wide ${
+                  lastScan.actionType === "checkin"
+                    ? "bg-blue-100 text-blue-700"
+                    : lastScan.actionType === "checkout"
+                      ? "bg-orange-100 text-orange-700"
+                      : "bg-purple-100 text-purple-700"
+                }`}
+              >
+                {lastScan.actionType === "checkin"
+                  ? "Check-In"
+                  : lastScan.actionType === "checkout"
+                    ? "Check-Out"
+                    : "Walk-In"}
+              </span>
+            )}
+            <p className="text-sm font-semibold">{lastScan.message}</p>
+          </div>
         </div>
       )}
 
@@ -291,7 +315,26 @@ export default function QRScanner({
                     : "border-red-200 bg-red-50"
                 }`}
               >
-                {r.message}
+                <div className="flex items-center gap-1.5">
+                  {r.actionType && (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                        r.actionType === "checkin"
+                          ? "bg-blue-100 text-blue-700"
+                          : r.actionType === "checkout"
+                            ? "bg-orange-100 text-orange-700"
+                            : "bg-purple-100 text-purple-700"
+                      }`}
+                    >
+                      {r.actionType === "checkin"
+                        ? "IN"
+                        : r.actionType === "checkout"
+                          ? "OUT"
+                          : "WALK"}
+                    </span>
+                  )}
+                  <span>{r.message}</span>
+                </div>
               </div>
             ))}
           </div>
