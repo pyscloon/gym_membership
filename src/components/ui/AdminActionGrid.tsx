@@ -6,7 +6,8 @@ export type AdminActionKey =
   | "customers"
   | "peakHours"
   | "recentTransactions"
-  | "analytics";
+  | "analytics"
+  | "frozenMembers";
 
 type AdminActionItem = {
   key: AdminActionKey;

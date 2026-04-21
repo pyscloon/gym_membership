@@ -536,3 +536,156 @@ export async function fetchExpiringSoonCount(): Promise<number> {
     return 0;
   }
 }
+
+/**
+ * Request freeze - Member requests to freeze their membership
+ * Only semi-yearly and yearly tiers are eligible
+ * @param userId 
+ */
+
+export async function requestFreezeMembership(
+  userId: string
+): Promise<MembershipResponse> {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
+
+  try {
+    const { data: membership, error: fetchError } = await supabase
+      .from("memberships")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .single();
+
+    if (fetchError || !membership) {
+      return { success: false, error: "No active membership found" };
+    }
+
+    if (membership.tier === "monthly" || membership.tier === "walk-in") {
+      return { success: false, error: "Only semi-yearly and yearly memberships can be frozen" };
+    }
+
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({ status: "freeze-requested" })
+      .eq("user_id", userId)
+      .eq("status", "active")
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Approve freeze - Admin approves a member's freeze request
+ * @param userId 
+ */
+export async function approveFreezeRequest(
+  userId: string
+): Promise<MembershipResponse> {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
+
+  try {
+    const now = new Date();
+    const freezeExpiresAt = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000); // 6 months max
+
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({
+        status: "frozen",
+        frozen_at: now.toISOString(),
+        freeze_expires_at: freezeExpiresAt.toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("status", "freeze-requested")
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "No freeze-requested membership found" };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Reject freeze - Admin rejects a member's freeze request, reverts to active
+ * @param userId 
+ */
+export async function rejectFreezeRequest(
+  userId: string
+): Promise<MembershipResponse> {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
+
+  try {
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({ status: "active" })
+      .eq("user_id", userId)
+      .eq("status", "freeze-requested")
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "No freeze-requested membership found" };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Unfreeze - Admin unfreezes a member's membership
+ * Extends renewal date by the number of days frozen
+ * @param userId 
+ */
+export async function unfreezeMembership(
+  userId: string
+): Promise<MembershipResponse> {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
+
+  try {
+    const { data: membership, error: fetchError } = await supabase
+      .from("memberships")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "frozen")
+      .single();
+
+    if (fetchError || !membership) {
+      return { success: false, error: "No frozen membership found" };
+    }
+
+    // Extend renewal date by however many days it was frozen
+    const now = new Date();
+    const frozenAt = new Date(membership.frozen_at);
+    const frozenDays = Math.ceil(
+      (now.getTime() - frozenAt.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    const newRenewalDate = new Date(
+      new Date(membership.renewal_date).getTime() + frozenDays * 24 * 60 * 60 * 1000
+    );
+
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({
+        status: "active",
+        renewal_date: newRenewalDate.toISOString(),
+        frozen_at: null,
+        freeze_expires_at: null,
+      })
+      .eq("user_id", userId)
+      .eq("status", "frozen")
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
