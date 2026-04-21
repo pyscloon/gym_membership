@@ -3,7 +3,6 @@ import {
   fetchBackendCrowdPanelData,
   getBestTimeSuggestions,
   getCurrentCrowdStats,
-  updateBackendTotalEquipmentCount,
   type BestTimeSuggestions,
   type CrowdStats,
 } from "../lib/crowdService";
@@ -17,19 +16,22 @@ function formatPercentage(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatPhilippineTime(value: Date): string {
+  return value.toLocaleTimeString("en-PH", {
+    timeZone: "Asia/Manila",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 export default function CrowdEstimationPanel({
   showAdminControls = false,
   minimalView = false,
 }: CrowdEstimationPanelProps) {
   const [stats, setStats] = useState<CrowdStats>(getCurrentCrowdStats());
-  const [suggestions, setSuggestions] = useState<BestTimeSuggestions>(
-    getBestTimeSuggestions({ days: 7, topCount: 3 })
-  );
-  const [equipmentInput, setEquipmentInput] = useState(String(stats.totalEquipment));
-  const [isSaving, setIsSaving] = useState(false);
-  const [isEditingEquipment, setIsEditingEquipment] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [suggestions, setSuggestions] = useState<BestTimeSuggestions>(getBestTimeSuggestions());
+  const [currentPhilippineTime, setCurrentPhilippineTime] = useState(new Date());
 
   const refreshData = async () => {
     const backendData = await fetchBackendCrowdPanelData({ days: 7 });
@@ -38,18 +40,19 @@ export default function CrowdEstimationPanel({
     setSuggestions(
       backendData.suggestions.hourly_averages.length > 0
         ? backendData.suggestions
-        : getBestTimeSuggestions({ days: 7, topCount: 3 })
+        : getBestTimeSuggestions()
     );
-    setEquipmentInput(String(backendData.stats.totalEquipment));
-    setLastUpdated(new Date(backendData.lastUpdated));
   };
 
   useEffect(() => {
     void refreshData();
 
-    const interval = window.setInterval(() => {
+    const refreshInterval = window.setInterval(() => {
       void refreshData();
     }, 30_000);
+    const clockInterval = window.setInterval(() => {
+      setCurrentPhilippineTime(new Date());
+    }, 1_000);
     const handleStorage = () => {
       void refreshData();
     };
@@ -57,48 +60,13 @@ export default function CrowdEstimationPanel({
     window.addEventListener("storage", handleStorage);
 
     return () => {
-      window.clearInterval(interval);
+      window.clearInterval(refreshInterval);
+      window.clearInterval(clockInterval);
       window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
-  const handleSaveEquipment = async () => {
-    const nextValue = Number.parseInt(equipmentInput, 10);
-
-    if (!Number.isFinite(nextValue) || nextValue <= 0) {
-      setMessage("Enter a valid equipment count greater than zero.");
-      return;
-    }
-
-    setIsSaving(true);
-    setMessage(null);
-
-    try {
-      await updateBackendTotalEquipmentCount(nextValue);
-      await refreshData();
-      setMessage("Equipment count updated.");
-      setIsEditingEquipment(false);
-    } catch (error) {
-      console.error("Failed to update equipment count:", error);
-      setMessage("Unable to update equipment count right now.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const percentValue = formatPercentage(stats.crowdLevel);
-
-  const handleEditEquipment = () => {
-    setEquipmentInput(String(stats.totalEquipment));
-    setMessage(null);
-    setIsEditingEquipment(true);
-  };
-
-  const handleCancelEditEquipment = () => {
-    setEquipmentInput(String(stats.totalEquipment));
-    setMessage(null);
-    setIsEditingEquipment(false);
-  };
 
   return (
     <section className={minimalView ? "mt-6" : "mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6 shadow-sm"}>
@@ -111,11 +79,11 @@ export default function CrowdEstimationPanel({
           )}
         </div>
         <div className={minimalView ? "px-1 py-1 text-xs font-semibold text-flexNavy" : "rounded-full border border-flexNavy/10 bg-flexWhite px-3 py-1 text-xs font-semibold text-flexNavy"}>
-          Updated {lastUpdated.toLocaleTimeString()}
+          Time: {formatPhilippineTime(currentPhilippineTime)}
         </div>
       </div>
 
-      <div className={minimalView ? "mt-5 grid grid-cols-2 gap-2 border-y border-flexNavy/15 py-3 sm:grid-cols-4" : "mt-5 grid gap-4 md:grid-cols-4"}>
+      <div className={minimalView ? "mt-5 grid grid-cols-2 gap-2 border-y border-flexNavy/15 py-3 sm:grid-cols-3" : "mt-5 grid gap-4 md:grid-cols-3"}>
         <article className={minimalView ? "min-w-0 rounded-lg border border-flexNavy/10 bg-white/80 p-2" : "rounded-xl border border-flexNavy/10 bg-flexWhite p-4"}>
           <div className={minimalView ? "mb-0.5 min-h-[20px]" : ""}>
             <p className={minimalView ? "text-[9px] uppercase tracking-[0.06em] text-flexNavy font-semibold leading-tight" : "text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold"}>
@@ -125,67 +93,6 @@ export default function CrowdEstimationPanel({
           <p className={minimalView ? "mt-1 text-base font-bold text-flexBlack" : "mt-2 text-3xl font-bold text-flexBlack"}>
             {stats.activeUsers}
           </p>
-        </article>
-
-        <article className={minimalView ? "min-w-0 rounded-lg border border-flexNavy/10 bg-white/80 p-2" : "rounded-xl border border-flexNavy/10 bg-flexWhite p-4"}>
-          <div className={minimalView ? "flex min-h-[20px] items-start justify-between gap-1" : "flex items-center justify-between gap-2"}>
-            <p className={minimalView ? "text-[9px] uppercase tracking-[0.06em] text-flexNavy font-semibold leading-tight" : "text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold"}>
-              Total Equipment
-            </p>
-            {showAdminControls && (
-              <button
-                type="button"
-                onClick={isEditingEquipment ? handleCancelEditEquipment : handleEditEquipment}
-                disabled={isSaving}
-                className={minimalView
-                  ? "inline-flex h-5 w-5 items-center justify-center rounded border border-flexNavy/20 bg-white text-flexNavy transition hover:bg-flexNavy/5 disabled:cursor-not-allowed disabled:opacity-70"
-                  : "inline-flex items-center justify-center rounded-md border border-flexNavy/20 bg-white px-2.5 py-1 text-xs font-semibold text-flexNavy transition hover:bg-flexNavy/5 disabled:cursor-not-allowed disabled:opacity-70"}
-                aria-label={isEditingEquipment ? "Cancel edit equipment count" : "Edit equipment count"}
-                title={isEditingEquipment ? "Cancel" : "Edit equipment count"}
-              >
-                {minimalView ? (
-                  isEditingEquipment ? (
-                    <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  ) : (
-                    <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                      <path d="M17.414 2.586a2 2 0 010 2.828l-9.9 9.9a1 1 0 01-.42.25l-3.5 1a1 1 0 01-1.237-1.237l1-3.5a1 1 0 01.25-.42l9.9-9.9a2 2 0 012.828 0zm-2.121 2.121L5.94 14.06l-.47 1.645 1.645-.47 9.353-9.353-1.175-1.175z" />
-                    </svg>
-                  )
-                ) : isEditingEquipment ? "Cancel" : "Edit"}
-              </button>
-            )}
-          </div>
-
-          {!showAdminControls || !isEditingEquipment ? (
-            <p className={minimalView ? "mt-1 text-base font-bold text-flexBlack" : "mt-2 text-3xl font-bold text-flexBlack"}>
-              {stats.totalEquipment}
-            </p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={equipmentInput}
-                onChange={(event) => setEquipmentInput(event.target.value)}
-                className="w-full rounded-lg border border-flexNavy/20 bg-white px-3 py-2 text-flexBlack outline-none transition focus:border-flexBlue focus:ring-2 focus:ring-flexBlue/20"
-              />
-              <button
-                type="button"
-                onClick={handleSaveEquipment}
-                disabled={isSaving}
-                className="rounded-lg bg-flexBlue px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-flexNavy disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSaving ? "Saving..." : "Save"}
-              </button>
-            </div>
-          )}
-
-          {showAdminControls && message && (
-            <p className="mt-2 text-xs text-flexNavy/70">{message}</p>
-          )}
         </article>
 
         <article className={minimalView ? "min-w-0 rounded-lg border border-flexNavy/10 bg-white/80 p-2" : "rounded-xl border border-flexNavy/10 bg-flexWhite p-4"}>
