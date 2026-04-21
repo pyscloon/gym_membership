@@ -2,7 +2,7 @@
  * Membership State Design Pattern
  * 
  * Models the complete lifecycle of a gym membership:
- * PendingPayment → Approved → Active → Checked In/Out → Expired/Canceled
+ * PendingPayment → Approved → Active → Checked In/Out → Expired/Canceled/FreezeRequested/Frozen
  * 
  * This pattern eliminates messy conditional logic by encapsulating state-specific
  * behavior and allowed transitions in dedicated state classes.
@@ -23,6 +23,9 @@ export interface IMembershipState {
   readonly canCancel: boolean;
   readonly canReactivate: boolean;
   readonly canPay: boolean;
+  readonly canFreeze: boolean;
+  readonly canUnFreeze: boolean;
+  readonly canRequestFreeze: boolean;
 
   // State transition methods - only valid ones for current state
   toPendingPayment(): void;
@@ -33,6 +36,8 @@ export interface IMembershipState {
   toCanceled(): void;
   toExpired(): void;
   toReactivated(): void;
+  toFrozen(): void;
+  toFreezeRequested(): void;
 
   // Utilities
   getDescription(): string;
@@ -52,6 +57,9 @@ export class PendingPaymentState implements IMembershipState {
   readonly canCancel = true;
   readonly canReactivate = false;
   readonly canPay = true;
+  readonly canFreeze = false;
+  readonly canUnFreeze = false;
+  readonly canRequestFreeze = false;
 
   private context: MembershipStateContext;
 
@@ -91,6 +99,14 @@ export class PendingPaymentState implements IMembershipState {
     throw new Error("Cannot reactivate pending membership - approve payment first");
   }
 
+  toFrozen(): void {
+    throw new Error("Can only freeze an active membership");
+  }
+
+  toFreezeRequested(): void {
+    throw new Error("Can only request freeze on an active membership");
+  }
+
   getDescription(): string {
     return "Awaiting payment confirmation. Your membership will activate once confirmed.";
   }
@@ -102,7 +118,6 @@ export class PendingPaymentState implements IMembershipState {
 
 /**
  * Approved: Payment confirmed by admin but membership not yet active
- * (Transitional state after payment approval)
  * Allowed transitions: toActive
  */
 export class ApprovedState implements IMembershipState {
@@ -114,6 +129,9 @@ export class ApprovedState implements IMembershipState {
   readonly canCancel = true;
   readonly canReactivate = false;
   readonly canPay = false;
+  readonly canFreeze = false;
+  readonly canUnFreeze = false;
+  readonly canRequestFreeze = false;
 
   private context: MembershipStateContext;
 
@@ -153,6 +171,14 @@ export class ApprovedState implements IMembershipState {
     throw new Error("Cannot reactivate - membership not yet active");
   }
 
+  toFrozen(): void {
+    throw new Error("Can only freeze an active membership");
+  }
+
+  toFreezeRequested(): void {
+    throw new Error("Can only request freeze on an active membership");
+  }
+
   getDescription(): string {
     return "Payment approved! Your membership is being activated.";
   }
@@ -164,17 +190,20 @@ export class ApprovedState implements IMembershipState {
 
 /**
  * Active: Membership is valid and can be used
- * Allowed transitions: toCheckedIn, toCanceled, toExpired, toCheckedOut
+ * Allowed transitions: toCheckedIn, toCanceled, toExpired, toFrozen, toFreezeRequested
  */
 export class ActiveState implements IMembershipState {
   readonly stateName = "active";
   readonly isActive = true;
   readonly canCheckIn = true;
-  readonly canCheckOut = false; // Must check in first
+  readonly canCheckOut = false;
   readonly canRenew = true;
   readonly canCancel = true;
-  readonly canReactivate = false; // Not canceled
+  readonly canReactivate = false;
   readonly canPay = false;
+  readonly canFreeze = false;
+  readonly canUnFreeze = false;
+  readonly canRequestFreeze = true;
 
   private context: MembershipStateContext;
 
@@ -214,12 +243,20 @@ export class ActiveState implements IMembershipState {
     throw new Error("Membership is not canceled");
   }
 
+  toFrozen(): void {
+    this.context.setState(new FrozenState(this.context));
+  }
+
+  toFreezeRequested(): void {
+    this.context.setState(new FreezeRequestedState(this.context));
+  }
+
   getDescription(): string {
     return "Your membership is active! You can access the gym.";
   }
 
   getAllowedActions(): string[] {
-    return ["checkIn", "renew", "cancel"];
+    return ["checkIn", "renew", "cancel", "requestFreeze"];
   }
 }
 
@@ -230,12 +267,15 @@ export class ActiveState implements IMembershipState {
 export class CheckedInState implements IMembershipState {
   readonly stateName = "checked-in";
   readonly isActive = true;
-  readonly canCheckIn = false; // Already checked in
+  readonly canCheckIn = false;
   readonly canCheckOut = true;
-  readonly canRenew = true; // Can renew while checked in
-  readonly canCancel = false; // Can't cancel while using gym
+  readonly canRenew = true;
+  readonly canCancel = false;
   readonly canReactivate = false;
   readonly canPay = false;
+  readonly canFreeze = false;
+  readonly canUnFreeze = false;
+  readonly canRequestFreeze = false;
 
   private context: MembershipStateContext;
 
@@ -275,6 +315,14 @@ export class CheckedInState implements IMembershipState {
     throw new Error("Membership is not canceled");
   }
 
+  toFrozen(): void {
+    throw new Error("Can only freeze an active membership");
+  }
+
+  toFreezeRequested(): void {
+    throw new Error("Cannot request freeze while checked in");
+  }
+
   getDescription(): string {
     return "You're checked in! Don't forget to check out when you leave.";
   }
@@ -286,7 +334,6 @@ export class CheckedInState implements IMembershipState {
 
 /**
  * Canceled: User cancelled membership (pending period end)
- * Can reactivate before period ends
  * Allowed transitions: toReactivated, toExpired
  */
 export class CanceledState implements IMembershipState {
@@ -295,9 +342,12 @@ export class CanceledState implements IMembershipState {
   readonly canCheckIn = false;
   readonly canCheckOut = false;
   readonly canRenew = false;
-  readonly canCancel = false; // Already canceled
+  readonly canCancel = false;
   readonly canReactivate = true;
   readonly canPay = false;
+  readonly canFreeze = false;
+  readonly canUnFreeze = false;
+  readonly canRequestFreeze = false;
 
   private context: MembershipStateContext;
 
@@ -337,6 +387,14 @@ export class CanceledState implements IMembershipState {
     this.context.setState(new ActiveState(this.context));
   }
 
+  toFrozen(): void {
+    throw new Error("Can only freeze an active membership");
+  }
+
+  toFreezeRequested(): void {
+    throw new Error("Can only request freeze on an active membership");
+  }
+
   getDescription(): string {
     return "Your membership has been cancelled. You'll retain access until the renewal date.";
   }
@@ -348,7 +406,6 @@ export class CanceledState implements IMembershipState {
 
 /**
  * Expired: Membership period ended, no longer valid
- * Must apply for new membership
  * Allowed transitions: toPendingPayment (new application)
  */
 export class ExpiredState implements IMembershipState {
@@ -359,7 +416,10 @@ export class ExpiredState implements IMembershipState {
   readonly canRenew = false;
   readonly canCancel = false;
   readonly canReactivate = false;
-  readonly canPay = true; // Can apply for new membership
+  readonly canPay = true;
+  readonly canFreeze = false;
+  readonly canUnFreeze = false;
+  readonly canRequestFreeze = false;
 
   private context: MembershipStateContext;
 
@@ -399,12 +459,108 @@ export class ExpiredState implements IMembershipState {
     throw new Error("Cannot reactivate expired membership - must apply for new one");
   }
 
+  toFrozen(): void {
+    throw new Error("Can only freeze an active membership");
+  }
+
+  toFreezeRequested(): void {
+    throw new Error("Can only request freeze on an active membership");
+  }
+
   getDescription(): string {
     return "Your membership has expired. Apply for a new plan to continue.";
   }
 
   getAllowedActions(): string[] {
     return ["applyNew"];
+  }
+}
+
+/**
+ * FreezeRequested: Member has requested a freeze, awaiting admin approval
+ * Member can still access the gym while request is pending
+ * Allowed transitions: toFrozen (admin approves), toActive (admin rejects)
+ */
+export class FreezeRequestedState implements IMembershipState {
+  readonly stateName = "freeze-requested";
+  readonly isActive = true;
+  readonly canCheckIn = true;
+  readonly canCheckOut = false;
+  readonly canRenew = false;
+  readonly canCancel = false;
+  readonly canReactivate = false;
+  readonly canPay = false;
+  readonly canFreeze = false;
+  readonly canUnFreeze = false;
+  readonly canRequestFreeze = false;
+
+  private context: MembershipStateContext;
+
+  constructor(context: MembershipStateContext) {
+    this.context = context;
+  }
+
+  toPendingPayment(): void { throw new Error("Cannot change state while freeze is pending"); }
+  toApproved(): void { throw new Error("Cannot change state while freeze is pending"); }
+  toActive(): void { this.context.setState(new ActiveState(this.context)); }
+  toCheckedIn(): void { this.context.setState(new CheckedInState(this.context)); }
+  toCheckedOut(): void { throw new Error("Must check in first"); }
+  toCanceled(): void { throw new Error("Cannot cancel while freeze request is pending"); }
+  toExpired(): void { this.context.setState(new ExpiredState(this.context)); }
+  toReactivated(): void { throw new Error("Cannot reactivate while freeze request is pending"); }
+  toFrozen(): void { this.context.setState(new FrozenState(this.context)); }
+  toFreezeRequested(): void { throw new Error("Freeze already requested"); }
+
+  getDescription(): string {
+    return "Your freeze request is pending admin approval. You can still access the gym.";
+  }
+
+  getAllowedActions(): string[] {
+    return ["checkIn"];
+  }
+}
+
+/**
+ * Frozen: Membership is temporarily paused
+ * Renewal date will be extended by frozen duration on unfreeze
+ * Allowed transitions: toActive (unfreeze), toExpired
+ */
+export class FrozenState implements IMembershipState {
+  readonly stateName = "frozen";
+  readonly isActive = false;
+  readonly canCheckIn = false;
+  readonly canCheckOut = false;
+  readonly canRenew = false;
+  readonly canCancel = false;
+  readonly canReactivate = false;
+  readonly canPay = false;
+  readonly canFreeze = false;
+  readonly canUnFreeze = true;
+  readonly canRequestFreeze = false;
+
+  private context: MembershipStateContext;
+
+  constructor(context: MembershipStateContext) {
+    this.context = context;
+  }
+
+  toPendingPayment(): void { throw new Error("Cannot change state while frozen"); }
+  toApproved(): void { throw new Error("Cannot change state while frozen"); }
+  toActive(): void { this.context.setState(new ActiveState(this.context)); }
+  toCheckedIn(): void { throw new Error("Cannot check in while frozen"); }
+  toCheckedOut(): void { throw new Error("Cannot check out while frozen"); }
+  toCanceled(): void { throw new Error("Cannot cancel while frozen"); }
+  toExpired(): void { this.context.setState(new ExpiredState(this.context)); }
+  toReactivated(): void { throw new Error("Cannot reactivate while frozen"); }
+  toFrozen(): void { throw new Error("Already frozen"); }
+  toFreezeRequested(): void { throw new Error("Already frozen"); }
+
+  getDescription(): string {
+    return "Your membership is currently frozen. Visit the front desk to unfreeze.";
+  }
+
+  getAllowedActions(): string[] {
+    return [];
   }
 }
 
@@ -430,6 +586,10 @@ export class MembershipStateContext {
         return new CanceledState(this);
       case "expired":
         return new ExpiredState(this);
+      case "frozen":
+        return new FrozenState(this);
+      case "freeze-requested":
+        return new FreezeRequestedState(this);
       default:
         return new ActiveState(this);
     }
@@ -480,8 +640,20 @@ export class MembershipStateContext {
     this.currentState.toExpired();
   }
 
+  freeze(): void {
+    this.currentState.toFrozen();
+  }
+
+  unfreeze(): void {
+    this.currentState.toActive();
+  }
+
+  requestFreeze(): void {
+    this.currentState.toFreezeRequested();
+  }
+
   // Query methods
-  canPerformAction(action: "checkIn" | "checkOut" | "renew" | "cancel" | "reactivate" | "pay"): boolean {
+  canPerformAction(action: "checkIn" | "checkOut" | "renew" | "cancel" | "reactivate" | "pay" | "freeze" | "unfreeze" | "requestFreeze"): boolean {
     switch (action) {
       case "checkIn":
         return this.currentState.canCheckIn;
@@ -495,6 +667,12 @@ export class MembershipStateContext {
         return this.currentState.canReactivate;
       case "pay":
         return this.currentState.canPay;
+      case "freeze":
+        return this.currentState.canFreeze;
+      case "unfreeze":
+        return this.currentState.canUnFreeze;
+      case "requestFreeze":
+        return this.currentState.canRequestFreeze;
       default:
         return false;
     }
