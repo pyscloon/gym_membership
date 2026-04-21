@@ -346,7 +346,7 @@ export default function AdminDashboard() {
                     {transaction.user_name}
                   </p>
                   <p className="text-[13px] text-gray-500 mt-0.5">
-                    {new Date(transaction.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    {new Date(transaction.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} • {new Date(transaction.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                   </p>
                 </div>
               </div>
