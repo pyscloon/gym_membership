@@ -3,20 +3,28 @@
  * Tests for error handling, retries, and safe state updates
  */
 
-import { describe, it, expect, beforeEach } from "@jest/globals";
+import { describe, it, expect } from "@jest/globals";
 import {
   executeWithRetry,
   safeExecute,
-  safeSteateUpdate,
   withTimeout,
   debounce,
   throttle,
   sleep,
   validateData,
-  DEFAULT_RETRY_CONFIG,
 } from "../src/lib/stabilityUtils";
 
 describe("stabilityUtils", () => {
+  type Person = {
+    name: string;
+    age: number;
+  };
+
+  const personSchema = {
+    name: (value: unknown): value is Person["name"] => typeof value === "string",
+    age: (value: unknown): value is Person["age"] => typeof value === "number",
+  };
+
   describe("executeWithRetry", () => {
     it("should execute successfully on first try", async () => {
       const fn = () => Promise.resolve("success");
@@ -186,20 +194,12 @@ describe("stabilityUtils", () => {
   describe("validateData", () => {
     it("should validate correct data", () => {
       const data = { name: "John", age: 30 };
-      const schema = {
-        name: (v: any) => typeof v === "string",
-        age: (v: any) => typeof v === "number",
-      };
-      expect(validateData(data, schema, "test")).toBe(true);
+      expect(validateData<Person>(data, personSchema, "test")).toBe(true);
     });
 
     it("should reject invalid data", () => {
       const data = { name: "John", age: "30" };
-      const schema = {
-        name: (v: any) => typeof v === "string",
-        age: (v: any) => typeof v === "number",
-      };
-      expect(validateData(data, schema, "test")).toBe(false);
+      expect(validateData<Person>(data, personSchema, "test")).toBe(false);
     });
 
     it("should handle null/undefined", () => {
