@@ -10,6 +10,7 @@ import {
   cancelMembership,
   fetchUserMembership,
   reactivateMembership,
+  requestFreezeMembership,
 } from "../lib/membershipService";
 import {
   type Membership,
@@ -63,17 +64,17 @@ export default function MembershipDashboard() {
   const lastInteractionRef = useRef(0);
 
   useEffect(() => {
-  const checkAdmin = async () => {
-    if (!user || !supabase) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    setIsAdmin(data?.role === "admin");
-  };
-  checkAdmin();
-}, [user]);
+    const checkAdmin = async () => {
+      if (!user || !supabase) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      setIsAdmin(data?.role === "admin");
+    };
+    checkAdmin();
+  }, [user]);
 
   // State machine contexts - trigger re-render when state changes
   const [, setStateUpdateTrigger] = useState(0);
@@ -102,7 +103,7 @@ export default function MembershipDashboard() {
     [displayMembership]
   );
   const isSubscribedUser = useMemo(
-    () => Boolean(displayMembership && displayMembership.status === "active"),
+    () => Boolean(displayMembership && (displayMembership.status === "active" || displayMembership.status === "freeze-requested")),
     [displayMembership]
   );
 
@@ -157,11 +158,9 @@ export default function MembershipDashboard() {
 
   useEffect(() => {
     if (!showCheckInConfirmation) return;
-
     const timeoutId = window.setTimeout(() => {
       setShowCheckInConfirmation(false);
     }, 5000);
-
     return () => {
       window.clearTimeout(timeoutId);
     };
@@ -228,13 +227,11 @@ export default function MembershipDashboard() {
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
       if (sessionScanMode === "checkout" && sessionStage === "checked-in") {
-        // Admin confirmed check-out QR — end the session
         setAttendanceSessionContext(new AttendanceSessionContext("regular"));
         setSessionStage("idle");
         setStateUpdateTrigger((prev) => prev + 1);
         addToast("Checked out successfully! See you next time!", "success");
       } else {
-        // Admin confirmed check-in QR — mark session as actively checked in
         setSessionStage("checked-in");
         setStateUpdateTrigger((prev) => prev + 1);
         setShowCheckInConfirmation(true);
@@ -275,7 +272,6 @@ export default function MembershipDashboard() {
     if (!canHandleUserInteraction()) {
       return;
     }
-
     setShowSessionScanModal(false);
   };
 
@@ -356,6 +352,22 @@ export default function MembershipDashboard() {
     setActionLoading(false);
   };
 
+  const handleRequestFreeze = async () => {
+    if (!user) return;
+    if (!confirm("Are you sure you want to freeze your membership? An admin will review your request.")) return;
+    setActionLoading(true);
+    const result = await requestFreezeMembership(user.id);
+    if (result.success && result.data) {
+      addToast("Freeze request submitted! Awaiting admin approval.", "success");
+      setMembership(result.data);
+      setMembershipStateContext(new MembershipStateContext(result.data));
+      setStateUpdateTrigger((prev) => prev + 1);
+    } else {
+      addToast(result.error || "Failed to submit freeze request", "error");
+    }
+    setActionLoading(false);
+  };
+
   const handleWalkInApply = useCallback(() => {
     startWalkIn();
     const walkInSession = new AttendanceSessionContext("walk-in");
@@ -380,7 +392,6 @@ export default function MembershipDashboard() {
     try {
       await paymentHook.confirmPayment(transactionId);
       const refreshedMembership = await fetchUserMembership(userId);
-
       if (refreshedMembership) {
         setMembership(refreshedMembership);
         setMembershipStateContext(new MembershipStateContext(refreshedMembership));
@@ -390,7 +401,6 @@ export default function MembershipDashboard() {
           setStateUpdateTrigger((prev) => prev + 1);
         }
       }
-
       addToast(`Member ${userId} approved on ${userType} plan.`, "success");
     } catch (err) {
       console.error("Admin confirm error:", err);
@@ -424,7 +434,6 @@ export default function MembershipDashboard() {
     try {
       await paymentHook.verifyOnlinePaymentProof(transactionId);
       const refreshedMembership = await fetchUserMembership(userId);
-
       if (refreshedMembership) {
         setMembership(refreshedMembership);
         setMembershipStateContext(new MembershipStateContext(refreshedMembership));
@@ -434,7 +443,6 @@ export default function MembershipDashboard() {
           setStateUpdateTrigger((prev) => prev + 1);
         }
       }
-
       addToast(`Online payment verified! Member ${userId} approved on ${userType} plan.`, "success");
     } catch (err) {
       console.error("Admin verify online payment error:", err);
@@ -467,7 +475,6 @@ export default function MembershipDashboard() {
     setShowPaymentModal(true);
   }, [clearError]);
 
-  // ✅ FIXED: captures returned transaction instead of reading stale hook state
   const handleInitiatePayment = async (
     method: "cash" | "card" | "online",
     proofOfPayment?: string,
@@ -475,9 +482,9 @@ export default function MembershipDashboard() {
     discountIdProof?: string,
     _voucherCode?: string,
     finalAmount?: number
-    ) => {
+  ) => {
     const amount = finalAmount ?? MEMBERSHIP_PRICES[selectedPlanTier];
-    
+
     if (!user) {
       const transactionId = generateTransactionId();
       const now = new Date().toISOString();
@@ -768,10 +775,10 @@ export default function MembershipDashboard() {
     return (
       <div className="space-y-6">
         {showSessionScanModal && (
-          <div 
-  className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6"
-  style={{ backgroundColor: "#081223" }}
->
+          <div
+            className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6"
+            style={{ backgroundColor: "#081223" }}
+          >
             <div className="relative isolate w-full max-w-6xl rounded-3xl border border-[#d7e4f6] bg-white bg-clip-padding p-6 opacity-100 shadow-[0_22px_60px_rgba(12,33,73,0.25)] sm:p-8">
               <button
                 type="button"
@@ -781,7 +788,7 @@ export default function MembershipDashboard() {
                 Close
               </button>
 
-                <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 bg-white">
+              <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 bg-white">
                 <p className="text-xl font-black tracking-[0.2em] text-[#1b5fb3] uppercase">
                   {sessionScanMode === "checkout" ? "CHECK-OUT QR CODE" : "CHECK-IN QR CODE"}
                 </p>
@@ -802,16 +809,16 @@ export default function MembershipDashboard() {
                     : "Show this to the admin at the front desk to check in."}
                 </p>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleCloseQR();
-                      setShowSessionScanModal(false);
-                    }}
-                    className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-4 text-xl font-semibold text-white shadow-lg sm:text-2xl"
-                  >
-                    Admin Confirmed Scan
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleCloseQR();
+                    setShowSessionScanModal(false);
+                  }}
+                  className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-4 text-xl font-semibold text-white shadow-lg sm:text-2xl"
+                >
+                  Admin Confirmed Scan
+                </button>
               </div>
             </div>
           </div>
@@ -837,6 +844,133 @@ export default function MembershipDashboard() {
             </svg>
           )}
         </button>
+
+        {/* ── Freeze status info cards ── */}
+        {displayMembership.status === "freeze-requested" && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <p className="font-semibold">Freeze Request Pending ⏳</p>
+            <p className="mt-1 text-xs">
+              Your freeze request is awaiting admin approval. You can still access the gym in the meantime.
+            </p>
+          </div>
+        )}
+
+        {displayMembership.status === "frozen" && displayMembership.frozen_at && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
+            <p className="font-semibold">Membership Frozen ❄️</p>
+            <p className="mt-1 text-xs">
+              Frozen since{" "}
+              {new Date(displayMembership.frozen_at).toLocaleDateString("en-US", {
+                month: "long", day: "numeric", year: "numeric",
+              })}. Your renewal date will be extended when unfrozen. Visit the front desk to unfreeze.
+            </p>
+          </div>
+        )}
+
+        {/* ── UPDATED Membership Overview ── */}
+        <section className="rounded-[16px] border border-white/[0.06] bg-[#151f2e] p-7">
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#a8c8ff] mb-2.5">
+                Membership Overview
+              </p>
+              <h4 className="text-[28px] font-black text-white leading-none">
+                {TIER_LABELS[displayMembership.tier]} Plan
+              </h4>
+            </div>
+            <span className={`px-[18px] py-[7px] rounded-full text-[13px] font-bold ${
+              displayMembership.status === "active"
+                ? "bg-[#c8f135] text-[#0d1a0a]"
+                : displayMembership.status === "frozen"
+                ? "bg-[#1e3a5f] text-[#a8c8ff] border border-[#a8c8ff]/20"
+                : displayMembership.status === "freeze-requested"
+                ? "bg-[#3a2a00] text-[#ffb432] border border-[#ffb432]/20"
+                : displayMembership.status === "canceled"
+                ? "bg-[#2a1a1a] text-[#f87171] border border-[#f87171]/20"
+                : displayMembership.status === "expired"
+                ? "bg-[#2a1a1a] text-[#f87171] border border-[#f87171]/20"
+                : "bg-[#3a2a00] text-[#ffb432] border border-[#ffb432]/20"
+            }`}>
+              {displayMembership.status === "freeze-requested"
+                ? "Freeze Requested"
+                : displayMembership.status.charAt(0).toUpperCase() + displayMembership.status.slice(1)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
+            {[
+              {
+                label: "Started",
+                value: new Date(displayMembership.start_date).toLocaleDateString("en-US", {
+                  month: "short", day: "numeric", year: "numeric",
+                }),
+              },
+              {
+                label: "Renews",
+                value: new Date(displayMembership.renewal_date).toLocaleDateString("en-US", {
+                  month: "short", day: "numeric", year: "numeric",
+                }),
+              },
+              { label: "Days Remaining", value: displayStats?.daysUntilRenewal ?? 0 },
+              { label: "Days Active", value: displayStats?.daysActive ?? 0 },
+            ].map(({ label, value }) => (
+              <div key={label} className="rounded-[12px] border border-white/[0.06] bg-[#1e2d42] px-4 py-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35 mb-2.5">
+                  {label}
+                </p>
+                <p className="text-[15px] font-bold text-white">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap justify-center gap-2.5">
+            {membershipStateContext?.canPerformAction("renew") && (
+              <button
+                onClick={handleRenew}
+                disabled={actionLoading}
+                className="min-w-[190px] rounded-[12px] bg-[#2563eb] px-6 py-[13px] text-[14px] font-bold text-white disabled:opacity-60"
+              >
+                {actionLoading ? "Renewing..." : "Renew Membership"}
+              </button>
+            )}
+            <button
+              onClick={() => setShowChangeMembershipModal(true)}
+              disabled={actionLoading}
+              className="min-w-[190px] rounded-[12px] border border-white/10 bg-[#1e2d42] px-6 py-[13px] text-[14px] font-bold text-white disabled:opacity-60"
+            >
+              Change Membership
+            </button>
+            {membershipStateContext?.canPerformAction("requestFreeze") &&
+              displayMembership.tier !== "monthly" &&
+              displayMembership.tier !== "walk-in" && (
+              <button
+                onClick={handleRequestFreeze}
+                disabled={actionLoading}
+                className="min-w-[190px] rounded-[12px] border border-[#a8c8ff]/25 bg-transparent px-6 py-[13px] text-[14px] font-bold text-[#a8c8ff] disabled:opacity-60"
+              >
+                {actionLoading ? "Submitting..." : "Request Freeze ❄️"}
+              </button>
+            )}
+            {membershipStateContext?.canPerformAction("reactivate") && (
+              <button
+                onClick={handleReactivate}
+                disabled={actionLoading}
+                className="min-w-[190px] rounded-[12px] border border-[#a8c8ff]/25 bg-transparent px-6 py-[13px] text-[14px] font-bold text-[#a8c8ff] disabled:opacity-60"
+              >
+                {actionLoading ? "Reactivating..." : "Reactivate Membership"}
+              </button>
+            )}
+            {membershipStateContext?.canPerformAction("cancel") && (
+              <button
+                onClick={handleCancel}
+                disabled={actionLoading}
+                className="min-w-[190px] rounded-[12px] border border-[#f87171]/25 bg-transparent px-6 py-[13px] text-[14px] font-bold text-[#f87171] disabled:opacity-60"
+              >
+                {actionLoading ? "Canceling..." : "Cancel Membership"}
+              </button>
+            )}
+          </div>
+        </section>
 
         {showChangeMembershipModal && (
           <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#071731]/70 px-2 py-3 backdrop-blur-sm sm:px-4 sm:py-6 lg:items-center lg:py-8">
@@ -893,9 +1027,7 @@ export default function MembershipDashboard() {
                     </div>
 
                     <p className="mt-3 text-sm font-semibold italic text-slate-500">"{previewPlan.quote}"</p>
-
                     <div className="my-4 h-px w-full bg-slate-100" />
-
                     <p className="text-sm leading-relaxed text-slate-700">{previewPlan.description}</p>
 
                     <ul className="mt-4 space-y-2.5 text-sm font-medium text-slate-700">
@@ -925,7 +1057,6 @@ export default function MembershipDashboard() {
                   <div className="mx-auto flex w-full max-w-[320px] flex-col gap-2.5 pb-2 pt-1 sm:max-w-[360px]">
                     {rightSidePlans.map((plan) => {
                       const isSelected = pendingMembershipTier === plan.tier;
-
                       return (
                         <button
                           key={plan.tier}
@@ -935,9 +1066,7 @@ export default function MembershipDashboard() {
                         >
                           <article
                             className={`rounded-xl border bg-white p-3.5 shadow-sm transition-all ${
-                              isSelected
-                                ? "border-flexBlue ring-2 ring-flexBlue/25"
-                                : "border-flexBlue/15"
+                              isSelected ? "border-flexBlue ring-2 ring-flexBlue/25" : "border-flexBlue/15"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-3">
@@ -1083,9 +1212,11 @@ export default function MembershipDashboard() {
               <span className={`inline-flex rounded-full px-4 py-2 text-sm font-semibold border ${
                 displayMembership.status === "active" ? "bg-green-100 text-green-700 border-green-200"
                 : displayMembership.status === "expired" ? "bg-red-100 text-red-700 border-red-200"
+                : displayMembership.status === "frozen" ? "bg-blue-100 text-blue-700 border-blue-200"
+                : displayMembership.status === "freeze-requested" ? "bg-amber-100 text-amber-700 border-amber-200"
                 : "bg-yellow-100 text-yellow-700 border-yellow-200"
               }`}>
-                {displayMembership.status.charAt(0).toUpperCase() + displayMembership.status.slice(1)}
+                {displayMembership.status === "freeze-requested" ? "Freeze Requested" : displayMembership.status.charAt(0).toUpperCase() + displayMembership.status.slice(1)}
               </span>
               {displayStats?.isCanceled && (
                 <span className="text-xs font-semibold text-red-600 bg-red-50 px-3 py-1 rounded-full border border-red-200">Canceling</span>
@@ -1094,6 +1225,17 @@ export default function MembershipDashboard() {
                 <span className="text-xs font-semibold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">Renew Soon</span>
               )}
             </div>
+
+            {displayMembership.status === "freeze-requested" && (
+              <p className="mt-2 text-xs text-amber-700">
+                ⏳ Freeze request pending admin approval. You can still access the gym.
+              </p>
+            )}
+            {displayMembership.status === "frozen" && displayMembership.frozen_at && (
+              <p className="mt-2 text-xs text-blue-700">
+                ❄️ Frozen since {new Date(displayMembership.frozen_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}. Visit the front desk to unfreeze.
+              </p>
+            )}
           </div>
 
           <div className="text-right">
@@ -1160,6 +1302,16 @@ export default function MembershipDashboard() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             {actionLoading ? "Reactivating..." : "Reactivate Membership"}
+          </button>
+        )}
+        {membershipStateContext?.canPerformAction("requestFreeze") &&
+          displayMembership.tier !== "monthly" &&
+          displayMembership.tier !== "walk-in" && (
+          <button onClick={handleRequestFreeze} disabled={actionLoading} className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 font-semibold text-blue-700 transition hover:bg-blue-50 disabled:opacity-70 disabled:cursor-not-allowed">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+            </svg>
+            {actionLoading ? "Submitting..." : "Request Freeze ❄️"}
           </button>
         )}
         {membershipStateContext?.getStateName() === "expired" && (

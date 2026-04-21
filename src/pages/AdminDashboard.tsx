@@ -8,6 +8,7 @@ import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
+import FrozenMembersPanel from "../components/FrozenMembersPanel";
 import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
 import TransactionHistory from "../components/TransactionHistory";
@@ -24,7 +25,7 @@ type RecentTransactionRecord = {
   created_at: string;
 };
 
-type DashboardSection = Exclude<AdminActionKey, "scanQr">;
+type DashboardSection = Exclude<AdminActionKey, "scanQr"> | "frozenMembers";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -125,6 +126,17 @@ export default function AdminDashboard() {
           </div>
         ),
       },
+      {
+        key: "frozenMembers" as const,
+        label: "Freeze",
+        icon: (
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0055A4] text-white shadow-md">
+            <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+            </svg>
+          </div>
+        ),
+      },
     ],
     [pendingPaymentCount]
   );
@@ -140,6 +152,7 @@ export default function AdminDashboard() {
     peakHours: "Peak Hours",
     recentTransactions: "Recent transactions",
     analytics: "Analytics",
+    frozenMembers: "Freeze Requests & Frozen Members",
   };
 
   const fetchTodayWalkInCount = async () => {
@@ -305,13 +318,13 @@ export default function AdminDashboard() {
     return ctx;
   };
 
-  const handleActionClick = (key: AdminActionKey) => {
+  const handleActionClick = (key: AdminActionKey | "frozenMembers") => {
     if (key === "scanQr") {
       setShowScanner((prev) => !prev);
       return;
     }
 
-    setActiveSection(key);
+    setActiveSection(key as DashboardSection);
   };
 
   const renderRecentCheckInsList = () => (
@@ -412,6 +425,10 @@ export default function AdminDashboard() {
       return <div className="mt-4"><AnalyticsDashboard showBackButton={false} minimalView /></div>;
     }
 
+    if (activeSection === "frozenMembers") {
+      return <div className="mt-4"><FrozenMembersPanel /></div>;
+    }
+
     return null;
   };
 
@@ -433,6 +450,7 @@ export default function AdminDashboard() {
       }
     }, 4000);
   };
+
   const handleAdminConfirmPayment = async (
     transactionId: string,
     userId: string,
