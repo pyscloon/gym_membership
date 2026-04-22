@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks";
@@ -46,9 +46,10 @@ const TIER_LABELS: Record<MembershipTier, string> = {
 
 type MembershipDashboardProps = {
   changeMembershipTick?: number;
+  freezeTick?: number;
 };
 
-export default function MembershipDashboard({ changeMembershipTick }: MembershipDashboardProps) {
+export default function MembershipDashboard({ changeMembershipTick, freezeTick }: MembershipDashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -176,6 +177,11 @@ export default function MembershipDashboard({ changeMembershipTick }: Membership
     }
     setShowChangeMembershipModal(true);
   }, [changeMembershipTick]);
+
+  useEffect(() => {
+    if (typeof freezeTick !== "number" || freezeTick <= 0) return;
+    void handleRequestFreeze();
+  }, [freezeTick]);
 
   const qrValue = useMemo(
     () =>
