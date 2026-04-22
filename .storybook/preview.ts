@@ -1,5 +1,6 @@
 import type { Preview } from '@storybook/react-vite'
 import '../src/index.css'
+import '../src/styles/globals.css'
 
 // Force all components in Storybook to use the mock Supabase client
 (globalThis as any).__PLAYWRIGHT_USE_MOCK_SUPABASE__ = true;

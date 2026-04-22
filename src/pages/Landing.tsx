@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { motion, useInView, useSpring } from "framer-motion";
 import { Link } from "react-router-dom";
+import AppTopBar from "../components/ui/AppTopBar";
 import placeholderImage from "../assets/placeholder.png";
 import flexBackground from "../assets/flex-background.png";
 import location1 from "../assets/Location1.png";
@@ -15,7 +16,6 @@ const snapSpring = {
 };
 
 export default function Landing() {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeFeature, setActiveFeature] = useState<string>("Login / Register");
   const [isLocating, setIsLocating] = useState(false);
   const [locationAllowed, setLocationAllowed] = useState(false);
@@ -109,6 +109,7 @@ export default function Landing() {
     <div className="w-full bg-white text-[#000033]">
       {/* Section 1 — Hero */}
       <section className="relative h-[88vh] min-h-[640px] w-full overflow-hidden bg-[#00001a] px-6 sm:px-10 lg:px-14">
+        <AppTopBar mode="landing" />
         
         {/* Professional Background Image */}
         <div className="absolute inset-0 z-0">
@@ -123,69 +124,6 @@ export default function Landing() {
 
         <div className="fr-grid absolute inset-0 z-[1] opacity-40" aria-hidden="true" />
         <div className="fr-noise absolute inset-0 z-[2] opacity-10 pointer-events-none" aria-hidden="true" />
-
-        <header className="fixed left-0 right-0 top-0 z-50 border-b border-[#0066CC]/25 bg-[#000033]/55 backdrop-blur-[12px]">
-          <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-6 sm:px-10 lg:px-14">
-            <Link 
-              to="/" 
-              className="flex items-center font-extrabold tracking-tight text-white [font-family:var(--font-headline)]"
-            >
-              <span className="text-2xl sm:text-[26px] leading-none">FLEX</span>
-              <span className="ml-1 text-xl sm:text-[21px] leading-none text-[#0066CC]">REPUBLIC</span>
-            </Link>
-
-            <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
-              <a href="/subscription-tier" className="text-sm font-medium text-white/95 transition hover:text-[#0099FF] [font-family:var(--font-body)]">
-                Membership
-              </a>
-              <a href="/about-us" className="text-sm font-medium text-white/95 transition hover:text-[#0099FF] [font-family:var(--font-body)]">
-                About Us
-              </a>
-            </nav>
-
-            <div className="hidden items-center gap-3 md:flex">
-              <Link
-                to="/login"
-                className="rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm font-medium text-white transition hover:bg-[#0066CC]/40 [font-family:var(--font-body)]"
-              >
-                Login
-              </Link>
-              <button
-                type="button"
-                className="relative inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#4ea5ff]/35 bg-[radial-gradient(circle_at_35%_30%,rgba(255,255,255,0.16),rgba(255,255,255,0.03)_48%,rgba(0,0,0,0)_70%)] text-[#d9edff] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_8px_20px_rgba(0,70,160,0.25)] transition hover:border-[#71b8ff]/55 hover:text-white"
-                aria-label="Notifications"
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 0 1 5.454 1.31A8.967 8.967 0 0 1 18 9.75V9A6 6 0 0 0 6 9v.75a8.967 8.967 0 0 1-2.312 6.642 23.848 23.848 0 0 1 5.454-1.31m5.715 0a24.255 24.255 0 0 0-5.714 0m5.714 0a3 3 0 1 1-5.714 0" />
-                </svg>
-                <span className="absolute -right-0.5 -top-0.5 inline-flex min-h-[1.1rem] min-w-[1.1rem] items-center justify-center rounded-full border border-[#031a35] bg-[#00a2ff] px-1 text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_rgba(0,0,51,0.85)]" aria-hidden="true">
-                  3
-                </span>
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white md:hidden"
-              onClick={() => setIsMenuOpen((prev) => !prev)}
-              aria-label="Toggle menu"
-            >
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-              </svg>
-            </button>
-          </div>
-
-          {isMenuOpen && (
-            <div className="border-t border-[#0066CC]/25 bg-[#000033]/95 px-6 pb-5 pt-4 md:hidden">
-              <div className="flex flex-col gap-3">
-                <a href="/subscription-tier" className="text-sm font-medium text-white [font-family:var(--font-body)]">Membership</a>
-                <a href="/about-us" className="text-sm font-medium text-white [font-family:var(--font-body)]">About Us</a>
-                <Link to="/login" className="mt-1 inline-flex w-fit rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm text-white">Login</Link>
-              </div>
-            </div>
-          )}
-        </header>
 
         <div className="relative z-10 mx-auto flex h-full w-full max-w-7xl items-center">
           <motion.div

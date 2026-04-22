@@ -44,7 +44,11 @@ const TIER_LABELS: Record<MembershipTier, string> = {
   "walk-in": "Walk-In",
 };
 
-export default function MembershipDashboard() {
+type MembershipDashboardProps = {
+  changeMembershipTick?: number;
+};
+
+export default function MembershipDashboard({ changeMembershipTick }: MembershipDashboardProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -165,6 +169,13 @@ export default function MembershipDashboard() {
       window.clearTimeout(timeoutId);
     };
   }, [showCheckInConfirmation]);
+
+  useEffect(() => {
+    if (typeof changeMembershipTick !== "number" || changeMembershipTick <= 0) {
+      return;
+    }
+    setShowChangeMembershipModal(true);
+  }, [changeMembershipTick]);
 
   const qrValue = useMemo(
     () =>
@@ -867,111 +878,6 @@ export default function MembershipDashboard() {
           </div>
         )}
 
-        {/* ── UPDATED Membership Overview ── */}
-        <section className="rounded-[16px] border border-white/[0.06] bg-[#151f2e] p-7">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#a8c8ff] mb-2.5">
-                Membership Overview
-              </p>
-              <h4 className="text-[28px] font-black text-white leading-none">
-                {TIER_LABELS[displayMembership.tier]} Plan
-              </h4>
-            </div>
-            <span className={`px-[18px] py-[7px] rounded-full text-[13px] font-bold ${
-              displayMembership.status === "active"
-                ? "bg-[#c8f135] text-[#0d1a0a]"
-                : displayMembership.status === "frozen"
-                ? "bg-[#1e3a5f] text-[#a8c8ff] border border-[#a8c8ff]/20"
-                : displayMembership.status === "freeze-requested"
-                ? "bg-[#3a2a00] text-[#ffb432] border border-[#ffb432]/20"
-                : displayMembership.status === "canceled"
-                ? "bg-[#2a1a1a] text-[#f87171] border border-[#f87171]/20"
-                : displayMembership.status === "expired"
-                ? "bg-[#2a1a1a] text-[#f87171] border border-[#f87171]/20"
-                : "bg-[#3a2a00] text-[#ffb432] border border-[#ffb432]/20"
-            }`}>
-              {displayMembership.status === "freeze-requested"
-                ? "Freeze Requested"
-                : displayMembership.status.charAt(0).toUpperCase() + displayMembership.status.slice(1)}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6">
-            {[
-              {
-                label: "Started",
-                value: new Date(displayMembership.start_date).toLocaleDateString("en-US", {
-                  month: "short", day: "numeric", year: "numeric",
-                }),
-              },
-              {
-                label: "Renews",
-                value: new Date(displayMembership.renewal_date).toLocaleDateString("en-US", {
-                  month: "short", day: "numeric", year: "numeric",
-                }),
-              },
-              { label: "Days Remaining", value: displayStats?.daysUntilRenewal ?? 0 },
-              { label: "Days Active", value: displayStats?.daysActive ?? 0 },
-            ].map(({ label, value }) => (
-              <div key={label} className="rounded-[12px] border border-white/[0.06] bg-[#1e2d42] px-4 py-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35 mb-2.5">
-                  {label}
-                </p>
-                <p className="text-[15px] font-bold text-white">{value}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-2.5">
-            {membershipStateContext?.canPerformAction("renew") && (
-              <button
-                onClick={handleRenew}
-                disabled={actionLoading}
-                className="min-w-[190px] rounded-[12px] bg-[#2563eb] px-6 py-[13px] text-[14px] font-bold text-white disabled:opacity-60"
-              >
-                {actionLoading ? "Renewing..." : "Renew Membership"}
-              </button>
-            )}
-            <button
-              onClick={() => setShowChangeMembershipModal(true)}
-              disabled={actionLoading}
-              className="min-w-[190px] rounded-[12px] border border-white/10 bg-[#1e2d42] px-6 py-[13px] text-[14px] font-bold text-white disabled:opacity-60"
-            >
-              Change Membership
-            </button>
-            {membershipStateContext?.canPerformAction("requestFreeze") &&
-              displayMembership.tier !== "monthly" &&
-              displayMembership.tier !== "walk-in" && (
-              <button
-                onClick={handleRequestFreeze}
-                disabled={actionLoading}
-                className="min-w-[190px] rounded-[12px] border border-[#a8c8ff]/25 bg-transparent px-6 py-[13px] text-[14px] font-bold text-[#a8c8ff] disabled:opacity-60"
-              >
-                {actionLoading ? "Submitting..." : "Request Freeze ❄️"}
-              </button>
-            )}
-            {membershipStateContext?.canPerformAction("reactivate") && (
-              <button
-                onClick={handleReactivate}
-                disabled={actionLoading}
-                className="min-w-[190px] rounded-[12px] border border-[#a8c8ff]/25 bg-transparent px-6 py-[13px] text-[14px] font-bold text-[#a8c8ff] disabled:opacity-60"
-              >
-                {actionLoading ? "Reactivating..." : "Reactivate Membership"}
-              </button>
-            )}
-            {membershipStateContext?.canPerformAction("cancel") && (
-              <button
-                onClick={handleCancel}
-                disabled={actionLoading}
-                className="min-w-[190px] rounded-[12px] border border-[#f87171]/25 bg-transparent px-6 py-[13px] text-[14px] font-bold text-[#f87171] disabled:opacity-60"
-              >
-                {actionLoading ? "Canceling..." : "Cancel Membership"}
-              </button>
-            )}
-          </div>
-        </section>
-
         {showChangeMembershipModal && (
           <div className="fixed inset-0 z-50 flex items-start justify-center bg-[#071731]/70 px-2 py-3 backdrop-blur-sm sm:px-4 sm:py-6 lg:items-center lg:py-8">
             <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-[calc(100vw-0.5rem)] flex-col overflow-y-auto overscroll-contain rounded-[28px] border border-white/20 bg-white shadow-[0_30px_90px_rgba(4,23,56,0.45)] sm:max-h-[94vh] sm:max-w-4xl sm:rounded-[32px] lg:max-w-6xl lg:overflow-hidden">
@@ -1111,16 +1017,6 @@ export default function MembershipDashboard() {
 
   return (
     <div className="space-y-6">
-      {isDev && (
-        <div className="flex gap-2">
-          <button onClick={() => setDevShowMembership(!devShowMembership)} className="text-xs bg-purple-100 text-purple-700 px-3 py-1 rounded border border-purple-200 font-semibold hover:bg-purple-200 transition">
-            🔧 Dev: Toggle Membership State (Showing Membership)
-          </button>
-          <button onClick={toggleAdminView} className="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded border border-indigo-200 font-semibold hover:bg-indigo-200 transition">
-            🔧 Dev: {isAdmin ? "User" : "Admin"} View
-          </button>
-        </div>
-      )}
       {isAdmin && (
         <AdminPaymentPanel
           onConfirmPayment={handleAdminConfirmPayment}
