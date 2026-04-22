@@ -168,8 +168,8 @@ export default function AppTopBar({
               <Link to="/about-us" className="text-sm font-medium text-white [font-family:var(--font-body)]">About Us</Link>
               {user ? (
                 <>
-                  {/* <Link to="/profile" className="text-sm font-medium text-white [font-family:var(--font-body)]">Active Profile</Link>
-                  <Link to="/dashboard" className="text-sm font-medium text-white [font-family:var(--font-body)]">Dashboard</Link> */}
+                  <Link to="/profile" className="text-sm font-medium text-white [font-family:var(--font-body)]">Active Profile</Link>
+                  <Link to="/dashboard" className="text-sm font-medium text-white [font-family:var(--font-body)]">Dashboard</Link>
                 </>
               ) : (
                 <Link to="/login" className="mt-1 inline-flex w-fit rounded-full border border-white/20 bg-white/10 px-5 py-2 text-sm text-white">Login</Link>
@@ -226,8 +226,8 @@ export default function AppTopBar({
             <Link to="/about-us" className="text-sm font-medium text-white">About Us</Link>
             {user ? (
               <>
-                {/* <Link to="/profile" className="text-sm font-medium text-white">Active Profile</Link>
-                <Link to="/dashboard" className="text-sm font-medium text-white">Dashboard</Link> */}
+                <Link to="/profile" className="text-sm font-medium text-white">Active Profile</Link>
+                <Link to="/dashboard" className="text-sm font-medium text-white">Dashboard</Link>
               </>
             ) : (
               <Link to="/login" className="mt-1 inline-flex w-fit rounded-full bg-[#0066CC] px-5 py-2 text-sm text-white">Login</Link>
