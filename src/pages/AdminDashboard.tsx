@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { fetchDashboardStats } from "../lib/membershipService";
 import type { MembershipTier } from "../types/membership";
@@ -27,7 +26,6 @@ type RecentTransactionRecord = {
 type DashboardSection = Exclude<AdminActionKey, "scanQr">;
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
   const isMountedRef = useRef(true);
 
   const [showScanner, setShowScanner] = useState(false);
@@ -597,10 +595,10 @@ export default function AdminDashboard() {
       if (supabase) {
         await supabase.auth.signOut();
       }
-      navigate("/");
+      window.location.replace("/");
     } catch (err) {
       console.error("Logout error:", err);
-      navigate("/");
+      window.location.replace("/");
     }
   };
 

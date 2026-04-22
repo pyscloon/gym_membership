@@ -821,7 +821,7 @@ export default function MembershipDashboard() {
           type="button"
           onClick={handleOpenSessionScanFromFab}
           aria-label={sessionStage === "checked-in" ? "Check out" : "Check in"}
-          className={`fixed bottom-6 right-6 z-[65] inline-flex h-16 w-16 items-center justify-center rounded-full text-white ${
+          className={`fixed z-[80] inline-flex h-16 w-16 items-center justify-center rounded-full text-white bottom-[calc(env(safe-area-inset-bottom)+1rem)] right-[calc(env(safe-area-inset-right)+1rem)] sm:bottom-6 sm:right-6 ${
             sessionStage === "checked-in"
               ? "border border-red-300 bg-gradient-to-br from-[#ef4444] via-[#dc2626] to-[#b91c1c] shadow-[0_0_0_8px_rgba(239,68,68,0.2),0_16px_34px_rgba(185,28,28,0.4)]"
               : "border border-[#57baff] bg-gradient-to-br from-[#27a5ff] via-[#1688f1] to-[#0a59c7] shadow-[0_0_0_8px_rgba(22,136,241,0.2),0_16px_34px_rgba(14,90,198,0.45)]"
