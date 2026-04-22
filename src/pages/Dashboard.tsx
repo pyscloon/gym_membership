@@ -107,6 +107,7 @@ export default function Dashboard() {
   const [weeklyGoal, setWeeklyGoal] = useState(DEFAULT_WEEKLY_GOAL);
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [goalInputValue, setGoalInputValue] = useState(String(DEFAULT_WEEKLY_GOAL));
+  const [membershipActionTick, setMembershipActionTick] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -267,14 +268,24 @@ export default function Dashboard() {
             <div className="mt-10 px-1">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-[#0066CC]/60">Goal Progress</p>
-                <button onClick={() => setShowGoalEditor(!showGoalEditor)} className="text-[10px] font-black text-[#0099FF] uppercase tracking-tighter">
+                <button
+                  type="button"
+                  onClick={() => setShowGoalEditor(!showGoalEditor)}
+                  className="rounded-full border border-[#0099FF]/20 bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#0099FF] shadow-sm transition hover:-translate-y-0.5 hover:border-[#0099FF]/35 hover:shadow-md"
+                >
                   {showGoalEditor ? "Close" : "Set Goal"}
                 </button>
               </div>
               {showGoalEditor && (
                 <div className="flex gap-2 mb-4">
                   <input type="number" value={goalInputValue} onChange={(e) => setGoalInputValue(e.target.value)} className="w-16 rounded-lg border-none bg-white px-2 py-1 text-sm font-black shadow-sm" />
-                  <button onClick={() => { const g = parseInt(goalInputValue); if(user && !isNaN(g)) { setWeeklyGoal(g); writeGoal(user.id, g); setShowGoalEditor(false); }}} className="bg-[#0066CC] text-white px-3 py-1 rounded-lg text-[10px] font-black">SAVE</button>
+                  <button
+                    type="button"
+                    onClick={() => { const g = parseInt(goalInputValue); if(user && !isNaN(g)) { setWeeklyGoal(g); writeGoal(user.id, g); setShowGoalEditor(false); }}}
+                    className="rounded-full bg-[#0066CC] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#0052a3] hover:shadow-md"
+                  >
+                    Save
+                  </button>
                 </div>
               )}
               <div className="h-2.5 w-full bg-white p-0.5 rounded-full ring-1 ring-black/5 shadow-inner">
@@ -285,10 +296,30 @@ export default function Dashboard() {
 
           {/* SECTION 3 · EXPIRY CIRCLE */}
           <section className="animate-fade-up mt-14 px-1">
-            <div className="flex items-center justify-between mb-8">
+            <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
               <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#000033]">Membership Expiry</p>
-              <button onClick={() => navigate("/subscription-tier")} className="text-[11px] font-black text-[#0066CC] border-b border-[#0066CC]/30 pb-0.5">Renew Now</button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/subscription-tier")}
+                  className="rounded-full border border-[#0066CC]/25 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#0066CC] shadow-sm transition hover:-translate-y-0.5 hover:border-[#0066CC]/45 hover:shadow-md"
+                >
+                  Renew Now
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMembershipActionTick((prev) => prev + 1);
+                    const membershipSection = document.getElementById("membership-dashboard");
+                    membershipSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="rounded-full border border-[#000033]/10 bg-[#000033] px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#001a66] hover:shadow-md"
+                >
+                  Change Membership
+                </button>
+              </div>
             </div>
+            
             <div className="relative py-4">
               <div className="h-1.5 w-full bg-gray-200/50 rounded-full overflow-hidden">
                 <div className="h-full bg-gradient-to-r from-[#0099FF] to-[#0066CC] animate-dash-in" style={{ width: `${Math.min(100, ((membershipStats?.daysUntilRenewal ?? 0) / 30) * 100)}%` }} />
@@ -312,7 +343,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <section className="mt-16 pb-24"><MembershipDashboard /></section>
+          <section id="membership-dashboard" className="mt-16 pb-24"><MembershipDashboard changeMembershipTick={membershipActionTick} /></section>
         </main>
       </div>
     </div>
