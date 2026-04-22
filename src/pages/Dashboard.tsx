@@ -108,6 +108,7 @@ export default function Dashboard() {
   const [showGoalEditor, setShowGoalEditor] = useState(false);
   const [goalInputValue, setGoalInputValue] = useState(String(DEFAULT_WEEKLY_GOAL));
   const [membershipActionTick, setMembershipActionTick] = useState(0);
+  const [freezeTick, setFreezeTick] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -206,7 +207,6 @@ export default function Dashboard() {
               <div className="mb-3 flex items-center justify-between px-1">
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/90">Your Sessions</p>
               </div>
-              {/* Glass background to blend with the navy/blue gradient */}
               <div className="rounded-2xl bg-[#000033]/45 p-3 shadow-xl ring-1 ring-[#0099FF]/45 backdrop-blur-md sm:p-5">
                 <div className="flex justify-between gap-2 sm:gap-4 sm:divide-x sm:divide-white/10">
                   {[
@@ -225,7 +225,6 @@ export default function Dashboard() {
 
             <section className="col-span-2 flex flex-col items-center">
               <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/60 text-center">Crowd</p>
-              {/* Glass container for the vertical bar */}
               <div className="relative h-20 w-4 bg-[#000033]/50 rounded-full overflow-hidden ring-1 ring-white/15 backdrop-blur-md shadow-inner">
                 <div 
                    className="absolute bottom-0 left-0 right-0 w-full bg-gradient-to-t from-[#001a66] via-[#0047b3] to-[#0077e6] transition-all duration-1000 shadow-[0_0_10px_rgba(0,102,204,0.5)]"
@@ -317,6 +316,21 @@ export default function Dashboard() {
                 >
                   Change Membership
                 </button>
+                {membership &&
+                  membership.status === "active" &&
+                  (membership.tier === "yearly" || membership.tier === "semi-yearly") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFreezeTick((prev) => prev + 1);
+                      const membershipSection = document.getElementById("membership-dashboard");
+                      membershipSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="rounded-full border border-[#0066CC]/25 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#0066CC] shadow-sm transition hover:-translate-y-0.5 hover:border-[#0066CC]/45 hover:shadow-md"
+                  >
+                    Request Freeze 
+                  </button>
+                )}
               </div>
             </div>
             
@@ -343,7 +357,12 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <section id="membership-dashboard" className="mt-16 pb-24"><MembershipDashboard changeMembershipTick={membershipActionTick} /></section>
+          <section id="membership-dashboard" className="mt-16 pb-24">
+            <MembershipDashboard
+              changeMembershipTick={membershipActionTick}
+              freezeTick={freezeTick}
+            />
+          </section>
         </main>
       </div>
     </div>
