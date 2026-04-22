@@ -1,5 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
-import { use, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks";
@@ -67,6 +67,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
   const [isAdmin, setIsAdmin] = useState(false);
   const [devShowMembership, setDevShowMembership] = useState(false);
   const lastInteractionRef = useRef(0);
+  const [showFreezeModal, setShowFreezeModal] = useState(false);
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -180,7 +181,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
 
   useEffect(() => {
     if (typeof freezeTick !== "number" || freezeTick <= 0) return;
-    void handleRequestFreeze();
+    setShowFreezeModal(true);
   }, [freezeTick]);
 
   const qrValue = useMemo(
@@ -371,7 +372,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
 
   const handleRequestFreeze = async () => {
     if (!user) return;
-    if (!confirm("Are you sure you want to freeze your membership? An admin will review your request.")) return;
+    setShowFreezeModal(false);
     setActionLoading(true);
     const result = await requestFreezeMembership(user.id);
     if (result.success && result.data) {
@@ -707,6 +708,61 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     </>
   );
 
+  const renderFreezeModal = () =>
+    showFreezeModal ? (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#071731]/70 px-4 backdrop-blur-sm">
+        <div className="w-full max-w-md rounded-[28px] border border-white/20 bg-white shadow-[0_30px_90px_rgba(4,23,56,0.45)] overflow-hidden">
+          <div className="bg-gradient-to-r from-[#f0f7ff] to-white px-6 py-5 border-b border-blue-100">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-xl">
+                ❄️
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-blue-500">Membership</p>
+                <h4 className="text-lg font-black text-[#071731]">Request Freeze</h4>
+              </div>
+            </div>
+          </div>
+          <div className="px-6 py-5 space-y-3">
+            <p className="text-sm text-slate-700 leading-relaxed">
+              Are you sure you want to freeze your membership? An admin will review your request.
+            </p>
+            <ul className="space-y-2 text-sm text-slate-600">
+              {[
+                "Your renewal date will be extended when unfrozen",
+                "You can still access the gym while pending approval",
+                "Visit the front desk to unfreeze at any time",
+              ].map((note) => (
+                <li key={note} className="flex items-start gap-2">
+                  <svg className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M12 2a10 10 0 110 20A10 10 0 0112 2z" />
+                  </svg>
+                  <span>{note}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/60">
+            <button
+              type="button"
+              onClick={() => setShowFreezeModal(false)}
+              className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleRequestFreeze}
+              disabled={actionLoading}
+              className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-[#1c8ee6] px-4 py-2.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(28,102,191,0.3)] transition hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {actionLoading ? "Submitting..." : "Yes, Request Freeze ❄️"}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
+
   if (loading && location.pathname !== "/subscription-tier") {
     return (
       <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-6 animate-pulse">
@@ -776,6 +832,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     );
   }
 
+
   if (location.pathname === "/dashboard" && isSubscribedUser) {
     const currentPlan = plans.find((plan) => plan.tier === displayMembership.tier) ?? plans[0];
     const otherPlans = plans.filter((plan) => plan.tier !== displayMembership.tier);
@@ -791,6 +848,8 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
 
     return (
       <div className="space-y-6">
+        {renderFreezeModal()}
+
         {showSessionScanModal && (
           <div
             className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6"
@@ -1023,6 +1082,8 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
 
   return (
     <div className="space-y-6">
+      {renderFreezeModal()}
+
       {isAdmin && (
         <AdminPaymentPanel
           onConfirmPayment={handleAdminConfirmPayment}
@@ -1209,7 +1270,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
         {membershipStateContext?.canPerformAction("requestFreeze") &&
           displayMembership.tier !== "monthly" &&
           displayMembership.tier !== "walk-in" && (
-          <button onClick={handleRequestFreeze} disabled={actionLoading} className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 font-semibold text-blue-700 transition hover:bg-blue-50 disabled:opacity-70 disabled:cursor-not-allowed">
+          <button onClick={() => setShowFreezeModal(true)} disabled={actionLoading} className="flex items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 font-semibold text-blue-700 transition hover:bg-blue-50 disabled:opacity-70 disabled:cursor-not-allowed">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
             </svg>
