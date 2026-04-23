@@ -15,6 +15,7 @@ type MockSessionUser = {
 type MockSession = {
   user: MockSessionUser;
   access_token: string;
+  expires_at: number;
 };
 
 type MockProfileRow = {
@@ -108,6 +109,7 @@ type QueryResult<T> = {
 type MockOperation = "select" | "insert" | "update" | "upsert" | "delete";
 const MOCK_STORAGE_KEY = "__playwright_mock_supabase_state__";
 const MOCK_SESSION_KEY = "__playwright_mock_supabase_session__";
+const SESSION_TTL_MS = 60 * 60 * 1000;
 const PAYMENT_TRANSACTIONS_FUNCTION = "payment-transactions";
 
 function createNow(): string {
@@ -124,6 +126,32 @@ function createId(prefix: string): string {
 
 function createAccessToken(userId: string): string {
   return `mock-access-token-${userId}`;
+}
+
+function createSession(user: MockAuthUser): MockSession {
+  return {
+    user: {
+      id: user.id,
+      email: user.email,
+      user_metadata: clone(user.user_metadata),
+    },
+    access_token: createAccessToken(user.id),
+    expires_at: Date.now() + SESSION_TTL_MS,
+  };
+}
+
+function isSessionExpired(session: MockSession | null): boolean {
+  return Boolean(session && Date.now() >= session.expires_at);
+}
+
+function getActiveSession(state: MockDatabaseState): MockSession | null {
+  if (isSessionExpired(state.session)) {
+    state.session = null;
+    persistSession(state);
+    return null;
+  }
+
+  return state.session;
 }
 
 function getRenewalDays(tier: MockMembershipRow["tier"]): number {
@@ -215,7 +243,8 @@ function hydrateSession(): MockSession | null {
   }
 
   try {
-    return JSON.parse(rawSession) as MockSession;
+    const session = JSON.parse(rawSession) as MockSession;
+    return isSessionExpired(session) ? null : session;
   } catch {
     sessionStorage.removeItem(MOCK_SESSION_KEY);
     return null;
@@ -918,14 +947,7 @@ class MockAuthApi {
       };
     }
 
-    this.state.session = {
-      user: {
-        id: user.id,
-        email: user.email,
-        user_metadata: clone(user.user_metadata),
-      },
-      access_token: createAccessToken(user.id),
-    };
+    this.state.session = createSession(user);
     persistState(this.state);
     persistSession(this.state);
 
@@ -976,14 +998,7 @@ class MockAuthApi {
       created_at: createNow(),
     });
 
-    this.state.session = {
-      user: {
-        id: user.id,
-        email: user.email,
-        user_metadata: clone(user.user_metadata),
-      },
-      access_token: createAccessToken(user.id),
-    };
+    this.state.session = createSession(user);
     persistState(this.state);
     persistSession(this.state);
 
@@ -1009,16 +1024,17 @@ class MockAuthApi {
   async getSession() {
     return {
       data: {
-        session: clone(this.state.session),
+        session: clone(getActiveSession(this.state)),
       },
       error: null,
     };
   }
 
   async getUser() {
+    const session = getActiveSession(this.state);
     return {
       data: {
-        user: clone(this.state.session?.user ?? null),
+        user: clone(session?.user ?? null),
       },
       error: null,
     };
