@@ -7,7 +7,7 @@ import type {
   PendingPayment,
 } from "../types/payment";
 import { supabase } from "../lib/supabaseClient";
-import { usePaymentState } from "../design-patterns/useStatePatterns";
+import { usePaymentState } from "../design-patterns/state/useStatePatterns";
 import { invokePaymentTransactions } from "../lib/paymentTransactionApi";
 
 type TransactionRow = {

@@ -6,13 +6,11 @@
  */
 
 import { useCallback, useReducer } from "react";
-import {
-  MembershipStateContext,
-  AttendanceSessionContext,
-  PaymentStateContext,
-} from "./index";
-import type { Membership } from "../types/membership";
-import type { PaymentStatus } from "../types/payment";
+import { MembershipStateContext } from "./MembershipState";
+import { AttendanceSessionContext } from "./AttendanceState";
+import { PaymentStateContext } from "./PaymentState";
+import type { Membership } from "../../types/membership";
+import type { PaymentStatus } from "../../types/payment";
 
 /**
  * useMembershipState - Hook to manage membership state machine

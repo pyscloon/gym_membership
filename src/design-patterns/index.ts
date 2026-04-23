@@ -70,7 +70,7 @@
  * const { state, checkIn, cancel } = useMembershipState(membership);
  */
 
-export type { IMembershipState } from "./MembershipState";
+export type { IMembershipState } from "./state/MembershipState";
 export {
   // Membership states
   PendingPaymentState,
@@ -80,9 +80,9 @@ export {
   CanceledState,
   ExpiredState,
   MembershipStateContext,
-} from "./MembershipState";
+} from "./state/MembershipState";
 
-export type { IAttendanceState } from "./AttendanceState";
+export type { IAttendanceState } from "./state/AttendanceState";
 export {
   // Attendance/Session states
   IdleState,
@@ -91,9 +91,9 @@ export {
   WalkInActiveState,
   WalkInExpiredState,
   AttendanceSessionContext,
-} from "./AttendanceState";
+} from "./state/AttendanceState";
 
-export type { IPaymentState } from "./PaymentState";
+export type { IPaymentState } from "./state/PaymentState";
 export {
   // Payment states
   IdlePaymentState,
@@ -103,14 +103,14 @@ export {
   PaidPaymentState,
   FailedPaymentState,
   PaymentStateContext,
-} from "./PaymentState";
+} from "./state/PaymentState";
 
 export {
   // React hooks for state management
   useMembershipState,
   useAttendanceSession,
   usePaymentState,
-} from "./useStatePatterns";
+} from "./state/useStatePatterns";
 
 export {
   //factory pattern for subscription tier(monthly, semi-yearly, yearly)
