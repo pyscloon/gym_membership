@@ -148,6 +148,7 @@ export function usePayment(userId?: string) {
         method: transaction.method,
         requestedAt: transaction.createdAt,
         proofOfPaymentUrl: transaction.proofOfPaymentUrl,
+        discountIdProofUrl: transaction.discountIdProofUrl,
       }));
 
     dispatch({ type: "SET_PENDING_PAYMENTS", payments: pending });

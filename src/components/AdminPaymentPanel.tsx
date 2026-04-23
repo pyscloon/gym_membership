@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import type { PendingPayment, UserType } from "../types/payment";
 import { supabase } from "../lib/supabaseClient";
 
+const EVIDENCE_BUCKET = "uploads";
+
 type TransactionRow = {
   id: string;
   user_id: string;
@@ -32,6 +34,111 @@ type MembershipRow = {
   renewal_date: string;
 };
 
+function normalizeEvidencePath(value?: string | null) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "false" || trimmed === "null" || trimmed === "undefined") {
+    return null;
+  }
+  if (trimmed === "true") return null;
+  if (trimmed.startsWith("data:")) return trimmed;
+  if (!/^https?:\/\//i.test(trimmed)) return trimmed.replace(new RegExp(`^${EVIDENCE_BUCKET}/`), "");
+
+  try {
+    const url = new URL(trimmed);
+    const markers = [
+      `/storage/v1/object/public/${EVIDENCE_BUCKET}/`,
+      `/storage/v1/object/sign/${EVIDENCE_BUCKET}/`,
+    ];
+
+    for (const marker of markers) {
+      const index = url.pathname.indexOf(marker);
+      if (index >= 0) {
+        return decodeURIComponent(url.pathname.slice(index + marker.length));
+      }
+    }
+
+    if (url.pathname.includes(`/storage/v1/object/public/${EVIDENCE_BUCKET}/`)) {
+      return decodeURIComponent(url.pathname.split(`/storage/v1/object/public/${EVIDENCE_BUCKET}/`).pop() ?? "");
+    }
+  } catch {
+    return trimmed.replace(new RegExp(`^${EVIDENCE_BUCKET}/`), "");
+  }
+
+  return trimmed.replace(new RegExp(`^${EVIDENCE_BUCKET}/`), "");
+}
+
+async function resolveEvidenceUrl(value?: string | null) {
+  if (!value) return null;
+  const normalizedPath = normalizeEvidencePath(value);
+  if (!normalizedPath) return null;
+  if (normalizedPath.startsWith("data:")) {
+    return normalizedPath;
+  }
+  if (/^https?:\/\//i.test(normalizedPath)) {
+    return normalizedPath;
+  }
+  if (!supabase) return value;
+
+  const path = normalizeEvidencePath(value);
+  if (!path) return null;
+
+  const { data: signedData, error: signedError } = await supabase.storage
+    .from(EVIDENCE_BUCKET)
+    .createSignedUrl(path, 60 * 60, { download: false });
+
+  if (!signedError && signedData?.signedUrl) {
+    return signedData.signedUrl;
+  }
+
+  const { data } = supabase.storage.from(EVIDENCE_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
+async function resolveLatestFolderEvidence(userId: string, prefix: string) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.storage
+    .from(EVIDENCE_BUCKET)
+    .list(userId, {
+      limit: 20,
+      offset: 0,
+      sortBy: { column: "name", order: "desc" },
+    });
+
+  if (error || !data) {
+    return null;
+  }
+
+  const match = data.find((item: { name: string }) => item.name.startsWith(prefix));
+  if (!match) return null;
+
+  return resolveEvidenceUrl(`${userId}/${match.name}`);
+}
+
+async function resolveAnyFolderEvidence(userId: string, keywords: string[]) {
+  if (!supabase) return null;
+
+  const { data, error } = await supabase.storage
+    .from(EVIDENCE_BUCKET)
+    .list(userId, {
+      limit: 50,
+      offset: 0,
+      sortBy: { column: "name", order: "desc" },
+    });
+
+  if (error || !data) return null;
+
+  const match = data.find((item: { name: string }) => {
+    const lower = item.name.toLowerCase();
+    return keywords.some((keyword) => lower.includes(keyword.toLowerCase()));
+  });
+
+  if (!match) return null;
+
+  return resolveEvidenceUrl(`${userId}/${match.name}`);
+}
+
 interface AdminPaymentPanelProps {
   onConfirmPayment: (transactionId: string, userId: string, userType: UserType) => Promise<void>;
   onDeclinePayment: (transactionId: string, userId: string, userType: UserType) => Promise<void>;
@@ -53,6 +160,7 @@ export default function AdminPaymentPanel({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [userNameById, setUserNameById] = useState<Record<string, string>>({});
   const [membershipByUserId, setMembershipByUserId] = useState<Record<string, MembershipRow | null>>({});
+  const [selectedEvidenceUrl, setSelectedEvidenceUrl] = useState<string | null>(null);
 
   // ✅ Now fetches from Supabase instead of localStorage
   useEffect(() => {
@@ -70,16 +178,30 @@ export default function AdminPaymentPanel({
           return;
         }
 
-        const pending = (data as TransactionRow[]).map<PendingPayment>((t) => ({
-          transactionId: t.id,
-          userId: t.user_id,
-          userType: t.user_type as UserType,
-          amount: t.amount,
-          method: t.method as PendingPayment["method"],
-          requestedAt: t.created_at,
-          proofOfPaymentUrl: t.proof_of_payment_url ?? undefined,
-          discountIdProofUrl: t.discount_id_proof_url ?? undefined,
-        }));
+        const pending = await Promise.all(
+          (data as TransactionRow[]).map(async (t) => {
+            const proofOfPaymentUrl =
+              (await resolveEvidenceUrl(t.proof_of_payment_url)) ??
+              (await resolveLatestFolderEvidence(t.user_id, "payment-proof_")) ??
+              undefined;
+            const discountIdProofUrl =
+              (await resolveEvidenceUrl(t.discount_id_proof_url)) ??
+              (await resolveLatestFolderEvidence(t.user_id, "discount-id_")) ??
+              (await resolveAnyFolderEvidence(t.user_id, ["discount", "id", "school", "senior", "pwd"])) ??
+              undefined;
+
+            return {
+              transactionId: t.id,
+              userId: t.user_id,
+              userType: t.user_type as UserType,
+              amount: t.amount,
+              method: t.method as PendingPayment["method"],
+              requestedAt: t.created_at,
+              proofOfPaymentUrl,
+              discountIdProofUrl,
+            };
+          })
+        );
 
         const uniqueUserIds = [...new Set(pending.map((item) => item.userId).filter(Boolean))];
 
@@ -336,9 +458,110 @@ export default function AdminPaymentPanel({
                     </div>
                   </div>
                 </section>
+
+                <section className="mb-4 space-y-3 rounded-2xl border border-[#0066CC]/15 bg-[#f8fbff] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.15em] text-[#003D7A]/60">Receipt proof</p>
+                      <p className="text-xs text-[#00264D]/70">
+                        {payment.proofOfPaymentUrl ? "Member upload here." : "No proof photo yet."}
+                      </p>
+                    </div>
+                    {payment.proofOfPaymentUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEvidenceUrl(payment.proofOfPaymentUrl ?? null)}
+                        className="rounded-full border border-[#0066CC]/20 bg-white px-3 py-1 text-[11px] font-semibold text-[#003D7A] transition hover:bg-[#EAF4FF]"
+                      >
+                        Open
+                      </button>
+                    )}
+                  </div>
+
+                  {payment.proofOfPaymentUrl ? (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedEvidenceUrl(payment.proofOfPaymentUrl ?? null)}
+                      className="block w-full overflow-hidden rounded-xl border border-[#0066CC]/15 bg-white text-left"
+                    >
+                      <img
+                        src={payment.proofOfPaymentUrl}
+                        alt="Payment proof uploaded by member"
+                        className="h-48 w-full object-cover"
+                      />
+                    </button>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-[#0066CC]/20 bg-white px-4 py-8 text-center">
+                      <p className="text-sm font-semibold text-[#003D7A]">No receipt photo uploaded</p>
+                    </div>
+                  )}
+
+                  {payment.discountIdProofUrl && (
+                    <div className="overflow-hidden rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white shadow-[0_10px_24px_rgba(16,185,129,0.12)]">
+                      <div className="flex items-center justify-between gap-3 border-b border-emerald-100 px-4 py-3">
+                        <div>
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-emerald-700">
+                            Discount ID proof
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedEvidenceUrl(payment.discountIdProofUrl ?? null)}
+                          className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-700"
+                        >
+                          Open
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEvidenceUrl(payment.discountIdProofUrl ?? null)}
+                        className="block w-full text-left"
+                      >
+                        <img
+                          src={payment.discountIdProofUrl}
+                          alt="Discount ID proof uploaded by member"
+                          className="h-56 w-full object-cover"
+                        />
+                      </button>
+                    </div>
+                  )}
+                </section>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {selectedEvidenceUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          onClick={() => setSelectedEvidenceUrl(null)}
+        >
+          <div
+            className="w-full max-w-3xl overflow-hidden rounded-3xl bg-white shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-bold text-slate-900">Photo proof</p>
+                <p className="text-xs text-slate-500">Tap outside or close to shut it.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedEvidenceUrl(null)}
+                className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-200"
+              >
+                Close
+              </button>
+            </div>
+            <div className="bg-slate-950">
+              <img
+                src={selectedEvidenceUrl}
+                alt="Uploaded payment proof"
+                className="max-h-[75vh] w-full object-contain"
+              />
+            </div>
+          </div>
         </div>
       )}
 
