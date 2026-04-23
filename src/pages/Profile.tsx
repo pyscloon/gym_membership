@@ -48,9 +48,9 @@ export default function Profile() {
       if (!user) { navigate("/login"); return; }
 
       const [profileRes, membershipRes, transactionRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("memberships").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6),
+        supabase.from("profiles").select("id, first_name, last_name, full_name, email, phone, avatar_url").eq("id", user.id).single(),
+        supabase.from("memberships").select("id, user_id, tier, status, start_date, renewal_date").eq("user_id", user.id).maybeSingle(),
+        supabase.from("transactions").select("id, created_at, amount, status").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6),
       ]);
 
       if (membershipRes.data) setUserTier(membershipRes.data.tier || "monthly");

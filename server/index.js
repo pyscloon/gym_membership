@@ -321,4 +321,4 @@ if (isDirectRun) {
   });
 }
 
-export default app
+export default app;

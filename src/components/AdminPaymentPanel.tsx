@@ -169,7 +169,7 @@ export default function AdminPaymentPanel({
 
         const { data, error } = await supabase
           .from("transactions")
-          .select("*")
+          .select("id, user_id, user_type, amount, method, status, proof_of_payment_url, discount_id_proof_url, created_at")
           .in("status", ["awaiting-confirmation", "awaiting-verification"])
           .order("created_at", { ascending: false });
 

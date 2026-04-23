@@ -2,8 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
-
-const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? "").toLowerCase();
+import { verifyAdminAccess } from "../lib/adminAuth";
 
 export default function AdminLogin() {
   const navigate = useNavigate();
@@ -26,23 +25,11 @@ export default function AdminLogin() {
       return;
     }
 
-    if (!ADMIN_EMAIL) {
-      setErrorMessage("VITE_ADMIN_EMAIL is missing in .env.");
-      return;
-    }
-
-    const normalizedEmail = email.toLowerCase();
-
-    if (normalizedEmail !== ADMIN_EMAIL) {
-      setErrorMessage("This account is not allowed to access the admin portal.");
-      return;
-    }
-
     try {
       setLoading(true);
 
       const { error } = await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
+        email,
         password,
       });
 
@@ -51,8 +38,17 @@ export default function AdminLogin() {
         return;
       }
 
+      const { isAdmin } = await verifyAdminAccess();
+
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        setErrorMessage("This account is not allowed to access the admin portal.");
+        return;
+      }
+
       navigate("/admin/dashboard");
-    } catch {
+    } catch (err) {
+      console.error("Admin sign-in failed:", err);
       setErrorMessage("Something went wrong while signing in as admin.");
     } finally {
       setLoading(false);
