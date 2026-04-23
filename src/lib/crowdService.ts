@@ -3,6 +3,8 @@ import { supabase } from "./supabaseClient";
 export type CrowdStatus = "Not Busy" | "Getting Busy" | "Busy" | "Packed";
 type AttendanceType = "checkin" | "checkout" | "walk-in";
 
+const MAX_CROWD_CAPACITY = 50;
+
 type WalkInRow = {
   user_id: string | null;
   walk_in_type: string;
@@ -98,6 +100,10 @@ export function getCrowdStatus(activeUsers: number, denominator: number): CrowdS
   return getCrowdStatusFromRatio(activeUsers / denominator);
 }
 
+function getLiveCrowdLevel(activeUsers: number): number {
+  return activeUsers / MAX_CROWD_CAPACITY;
+}
+
 export function getCrowdStatusColor(status: CrowdStatus): string {
   switch (status) {
     case "Getting Busy":
@@ -179,7 +185,7 @@ function toRangeSuggestions(entries: HourlyAverage[]): TimeRangeSuggestion[] {
   });
 }
 
-function deriveTodayStats(rows: WalkInRow[], totalMembers: number): CrowdStats {
+function deriveTodayStats(rows: WalkInRow[], _totalMembers: number): CrowdStats {
   const latestMemberEvent = new Map<string, { type: AttendanceType; time: number }>();
   let activeGuestCount = 0;
   let todayWalkIns = 0;
@@ -218,27 +224,24 @@ function deriveTodayStats(rows: WalkInRow[], totalMembers: number): CrowdStats {
     }
   }
 
-  const denominator = totalMembers + todayWalkIns;
-  const crowdLevel = denominator > 0 ? todayMemberCheckIns / denominator : 0;
+  const crowdLevel = getLiveCrowdLevel(activeMemberCount + activeGuestCount);
 
   return {
     activeUsers: activeMemberCount + activeGuestCount,
     crowdLevel,
     crowdStatus: getCrowdStatusFromRatio(crowdLevel),
-    totalMembers,
+    totalMembers: _totalMembers,
     todayWalkIns,
     todayMemberCheckIns,
   };
 }
 
-function buildDerivedSnapshots(rows: WalkInRow[], totalMembers: number): DerivedSnapshot[] {
+function buildDerivedSnapshots(rows: WalkInRow[], _totalMembers: number): DerivedSnapshot[] {
   const sortedRows = [...rows].sort(
     (left, right) => new Date(left.walk_in_time).getTime() - new Date(right.walk_in_time).getTime()
   );
   const latestMemberEvent = new Map<string, AttendanceType>();
   let activeGuestCount = 0;
-  let todayWalkIns = 0;
-  let todayMemberCheckIns = 0;
   const snapshots: DerivedSnapshot[] = [];
 
   for (const row of sortedRows) {
@@ -249,15 +252,11 @@ function buildDerivedSnapshots(rows: WalkInRow[], totalMembers: number): Derived
 
     if (!row.user_id) {
       if (type === "walk-in") {
-        todayWalkIns += 1;
         activeGuestCount += 1;
       } else if (type === "checkout" && activeGuestCount > 0) {
         activeGuestCount -= 1;
       }
     } else {
-      if (type === "checkin") {
-        todayMemberCheckIns += 1;
-      }
       latestMemberEvent.set(row.user_id, type);
     }
 
@@ -268,8 +267,7 @@ function buildDerivedSnapshots(rows: WalkInRow[], totalMembers: number): Derived
       }
     }
 
-    const denominator = totalMembers + todayWalkIns;
-    const crowdLevel = denominator > 0 ? todayMemberCheckIns / denominator : 0;
+    const crowdLevel = getLiveCrowdLevel(activeMembers + activeGuestCount);
 
     snapshots.push({
       timestamp: timestamp.toISOString(),
