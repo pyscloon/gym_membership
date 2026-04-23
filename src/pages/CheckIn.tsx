@@ -13,7 +13,8 @@ export default function CheckInPage() {
   const qrValue = useMemo(
     () =>
       JSON.stringify({
-        type: "member-checkin",
+        id: "member-user-1",
+        type: "checkin",
         createdAt: new Date().toISOString(),
       }),
     []

@@ -24,6 +24,24 @@ type PlaywrightQrScannerDriver = {
   register: (handler: (decodedText: string) => void) => () => void;
 };
 
+function normalizeQrType(type: string): QRData["type"] | null {
+  const normalized = type.trim().toLowerCase();
+
+  if (normalized === "checkin" || normalized === "member-checkin") {
+    return "checkin";
+  }
+
+  if (normalized === "checkout" || normalized === "member-checkout") {
+    return "checkout";
+  }
+
+  if (normalized === "walk_in" || normalized === "walk-in" || normalized === "walkin") {
+    return "walk_in";
+  }
+
+  return null;
+}
+
 export default function QRScanner({
   onScanSuccess,
   onScanError,
@@ -59,14 +77,17 @@ export default function QRScanner({
   const handleQRCodeDetected = useCallback(
     async (decodedText: string) => {
       try {
-        const qrData: QRData = JSON.parse(decodedText);
+        const parsed = JSON.parse(decodedText) as Partial<QRData> & { type?: string };
+        const normalizedType = parsed.type ? normalizeQrType(parsed.type) : null;
 
-        if (
-          !qrData.type ||
-          !["checkin", "checkout", "walk_in"].includes(qrData.type)
-        ) {
+        if (!normalizedType) {
           throw new Error("Invalid QR code format");
         }
+
+        const qrData: QRData = {
+          ...parsed,
+          type: normalizedType,
+        };
 
         if (!user) {
           throw new Error("User not authenticated");
