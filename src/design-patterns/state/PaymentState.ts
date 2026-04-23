@@ -10,7 +10,7 @@
  * - What actions can be performed
  */
 
-import type { PaymentStatus } from "../types/payment";
+import type { PaymentStatus } from "../../types/payment";
 
 type PaymentReasonMeta = {
   failureReason?: string;
