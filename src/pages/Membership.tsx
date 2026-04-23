@@ -25,8 +25,8 @@ const PLANS: Record<TabKey, PlanData[]> = {
   self_training: [
     { id: "walk_in", name: "Walk-In Pass", badge: "ONE-TIME", price: "₱60", description: "Quick access for a single session.", features: ["No subscription", "24-hour validity", "Instant Entry"] },
     { id: "monthly", name: "Monthly", badge: "STARTER", price: "₱499", description: "Train on your schedule.", features: ["Flexible billing", "Full gym access", "Cancel anytime"] },
-    { id: "semi_yearly", name: "Semi-Yearly", badge: "VALUE", price: "₱699", description: "Commit longer, save more.", features: ["Lower effective rate", "Priority slots", "Progress tracking"] },
-    { id: "yearly", name: "Yearly", badge: "BEST PLAN", price: "₱1,199", description: "Maximum savings for elite goals.", features: ["Best yearly value", "Locked-in rate", "Long-term growth"] },
+    { id: "semi_yearly", name: "Semi-Yearly", badge: "VALUE", price: "₱2,499", description: "Commit longer, save more.", features: ["Lower effective rate", "Priority slots", "Progress tracking"] },
+    { id: "yearly", name: "Yearly", badge: "BEST PLAN", price: "₱3,999", description: "Maximum savings for elite goals.", features: ["Best yearly value", "Locked-in rate", "Long-term growth"] },
   ],
   with_coach: [
     { id: "monthly", name: "Monthly + Coach", price: "₱900", description: "Monthly guided training.", features: ["4 coaching sessions", "Group classes", "Fitness assessment"] },
@@ -303,3 +303,4 @@ export default function MembershipPage() {
     </div>
   );
 }
+

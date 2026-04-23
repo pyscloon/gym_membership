@@ -102,6 +102,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
   const [, setRenewalPaymentTier] = useState<MembershipTier | null>(null);
   const [showSessionScanModal, setShowSessionScanModal] = useState(false);
   const [sessionScanMode, setSessionScanMode] = useState<"checkin" | "checkout">("checkin");
+  const [qrActionType, setQrActionType] = useState<"checkin" | "checkout">("checkin");
 
   const displayMembership = membership;
   const displayStats = useMemo(
@@ -188,11 +189,11 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     () =>
       JSON.stringify({
         id: user?.id,
-        type: attendanceSessionContext?.getStateName() === "checked-in" ? "checkout" : "checkin",
+        type: qrActionType,
         tier: displayMembership?.tier,
         timestamp: qrTimestamp,
       }),
-    [attendanceSessionContext, displayMembership?.tier, qrTimestamp, user?.id]
+    [displayMembership?.tier, qrActionType, qrTimestamp, user?.id]
   );
 
   const handleGenerateCheckIn = (skipInteractionGuard = false) => {
@@ -202,9 +203,9 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
 
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       if (attendanceSessionContext?.canPerformAction("checkIn")) {
-        attendanceSessionContext.checkIn();
         setStateUpdateTrigger((prev) => prev + 1);
       }
+      setQrActionType("checkin");
       setQrTimestamp(new Date().toISOString());
       setShowQR(true);
       addToast("Check-in QR generated! Show this to the admin.", "success");
@@ -213,6 +214,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
 
     if (membershipStateContext?.canPerformAction("checkIn")) {
       attendanceSessionContext?.checkIn();
+      setQrActionType("checkin");
       setQrTimestamp(new Date().toISOString());
       setShowQR(true);
       setStateUpdateTrigger((prev) => prev + 1);
@@ -228,6 +230,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     }
 
     if (attendanceSessionContext?.canPerformAction("checkOut")) {
+      setQrActionType("checkout");
       setQrTimestamp(new Date().toISOString());
       setShowQR(true);
       setStateUpdateTrigger((prev) => prev + 1);
@@ -245,12 +248,16 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       setShowQR(false);
       if (sessionScanMode === "checkout" && sessionStage === "checked-in") {
+        attendanceSessionContext?.checkOut();
         setAttendanceSessionContext(new AttendanceSessionContext("regular"));
         setSessionStage("idle");
+        setQrActionType("checkin");
         setStateUpdateTrigger((prev) => prev + 1);
         addToast("Checked out successfully! See you next time!", "success");
       } else {
+        attendanceSessionContext?.checkIn();
         setSessionStage("checked-in");
+        setQrActionType("checkout");
         setStateUpdateTrigger((prev) => prev + 1);
         setShowCheckInConfirmation(true);
         addToast("Check-in approved. Session is active.", "success");
@@ -264,6 +271,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
       attendanceSessionContext?.checkOut();
       setAttendanceSessionContext(new AttendanceSessionContext("regular"));
       setSessionStage("idle");
+      setQrActionType("checkin");
       setStateUpdateTrigger((prev) => prev + 1);
       addToast("Checked out successfully! See you next time!", "success");
     }
@@ -615,7 +623,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     {
       badge: "Value",
       title: "Semi-Yearly",
-      amount: "₱699",
+      amount: "₱2,499",
       interval: "/ 6 months",
       quote: "Commit a little longer and save more.",
       description: "Balanced commitment with better long-term value.",
@@ -633,7 +641,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     {
       badge: "Best Plan",
       title: "Yearly",
-      amount: "₱1,199",
+      amount: "₱3,999",
       interval: "/ 12 months",
       quote: "Maximum savings for year-round training.",
       description: "Most cost-effective plan for consistent training.",
@@ -706,6 +714,39 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
       />
       {renderPaymentFlow()}
     </>
+  );
+
+  const renderSubscriptionTierContent = () => (
+    <section className="rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-flexBlue">Subscription Tier</p>
+          <h3 className="mt-1 text-2xl font-black text-[#071731]">Pick a plan first</h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
+            No membership yet. Choose a tier to get in. Payment stuff live on the subscription page.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => navigate("/subscription-tier")}
+          className="rounded-xl bg-flexBlue px-4 py-3 text-sm font-semibold text-white transition hover:bg-flexNavy"
+        >
+          View Tier
+        </button>
+      </div>
+
+      <div className="mt-6 grid gap-3 md:grid-cols-3">
+        {plans.filter((plan) => plan.tier !== "walk-in").map((plan) => (
+          <article key={plan.tier} className="rounded-2xl border border-flexBlue/10 bg-white p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-flexBlue">{plan.badge}</p>
+            <h4 className="mt-2 text-lg font-black text-[#071731]">{plan.title}</h4>
+            <p className="mt-1 text-2xl font-black text-flexBlue">{plan.amount}</p>
+            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{plan.interval}</p>
+            <p className="mt-3 text-sm text-slate-600">{plan.description}</p>
+          </article>
+        ))}
+      </div>
+    </section>
   );
 
   const renderFreezeModal = () =>
@@ -826,7 +867,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
             onRejectOnlinePayment={handleAdminRejectOnlinePayment}
           />
         ) : (
-          renderPricingContent()
+          renderSubscriptionTierContent()
         )}
       </div>
     );
@@ -866,7 +907,7 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
 
               <div className="mx-auto flex max-w-4xl flex-col items-center gap-5 bg-white">
                 <p className="text-xl font-black tracking-[0.2em] text-[#1b5fb3] uppercase">
-                  {sessionScanMode === "checkout" ? "CHECK-OUT QR CODE" : "CHECK-IN QR CODE"}
+                  {sessionScanMode === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}
                 </p>
 
                 <div className="rounded-3xl border border-[#c7d9ef] bg-[#f6f8fc] p-6 shadow-sm">
@@ -1120,15 +1161,15 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
         {showQR && (
           <div className="flex flex-col items-center gap-4 my-4 p-5 rounded-2xl bg-white border border-flexNavy/10 shadow-sm">
             <p className="text-xs font-bold tracking-widest text-flexNavy uppercase">
-              {attendanceSessionContext?.getStateName() === "checked-in" ? "Check-Out QR Code" : "Check-In QR Code"}
+              {qrActionType === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}
             </p>
             <div className="bg-white p-3 rounded-xl border border-flexNavy/10 shadow-sm">
               <QRCodeSVG value={qrValue} size={180} bgColor="#ffffff" fgColor="#0a0a2e" level="H" />
             </div>
             <p className="text-xs text-flexNavy/50 text-center">
-              {attendanceSessionContext?.getStateName() === "checked-in"
-                ? "Show this to the admin at the front desk to check out"
-                : "Show this to the admin at the front desk to check in"}
+              {qrActionType === "checkout"
+                ? "Show this to the admin at the front desk to go out"
+                : "Show this to the admin at the front desk to go in"}
             </p>
             <button
               onClick={handleCloseQR}
@@ -1297,3 +1338,5 @@ export default function MembershipDashboard({ changeMembershipTick, freezeTick }
     </div>
   );
 }
+
+
