@@ -93,8 +93,8 @@ export default function AdminDashboard() {
         ),
       },
       {
-        key: "peakHours" as const,
-        label: "Peak Hours",
+        key: "crowdStatus" as const,
+        label: "Crowd Status",
         icon: (
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0066CC] text-white shadow-md">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
   const sectionTitleMap: Record<DashboardSection, string> = {
     pendingPayment: "Pending Payment",
     customers: "Customers",
-    peakHours: "Peak Hours",
+    crowdStatus: "Crowd Status",
     recentTransactions: "Recent transactions",
     analytics: "Analytics",
     frozenMembers: "Freeze Requests & Frozen Members",
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
       );
     }
 
-    if (activeSection === "peakHours") {
+    if (activeSection === "crowdStatus") {
       return <div className="mt-4"><CrowdEstimationPanel showAdminControls minimalView /></div>;
     }
 

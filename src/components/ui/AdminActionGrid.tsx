@@ -4,7 +4,7 @@ export type AdminActionKey =
   | "scanQr"
   | "pendingPayment"
   | "customers"
-  | "peakHours"
+  | "crowdStatus"
   | "recentTransactions"
   | "analytics"
   | "frozenMembers";

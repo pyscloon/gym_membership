@@ -445,17 +445,28 @@ export async function fetchBackendCrowdPanelData(options?: {
     const todayRows = (todayRowsResult.data ?? []) as WalkInRow[];
     const suggestionRows = (suggestionsRowsResult.data ?? []) as WalkInRow[];
     const stats = deriveTodayStats(todayRows, totalMembers);
+    const recentSnapshots = buildDerivedSnapshots(suggestionRows, totalMembers);
     const suggestions = buildBestTimeSuggestionsFromSnapshots({
-      snapshots: buildDerivedSnapshots(suggestionRows, totalMembers),
+      snapshots: recentSnapshots,
       days,
       topCount: 3,
       now,
     });
+    const latestSnapshot = recentSnapshots.at(-1);
+    const resolvedStats =
+      todayRows.length > 0 || !latestSnapshot
+        ? stats
+        : {
+            ...stats,
+            activeUsers: latestSnapshot.activeUsers,
+            crowdLevel: latestSnapshot.crowdLevel,
+            crowdStatus: latestSnapshot.crowdStatus,
+          };
 
     const lastRow = todayRows[todayRows.length - 1] ?? suggestionRows[suggestionRows.length - 1];
 
     return {
-      stats,
+      stats: resolvedStats,
       suggestions,
       lastUpdated: lastRow?.walk_in_time ?? now.toISOString(),
     };
