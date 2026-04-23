@@ -2,9 +2,10 @@
  * PaymentConfirmation - Displays payment status after transaction
  */
 
-import { useEffect, useRef } from "react";
-import type { PaymentTransaction } from "../types/payment";
+import { useEffect, useRef, useState } from "react";
+import type { PaymentTransaction, UserType, PaymentMethod } from "../types/payment";
 import { PAYMENT_METHOD_LABELS } from "../types/payment";
+import { supabase } from "../lib/supabaseClient";
 
 interface PaymentConfirmationProps {
   transaction: PaymentTransaction | null;
@@ -14,13 +15,68 @@ interface PaymentConfirmationProps {
 }
 
 export default function PaymentConfirmation({
-  transaction,
+  transaction: initialTransaction,
   isOpen,
   onClose,
   onComplete,
 }: PaymentConfirmationProps) {
+  const [transaction, setTransaction] = useState<PaymentTransaction | null>(initialTransaction);
   const autoCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Sync prop changes
+  useEffect(() => {
+    setTransaction(initialTransaction);
+  }, [initialTransaction]);
+
+  // Polling for updates
+  useEffect(() => {
+    if (!isOpen || !transaction || !supabase) return;
+
+    const isAwaiting =
+      transaction.status === "awaiting-confirmation" ||
+      transaction.status === "awaiting-verification";
+
+    if (!isAwaiting) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from("transactions")
+          .select("*")
+          .eq("id", transaction.id)
+          .single();
+
+        if (data && !error) {
+          const updatedTx: PaymentTransaction = {
+            id: data.id,
+            userId: data.user_id,
+            userType: data.user_type as UserType,
+            amount: data.amount,
+            method: data.method as PaymentMethod,
+            status: data.status as PaymentTransaction["status"],
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+            confirmedAt: data.confirmed_at ?? undefined,
+            failureReason: data.failure_reason ?? undefined,
+            proofOfPaymentUrl: data.proof_of_payment_url ?? undefined,
+            discountIdProofUrl: data.discount_id_proof_url ?? undefined,
+            paymentProofStatus: data.payment_proof_status as PaymentTransaction["paymentProofStatus"],
+            rejectionReason: data.rejection_reason ?? undefined,
+          };
+          
+          if (updatedTx.status !== transaction.status) {
+            setTransaction(updatedTx);
+          }
+        }
+      } catch (err) {
+        // ignore polling errors
+      }
+    }, 3000);
+
+    return () => clearInterval(intervalId);
+  }, [isOpen, transaction?.id, transaction?.status]);
+
+  // Auto-close on paid
   useEffect(() => {
     if (isOpen && transaction?.status === "paid" && !autoCloseTimerRef.current) {
       // Auto-close after 5 seconds for successful payments
