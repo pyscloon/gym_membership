@@ -194,21 +194,23 @@ export const MembershipActions: React.FC = () => {
 };
 
 export const MembershipFreezeModal: React.FC = () => {
-  const { showFreezeModal, setShowFreezeModal, handleRequestFreeze, actionLoading } = useMembership();
+  const { showFreezeModal, setShowFreezeModal, handleRequestFreeze, actionLoading, membership } = useMembership();
   if (!showFreezeModal) return null;
+
+  const isUnfreeze = membership?.status === "frozen";
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[#071731]/70 px-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-[28px] border border-white/20 bg-white shadow-2xl overflow-hidden">
         <div className="bg-gradient-to-r from-[#f0f7ff] to-white px-6 py-5 border-b border-blue-100">
-          <h4 className="text-lg font-black text-[#071731]">Request Freeze ❄️</h4>
+          <h4 className="text-lg font-black text-[#071731]">{isUnfreeze ? "Request Unfreeze" : "Request Freeze"}</h4>
         </div>
         <div className="px-6 py-5 space-y-3">
           <p className="text-sm text-slate-700">Are you sure? An admin will review your request.</p>
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/60">
           <button onClick={() => setShowFreezeModal(false)} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold">Cancel</button>
-          <button onClick={handleRequestFreeze} disabled={actionLoading} className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">{actionLoading ? "Submitting..." : "Yes, Request"}</button>
+          <button onClick={handleRequestFreeze} disabled={actionLoading} className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">{actionLoading ? "Submitting..." : isUnfreeze ? "Yes, Request Unfreeze" : "Yes, Request Freeze"}</button>
         </div>
       </div>
     </div>
@@ -279,7 +281,7 @@ export const MembershipSessionScanModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 py-6" style={{ backgroundColor: "#081223" }}>
       <div className="relative isolate w-full max-w-6xl rounded-3xl border border-[#d7e4f6] bg-white p-6 shadow-2xl">
-        <button onClick={handleCloseSessionScanModal} className="absolute right-4 top-4 rounded-full border border-[#b7c9e5] bg-white px-3 py-1 text-xs font-semibold text-[#1b5fb3]">Close</button>
+        <button onClick={() => handleCloseSessionScanModal()}className="absolute right-4 top-4 rounded-full border border-[#b7c9e5] bg-white px-3 py-1 text-xs font-semibold text-[#1b5fb3]">Close</button>
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-5">
           <p className="text-xl font-black tracking-[0.2em] text-[#1b5fb3] uppercase">{sessionScanMode === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}</p>
           <div

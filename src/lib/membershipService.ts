@@ -299,7 +299,8 @@ export async function fetchUserMembership(
       .from("memberships")
       .select("*")
       .eq("user_id", userId)
-      .eq("status", "active")
+      .in("status", ["active", "freeze-requested", "frozen", "unfreeze-requested"])
+      .order("created_at", { ascending: false })
       .limit(1);
 
     if (activeError) {
@@ -311,7 +312,7 @@ export async function fetchUserMembership(
       return activeData[0] as Membership;
     }
 
-    const statusPriority: Membership["status"][] = ["pending", "expired"];
+    const statusPriority: Membership["status"][] = ["pending", "expired", "frozen", "freeze-requested"];
 
     for (const status of statusPriority) {
       const { data, error } = await supabase
@@ -678,6 +679,113 @@ export async function unfreezeMembership(
         frozen_at: null,
         freeze_expires_at: null,
       })
+      .eq("user_id", userId)
+      .eq("status", "frozen")
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Approve unfreeze - Admin approves a member's unfreeze request
+ * This transitions from `unfreeze-requested` -> `active` and adjusts renewal_date
+ */
+export async function approveUnfreezeRequest(
+  userId: string
+): Promise<MembershipResponse> {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
+
+  try {
+    const { data: membership, error: fetchError } = await supabase
+      .from("memberships")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "unfreeze-requested")
+      .single();
+
+    if (fetchError || !membership) {
+      return { success: false, error: "No unfreeze-requested membership found" };
+    }
+
+    const now = new Date();
+    const frozenAt = new Date(membership.frozen_at);
+    const frozenDays = Math.ceil((now.getTime() - frozenAt.getTime()) / (1000 * 60 * 60 * 24));
+    const newRenewalDate = new Date(new Date(membership.renewal_date).getTime() + frozenDays * 24 * 60 * 60 * 1000);
+
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({
+        status: "active",
+        renewal_date: newRenewalDate.toISOString(),
+        frozen_at: null,
+        freeze_expires_at: null,
+      })
+      .eq("user_id", userId)
+      .eq("status", "unfreeze-requested")
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Reject unfreeze - Admin rejects an unfreeze request and keeps the member frozen
+ */
+export async function rejectUnfreezeRequest(
+  userId: string
+): Promise<MembershipResponse> {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
+
+  try {
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({ status: "frozen" })
+      .eq("user_id", userId)
+      .eq("status", "unfreeze-requested")
+      .select()
+      .single();
+
+    if (error) return { success: false, error: error.message };
+    if (!data) return { success: false, error: "No unfreeze-requested membership found" };
+    return { success: true, data };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
+  }
+}
+
+/**
+ * Request unfreeze - Member requests admin to unfreeze their membership
+ * @param userId
+ */
+export async function requestUnfreezeMembership(
+  userId: string
+): Promise<MembershipResponse> {
+  if (!supabase) return { success: false, error: "Supabase client not initialized" };
+
+  try {
+    const { data: membership, error: fetchError } = await supabase
+      .from("memberships")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "frozen")
+      .single();
+
+    if (fetchError || !membership) {
+      return { success: false, error: "No frozen membership found" };
+    }
+
+    const { data, error } = await supabase
+      .from("memberships")
+      .update({ status: "unfreeze-requested" })
       .eq("user_id", userId)
       .eq("status", "frozen")
       .select()

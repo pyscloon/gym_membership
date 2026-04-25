@@ -7,7 +7,8 @@ import QRScanner from "../components/QRScanner";
 import AdminPaymentPanel from "../components/AdminPaymentPanel";
 import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
-import FrozenMembersPanel from "../components/FrozenMembersPanel";
+import FrozenMembersRequests from "../components/FrozenMembersRequests";
+import FrozenMembersList from "../components/FrozenMembersList";
 import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
 import TransactionHistory from "../components/TransactionHistory";
@@ -424,7 +425,16 @@ export default function AdminDashboard() {
     }
 
     if (activeSection === "frozenMembers") {
-      return <div className="mt-4"><FrozenMembersPanel /></div>;
+      return (
+        <div className="mt-4 grid gap-6 lg:grid-cols-2">
+          <div>
+            <FrozenMembersRequests />
+          </div>
+          <div>
+            <FrozenMembersList />
+          </div>
+        </div>
+      );
     }
 
     return null;

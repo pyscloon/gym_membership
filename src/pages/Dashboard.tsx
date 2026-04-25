@@ -12,7 +12,7 @@ import { calculateMembershipStats, type Membership } from "../types/membership";
 const THEME = {
   background: {
     base_layer: {
-      color: "#EDEDED", // flexWhite
+      color: "#EDEDED",
       grid_size: "28px 28px",
       grid_color: "rgba(0, 102, 204, 0.05)",
     },
@@ -20,22 +20,22 @@ const THEME = {
       {
         type: "radial-gradient",
         position: "50% 0%",
-        color: "rgba(0, 0, 51, 0.15)", // flexBlack
+        color: "rgba(0, 0, 51, 0.15)",
         spread: "50%",
       },
       {
         type: "radial-gradient",
         position: "0% 0%",
-        color: "rgba(0, 153, 255, 0.12)", // flexBlue
+        color: "rgba(0, 153, 255, 0.12)",
         spread: "40%",
       },
       {
         type: "linear-gradient",
         direction: "180deg",
         colors: [
-          "#000033 0%",     // flexBlack
-          "#0066CC 40%",    // flexNavy
-          "rgba(237, 237, 237, 0) 100%", // flexWhite transparent
+          "#000033 0%",
+          "#0066CC 40%",
+          "rgba(237, 237, 237, 0) 100%",
         ],
         height: "350px",
       },
@@ -116,26 +116,34 @@ export default function Dashboard() {
       const [m, w, c] = await Promise.all([
         fetchUserMembership(user.id),
         supabase.from("walk_ins").select("walk_in_time, walk_in_type").eq("user_id", user.id).order("walk_in_time", { ascending: false }).limit(2000),
-        fetchBackendCrowdPanelData({ days: 7 }).catch(() => null)
+        fetchBackendCrowdPanelData({ days: 7 }).catch(() => null),
       ]);
       setMembership(m);
       setWalkIns((w.data as WalkInRow[]) ?? []);
       setCrowdActiveUsers(c?.stats.activeUsers ?? 0);
-    } finally { setIsLoading(false); }
+    } finally {
+      setIsLoading(false);
+    }
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
-  useEffect(() => { if (user) { const g = readGoal(user.id); setWeeklyGoal(g); setGoalInputValue(String(g)); } }, [user]);
+  useEffect(() => {
+    if (user) {
+      const g = readGoal(user.id);
+      setWeeklyGoal(g);
+      setGoalInputValue(String(g));
+    }
+  }, [user]);
 
   const now = new Date();
   const currentWeekOfMonth = getWeekOfMonth(now);
   const weekLabel = `${ordinal(currentWeekOfMonth).toUpperCase()}-WEEK`;
 
-  const checkInDates = useMemo(() => 
+  const checkInDates = useMemo(() =>
     walkIns.filter(r => isCheckIn(r.walk_in_type))
            .map(r => new Date(r.walk_in_time))
            .filter(d => !isNaN(d.getTime())), [walkIns]);
-  
+
   const checkInDaySet = useMemo(() => new Set(checkInDates.map(d => dateKey(d))), [checkInDates]);
   const currentWeekStart = useMemo(() => startOfWeek(now), []);
   const streakDays = useMemo(() => computeStreak(checkInDaySet, now), [checkInDaySet, now]);
@@ -179,13 +187,16 @@ export default function Dashboard() {
     backgroundImage: `
       ${layer0.type}(circle at ${layer0.position}, ${layer0.color}, transparent ${layer0.spread}),
       ${layer1.type}(circle at ${layer1.position}, ${layer1.color}, transparent ${layer1.spread}),
-      linear-gradient(${layer2.direction}, ${layer2.colors.join(', ')}),
+      linear-gradient(${layer2.direction}, ${layer2.colors.join(", ")}),
       linear-gradient(${THEME.background.base_layer.grid_color} 1px, transparent 1px),
       linear-gradient(90deg, ${THEME.background.base_layer.grid_color} 1px, transparent 1px)
     `,
     backgroundSize: `100% 100%, 100% 100%, 100% ${layer2.height}, ${THEME.background.base_layer.grid_size}, ${THEME.background.base_layer.grid_size}`,
     backgroundRepeat: "no-repeat, no-repeat, no-repeat, repeat, repeat",
   };
+
+  const isEligibleForFreeze =
+    membership?.tier === "yearly" || membership?.tier === "semi-yearly";
 
   return (
     <div className="relative min-h-screen overflow-x-hidden" style={dynamicBg}>
@@ -200,8 +211,8 @@ export default function Dashboard() {
         <AppTopBar />
 
         <main className="mx-auto w-full max-w-2xl px-4 pb-36 pt-24">
-          
-          {/* SECTION 1 · SESSIONS & CROWD (GLASS MORPHISM FIX) */}
+
+          {/* SECTION 1 · SESSIONS & CROWD */}
           <div className="grid grid-cols-12 gap-4 animate-fade-up rounded-2xl border border-[#0066CC]/45 p-3 sm:p-4">
             <section className="col-span-10">
               <div className="mb-3 flex items-center justify-between px-1">
@@ -226,9 +237,9 @@ export default function Dashboard() {
             <section className="col-span-2 flex flex-col items-center">
               <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-white/60 text-center">Crowd</p>
               <div className="relative h-20 w-4 bg-[#000033]/50 rounded-full overflow-hidden ring-1 ring-white/15 backdrop-blur-md shadow-inner">
-                <div 
-                   className="absolute bottom-0 left-0 right-0 w-full bg-gradient-to-t from-[#001a66] via-[#0047b3] to-[#0077e6] transition-all duration-1000 shadow-[0_0_10px_rgba(0,102,204,0.5)]"
-                   style={{ height: `${isLoading ? 0 : crowdPercent}%` }}
+                <div
+                  className="absolute bottom-0 left-0 right-0 w-full bg-gradient-to-t from-[#001a66] via-[#0047b3] to-[#0077e6] transition-all duration-1000 shadow-[0_0_10px_rgba(0,102,204,0.5)]"
+                  style={{ height: `${isLoading ? 0 : crowdPercent}%` }}
                 />
               </div>
               <p className="mt-2 text-[11px] font-black text-[#005fcc]">{isLoading ? "—" : `${crowdPercent}%`}</p>
@@ -238,7 +249,7 @@ export default function Dashboard() {
           {/* SECTION 2 · WEEKLY ACTIVITY */}
           <section className="animate-fade-up mt-12 rounded-2xl border border-[#0066CC]/45 bg-white/25 p-4 sm:p-5">
             <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#000033] mb-5 px-1">This Week</p>
-            
+
             <div className="grid grid-cols-7 gap-2">
               {weeklyDays.map((day, i) => {
                 const isComplete = day.status === "complete";
@@ -247,8 +258,8 @@ export default function Dashboard() {
                   <div key={i} className="flex flex-col items-center gap-2">
                     <p className="text-[9px] font-black text-[#000033]/30 uppercase tracking-widest">{day.label}</p>
                     <div className={`h-10 w-10 rounded-full flex items-center justify-center transition-all duration-500 ${
-                      isComplete 
-                        ? (hasStreak ? "bg-[#0066CC] shadow-lg shadow-blue-900/10" : "bg-[#0099FF]") 
+                      isComplete
+                        ? (hasStreak ? "bg-[#0066CC] shadow-lg shadow-blue-900/10" : "bg-[#0099FF]")
                         : (day.status === "today" ? "border-2 border-[#0066CC] bg-white" : "bg-white/60 border border-gray-200")
                     }`}>
                       {isComplete && <span className="text-white text-xs">✓</span>}
@@ -277,10 +288,22 @@ export default function Dashboard() {
               </div>
               {showGoalEditor && (
                 <div className="flex gap-2 mb-4">
-                  <input type="number" value={goalInputValue} onChange={(e) => setGoalInputValue(e.target.value)} className="w-16 rounded-lg border-none bg-white px-2 py-1 text-sm font-black shadow-sm" />
+                  <input
+                    type="number"
+                    value={goalInputValue}
+                    onChange={(e) => setGoalInputValue(e.target.value)}
+                    className="w-16 rounded-lg border-none bg-white px-2 py-1 text-sm font-black shadow-sm"
+                  />
                   <button
                     type="button"
-                    onClick={() => { const g = parseInt(goalInputValue); if(user && !isNaN(g)) { setWeeklyGoal(g); writeGoal(user.id, g); setShowGoalEditor(false); }}}
+                    onClick={() => {
+                      const g = parseInt(goalInputValue);
+                      if (user && !isNaN(g)) {
+                        setWeeklyGoal(g);
+                        writeGoal(user.id, g);
+                        setShowGoalEditor(false);
+                      }
+                    }}
                     className="rounded-full bg-[#0066CC] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#0052a3] hover:shadow-md"
                   >
                     Save
@@ -288,12 +311,15 @@ export default function Dashboard() {
                 </div>
               )}
               <div className="h-2.5 w-full bg-white p-0.5 rounded-full ring-1 ring-black/5 shadow-inner">
-                <div className="h-full bg-gradient-to-r from-[#0099FF] to-[#0066CC] rounded-full transition-all duration-1000" style={{ width: `${Math.min(100, (weekSessions / weeklyGoal) * 100)}%` }} />
+                <div
+                  className="h-full bg-gradient-to-r from-[#0099FF] to-[#0066CC] rounded-full transition-all duration-1000"
+                  style={{ width: `${Math.min(100, (weekSessions / weeklyGoal) * 100)}%` }}
+                />
               </div>
             </div>
           </section>
 
-          {/* SECTION 3 · EXPIRY CIRCLE */}
+          {/* SECTION 3 · EXPIRY */}
           <section className="animate-fade-up mt-14 px-1">
             <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
               <p className="text-[12px] font-black uppercase tracking-[0.2em] text-[#000033]">Membership Expiry</p>
@@ -309,40 +335,64 @@ export default function Dashboard() {
                   type="button"
                   onClick={() => {
                     setMembershipActionTick((prev) => prev + 1);
-                    const membershipSection = document.getElementById("membership-dashboard");
-                    membershipSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    document.getElementById("membership-dashboard")?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }}
                   className="rounded-full border border-[#000033]/10 bg-[#000033] px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#001a66] hover:shadow-md"
                 >
                   Change Membership
                 </button>
-                {membership &&
-                  membership.status === "active" &&
-                  (membership.tier === "yearly" || membership.tier === "semi-yearly") && (
+
+                {/* ── Freeze / Unfreeze / Pending buttons ── */}
+                {isEligibleForFreeze && membership?.status === "active" && (
                   <button
                     type="button"
                     onClick={() => {
                       setFreezeTick((prev) => prev + 1);
-                      const membershipSection = document.getElementById("membership-dashboard");
-                      membershipSection?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      document.getElementById("membership-dashboard")?.scrollIntoView({ behavior: "smooth", block: "start" });
                     }}
                     className="rounded-full border border-[#0066CC]/25 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#0066CC] shadow-sm transition hover:-translate-y-0.5 hover:border-[#0066CC]/45 hover:shadow-md"
                   >
-                    Request Freeze 
+                    Request Freeze
+                  </button>
+                )}
+
+                {membership?.status === "freeze_pending" && (
+                  <button
+                    type="button"
+                    disabled
+                    className="rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-amber-600 shadow-sm cursor-not-allowed opacity-80"
+                  >
+                    Freeze Pending…
+                  </button>
+                )}
+
+                {isEligibleForFreeze && membership?.status === "frozen" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFreezeTick((prev) => prev + 1);
+                      document.getElementById("membership-dashboard")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    className="rounded-full border border-[#0066CC]/25 bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-[#0066CC] shadow-sm transition hover:-translate-y-0.5 hover:border-[#0066CC]/45 hover:shadow-md"
+                  >
+                    Request Unfreeze
                   </button>
                 )}
               </div>
             </div>
-            
+
             <div className="relative py-4">
               <div className="h-1.5 w-full bg-gray-200/50 rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-[#0099FF] to-[#0066CC] animate-dash-in" style={{ width: `${Math.min(100, ((membershipStats?.daysUntilRenewal ?? 0) / 30) * 100)}%` }} />
+                <div
+                  className="h-full bg-gradient-to-r from-[#0099FF] to-[#0066CC] animate-dash-in"
+                  style={{ width: `${Math.min(100, ((membershipStats?.daysUntilRenewal ?? 0) / 30) * 100)}%` }}
+                />
               </div>
-              <div 
-                className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-700" 
+              <div
+                className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-700"
                 style={{ left: `${Math.min(90, Math.max(10, ((membershipStats?.daysUntilRenewal ?? 0) / 30) * 100))}%` }}
               >
-                <div className={`flex flex-col items-center justify-center rounded-full border-[3px] ${membershipStats?.daysUntilRenewal && membershipStats.daysUntilRenewal <= 7 ? 'border-amber-400' : 'border-[#0066CC]'} bg-white shadow-xl aspect-square w-16`}>
+                <div className={`flex flex-col items-center justify-center rounded-full border-[3px] ${membershipStats?.daysUntilRenewal && membershipStats.daysUntilRenewal <= 7 ? "border-amber-400" : "border-[#0066CC]"} bg-white shadow-xl aspect-square w-16`}>
                   <p className="text-xl font-black text-[#000033] leading-none">{isLoading ? "—" : (membershipStats?.daysUntilRenewal ?? 0)}</p>
                   <p className="text-[7px] font-black uppercase text-[#000033]/50 tracking-tighter">days left</p>
                 </div>

@@ -10,6 +10,7 @@ import {
   fetchUserMembership,
   reactivateMembership,
   requestFreezeMembership,
+  requestUnfreezeMembership,
 } from '../../../lib/membershipService';
 import {
   type Membership,
@@ -439,16 +440,29 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
     if (!user) return;
     setShowFreezeModal(false);
     setActionLoading(true);
-    const result = await requestFreezeMembership(user.id);
-    if (result.success && result.data) {
-      addToast("Freeze requested!", "success");
-      setMembership(result.data);
-      setMembershipStateContext(new MembershipStateContext(result.data));
-      setStateUpdateTrigger(p => p + 1);
-    } else {
-      addToast(result.error || "Failed to freeze", "error");
+    let result;
+    try {
+      console.debug("MembershipContext.handleRequestFreeze: user", user.id, "currentStatus", membership?.status);
+      if (membership?.status === "frozen") {
+        // Request an unfreeze instead
+        // requestUnfreezeMembership sets status -> unfreeze-requested
+        // (implemented in membershipService)
+        result = await requestUnfreezeMembership(user.id);
+      } else {
+        result = await requestFreezeMembership(user.id);
+      }
+
+      if (result.success && result.data) {
+        addToast(membership?.status === "frozen" ? "Unfreeze requested!" : "Freeze requested!", "success");
+        setMembership(result.data);
+        setMembershipStateContext(new MembershipStateContext(result.data));
+        setStateUpdateTrigger(p => p + 1);
+      } else {
+        addToast(result.error || "Failed to request", "error");
+      }
+    } finally {
+      setActionLoading(false);
     }
-    setActionLoading(false);
   };
 
   const handleWalkInApply = useCallback(() => {
