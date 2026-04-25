@@ -86,10 +86,6 @@ export default function FrozenMembersRequests() {
     };
   }, []);
 
-  const handleRefresh = async () => {
-    setLoading(true);
-    await fetchRequests();
-  };
 
   const handleApprove = async (userId: string, status: string) => {
     setActionLoading(userId + "-approve");
@@ -127,25 +123,18 @@ export default function FrozenMembersRequests() {
     );
   }
 
-  if (requests.length === 0) {
+    if (requests.length === 0) {
     return (
-      <div>
         <div className="flex items-center justify-between mb-2">
-          <p className="text-sm text-gray-500">No pending freeze requests.</p>
-          <div className="flex items-center gap-3">
-            {lastUpdated && (
-              <p className="text-xs text-gray-400">
-                Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </p>
-            )}
-            <button onClick={handleRefresh} className="text-xs text-[#0066CC] underline">
-              Refresh
-            </button>
-          </div>
+        <p className="text-sm text-gray-500">No pending freeze requests.</p>
+        {lastUpdated && (
+            <p className="text-xs text-gray-400">
+            Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </p>
+        )}
         </div>
-      </div>
     );
-  }
+    }
 
   return (
     <div>
@@ -155,21 +144,16 @@ export default function FrozenMembersRequests() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-bold uppercase tracking-wider text-[#003B8F]">
-          Pending Freeze Requests ({requests.length})
+            Pending Freeze Requests ({requests.length})
         </p>
-        <div className="flex items-center gap-3">
-          {lastUpdated && (
+        {lastUpdated && (
             <p className="text-xs text-gray-400">
-              Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
-          )}
-          <button onClick={handleRefresh} className="text-xs text-[#0066CC] underline">
-            Refresh
-          </button>
+        )}
         </div>
-      </div>
 
       <div className="space-y-3">
         {requests.map((member: any) => (
