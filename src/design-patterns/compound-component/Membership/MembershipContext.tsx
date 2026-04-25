@@ -212,6 +212,8 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
   const [, setStateUpdateTrigger] = useState(0);
 
   const lastInteractionRef = useRef(0);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const MEMBERSHIP_POLL_INTERVAL_MS = 2000;
 
   // Check Admin
   useEffect(() => {
@@ -258,31 +260,56 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
     }
   }, [user]);
 
-  useEffect(() => { loadMembership(); }, [loadMembership]);
+    useEffect(() => { loadMembership(); }, [loadMembership]);useEffect(() => {
+      void loadMembership();
 
-  useEffect(() => {
-    if (!showCheckInConfirmation) return;
-    const t = setTimeout(() => setShowCheckInConfirmation(false), 5000);
-    return () => clearTimeout(t);
-  }, [showCheckInConfirmation]);
+      pollIntervalRef.current = setInterval(() => {
+        void loadMembership();
+      }, MEMBERSHIP_POLL_INTERVAL_MS);
 
-  useEffect(() => {
-    if (changeMembershipTick && changeMembershipTick > 0) setShowChangeMembershipModal(true);
-  }, [changeMembershipTick]);
+      return () => {
+        if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      };
+    }, [loadMembership]);
 
-  useEffect(() => {
-    if (freezeTick && freezeTick > 0) setShowFreezeModal(true);
-  }, [freezeTick]);
+    useEffect(() => {
+      if (!showCheckInConfirmation) return;
+      const t = setTimeout(() => setShowCheckInConfirmation(false), 5000);
+      return () => clearTimeout(t);
+    }, [showCheckInConfirmation]);
 
-  const qrValue = useMemo(() => JSON.stringify({
-    id: user?.id,
-    type: qrActionType,
-    tier: membership?.tier,
-    timestamp: qrTimestamp,
-  }), [membership?.tier, qrActionType, qrTimestamp, user?.id]);
+    useEffect(() => {
+      if (changeMembershipTick && changeMembershipTick > 0) setShowChangeMembershipModal(true);
+    }, [changeMembershipTick]);
+
+    useEffect(() => {
+      if (freezeTick && freezeTick > 0) setShowFreezeModal(true);
+    }, [freezeTick]);
+
+    const qrValue = useMemo(() => JSON.stringify({
+      id: user?.id,
+      type: qrActionType,
+      tier: membership?.tier,
+      timestamp: qrTimestamp,
+    }), [membership?.tier, qrActionType, qrTimestamp, user?.id]);
 
   const handleGenerateCheckIn = (skipGuard = false) => {
     if (!skipGuard && !canHandleUserInteraction()) return;
+
+    // Block frozen and pending accounts
+    if (membership?.status === "frozen") {
+      addToast("Your membership is frozen. You cannot check in.", "error");
+      return;
+    }
+    if (membership?.status === "freeze-requested") {
+      addToast("Your freeze request is pending. You cannot check in.", "error");
+      return;
+    }
+    if (membership?.status === "unfreeze-requested") {
+      addToast("Your unfreeze request is pending admin approval.", "error");
+      return;
+    }
+
     if (location.pathname === "/dashboard" && isSubscribedUser) {
       if (attendanceSessionContext?.canPerformAction("checkIn")) setStateUpdateTrigger(p => p + 1);
       setQrActionType("checkin");
@@ -305,6 +332,12 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
 
   const handleGenerateCheckOut = (skipGuard = false) => {
     if (!skipGuard && !canHandleUserInteraction()) return;
+    // block frozen accounts
+    if (membership?.status === "frozen") {
+      addToast("Your membership is frozen. You cannot check out.", "error");
+      return;
+    }
+
     if (attendanceSessionContext?.canPerformAction("checkOut")) {
       setQrActionType("checkout");
       setQrTimestamp(new Date().toISOString());
@@ -444,9 +477,7 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
     try {
       console.debug("MembershipContext.handleRequestFreeze: user", user.id, "currentStatus", membership?.status);
       if (membership?.status === "frozen") {
-        // Request an unfreeze instead
-        // requestUnfreezeMembership sets status -> unfreeze-requested
-        // (implemented in membershipService)
+
         result = await requestUnfreezeMembership(user.id);
       } else {
         result = await requestFreezeMembership(user.id);
