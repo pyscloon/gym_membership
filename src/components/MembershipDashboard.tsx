@@ -144,6 +144,8 @@ function MembershipFAB() {
     <button
       type="button"
       onClick={handleOpenSessionScanFromFab}
+      aria-label={isCheckedIn ? "Open check-out QR" : "Open check-in QR"}
+      data-testid="member-session-fab"
       className={`fixed z-[80] inline-flex h-16 w-16 items-center justify-center rounded-full text-white bottom-6 right-6 shadow-2xl transition-all hover:scale-110 active:scale-95 ${
         isCheckedIn 
           ? "bg-gradient-to-br from-red-500 to-red-700 ring-4 ring-red-500/20" 
