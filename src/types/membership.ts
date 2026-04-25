@@ -2,7 +2,7 @@
  * Membership Types - Comprehensive type definitions for the gym membership system
  */
 
-export type MembershipStatus = "active" | "pending" | "canceled" | "expired" |"frozen"  | "freeze-requested";
+export type MembershipStatus = "active" | "pending" | "canceled" | "expired" |"frozen"  | "freeze-requested"| "freeze_pending" | "unfreeze-requested";
 
 export type MembershipTier = "monthly" | "semi-yearly" | "yearly" | "walk-in";
 
@@ -18,6 +18,7 @@ export interface Membership {
   updated_at: string;
   frozen_at?: string;
   freeze_expires_at?: string;
+  
 
 }
 
