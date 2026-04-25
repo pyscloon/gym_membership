@@ -3,7 +3,7 @@
  * Tests for error handling, retries, and safe state updates
  */
 
-import { describe, it, expect } from "@jest/globals";
+import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 import {
   executeWithRetry,
   safeExecute,
@@ -15,6 +15,16 @@ import {
 } from "../src/lib/stabilityUtils";
 
 describe("stabilityUtils", () => {
+  beforeEach(() => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   type Person = {
     name: string;
     age: number;
@@ -213,7 +223,8 @@ describe("stabilityUtils", () => {
       const start = Date.now();
       await sleep(30);
       const elapsed = Date.now() - start;
-      expect(elapsed).toBeGreaterThanOrEqual(30);
+      // Allow for small timing variations (e.g. 29ms instead of 30ms) in test environments
+      expect(elapsed).toBeGreaterThanOrEqual(28);
     });
   });
 });

@@ -120,7 +120,11 @@ export const MembershipAccess: React.FC = () => {
       </div>
 
       {showQR ? (
-        <div className="flex flex-col items-center gap-4 my-4 p-5 rounded-2xl bg-white border border-flexNavy/10 shadow-sm">
+        <div
+          className="flex flex-col items-center gap-4 my-4 p-5 rounded-2xl bg-white border border-flexNavy/10 shadow-sm"
+          data-testid="member-access-qr"
+          data-qr-value={qrValue}
+        >
           <p className="text-xs font-bold tracking-widest text-flexNavy uppercase">
             {qrActionType === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}
           </p>
@@ -278,10 +282,14 @@ export const MembershipSessionScanModal: React.FC = () => {
         <button onClick={handleCloseSessionScanModal} className="absolute right-4 top-4 rounded-full border border-[#b7c9e5] bg-white px-3 py-1 text-xs font-semibold text-[#1b5fb3]">Close</button>
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-5">
           <p className="text-xl font-black tracking-[0.2em] text-[#1b5fb3] uppercase">{sessionScanMode === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}</p>
-          <div className="rounded-3xl border border-[#c7d9ef] bg-[#f6f8fc] p-6 shadow-sm">
+          <div
+            className="rounded-3xl border border-[#c7d9ef] bg-[#f6f8fc] p-6 shadow-sm"
+            data-testid="member-session-qr"
+            data-qr-value={qrValue}
+          >
             {showQR ? <QRCodeSVG value={qrValue} size={360} bgColor="#ffffff" fgColor="#111244" level="H" /> : <div className="flex h-[360px] w-[360px] items-center justify-center text-[#6b90c0]">Generating...</div>}
           </div>
-          <button onClick={() => { handleCloseQR(); handleCloseSessionScanModal(); }} className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-4 text-xl font-semibold text-white shadow-lg">Admin Confirmed Scan</button>
+          <button onClick={() => { handleCloseQR(); handleCloseSessionScanModal(true); }} className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-4 text-xl font-semibold text-white shadow-lg">Admin Confirmed Scan</button>
         </div>
       </div>
     </div>

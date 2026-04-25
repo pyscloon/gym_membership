@@ -7,7 +7,7 @@
 export {
   executeWithRetry,
   safeExecute,
-  safeSteateUpdate,
+  safeStateUpdate,
   withTimeout,
   debounce,
   throttle,

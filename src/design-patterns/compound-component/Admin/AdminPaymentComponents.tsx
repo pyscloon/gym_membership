@@ -62,6 +62,7 @@ export const AdminPaymentCard: React.FC<{ payment: PendingPayment }> = ({ paymen
   const membershipDetails = membershipByUserId[payment.userId] ?? null;
   const displayPlan = payment.userType === "walk-in" ? "Walk-In" : membershipDetails?.tier || payment.userType;
   const normalizedPlan = displayPlan.toLowerCase();
+  const memberName = userNameById[payment.userId] || payment.userId;
 
   const gradientByPlan = 
     normalizedPlan === "walk-in" ? "linear-gradient(135deg, #1d4ed8 0%, #001a4d 100%)" :
@@ -75,11 +76,16 @@ export const AdminPaymentCard: React.FC<{ payment: PendingPayment }> = ({ paymen
     normalizedPlan === "semi-yearly" ? "FLX-003" : "FLX-004";
 
   return (
-    <div className="w-full rounded-2xl border border-[#0066CC]/20 bg-white/80 p-3 shadow-[0_6px_18px_rgba(0,51,102,0.08)] backdrop-blur-sm transition hover:border-[#0066CC]/35 sm:p-4">
+    <div
+      className="w-full rounded-2xl border border-[#0066CC]/20 bg-white/80 p-3 shadow-[0_6px_18px_rgba(0,51,102,0.08)] backdrop-blur-sm transition hover:border-[#0066CC]/35 sm:p-4"
+      data-testid="admin-payment-card"
+      data-member-name={memberName}
+      data-transaction-id={payment.transactionId}
+    >
       <div className="mb-3 flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="text-sm text-[#00264D]/75">
-            User: <span className="font-semibold text-[#003D7A]">{userNameById[payment.userId] || payment.userId}</span>
+            User: <span className="font-semibold text-[#003D7A]">{memberName}</span>
           </p>
           <p className="text-xs text-[#003D7A]/60">Requested: {new Date(payment.requestedAt).toLocaleString()}</p>
         </div>

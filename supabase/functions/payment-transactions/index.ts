@@ -267,7 +267,8 @@ Deno.serve(async (req: Request) => {
 
       const proofUrl =
         method === "online"
-          await uploadEvidence(user.id, "payment-proof", String(body.proofOfPayment ?? ""));
+          ? await uploadEvidence(user.id, "payment-proof", String(body.proofOfPayment ?? ""))
+          : null;
       const discountUrl = await uploadEvidence(user.id, "discount-id", String(body.discountIdProof ?? ""));
 
       const initialStatus = method === "online" ? "awaiting-verification" : "awaiting-confirmation";

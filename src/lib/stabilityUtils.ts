@@ -81,7 +81,7 @@ export function safeExecute<T>(
  * @param value - Value to set
  * @param context - Context for logging
  */
-export function safeSteateUpdate<T>(
+export function safeStateUpdate<T>(
   isMounted: boolean,
   setState: (value: T) => void,
   value: T,

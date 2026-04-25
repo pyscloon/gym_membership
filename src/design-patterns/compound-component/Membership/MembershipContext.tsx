@@ -139,7 +139,7 @@ interface MembershipContextProps {
   handleGenerateCheckOut: (skipGuard?: boolean) => void;
   handleCloseQR: () => void;
   handleOpenSessionScanFromFab: () => void;
-  handleCloseSessionScanModal: () => void;
+  handleCloseSessionScanModal: (skipGuard?: boolean) => void;
   handleSelectMembershipTier: (tier: MembershipTier) => void;
   handleConfirmMembershipChange: () => Promise<void>;
   handleCloseChangeMembership: () => void;
@@ -327,7 +327,9 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
         setStateUpdateTrigger(p => p + 1);
         addToast("Checked out successfully!", "success");
       } else {
-        attendanceSessionContext?.checkIn();
+        const nextSessionContext = new AttendanceSessionContext("regular");
+        nextSessionContext.checkIn();
+        setAttendanceSessionContext(nextSessionContext);
         setSessionStage("checked-in");
         setQrActionType("checkout");
         setStateUpdateTrigger(p => p + 1);
@@ -360,8 +362,8 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
     setShowSessionScanModal(true);
   };
 
-  const handleCloseSessionScanModal = () => {
-    if (canHandleUserInteraction()) setShowSessionScanModal(false);
+  const handleCloseSessionScanModal = (skipGuard = false) => {
+    if (skipGuard || canHandleUserInteraction()) setShowSessionScanModal(false);
   };
 
   const handleSelectMembershipTier = (tier: MembershipTier) => setPendingMembershipTier(tier);
