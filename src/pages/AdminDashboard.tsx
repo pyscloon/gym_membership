@@ -12,7 +12,7 @@ import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
 import TransactionHistory from "../components/TransactionHistory";
 import { ErrorBoundary } from "../components/ErrorBoundary";
-import { safeSteateUpdate, executeWithRetry, DEFAULT_RETRY_CONFIG } from "../lib/stabilityUtils";
+import { safeStateUpdate, executeWithRetry, DEFAULT_RETRY_CONFIG } from "../lib/stabilityUtils";
 import AppTopBar from "../components/ui/AppTopBar";
 import AdminActionGrid, { type AdminActionKey } from "../components/ui/AdminActionGrid";
 
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
       }
 
       if (isMountedRef.current) {
-        safeSteateUpdate(isMountedRef.current, setTodayCheckInCount, count ?? 0, "fetchTodayWalkInCount");
+        safeStateUpdate(isMountedRef.current, setTodayCheckInCount, count ?? 0, "fetchTodayWalkInCount");
       }
     } catch (err) {
       console.error("fetchTodayWalkInCount error:", err);
@@ -229,7 +229,7 @@ export default function AdminDashboard() {
       }));
 
       if (isMountedRef.current) {
-        safeSteateUpdate(
+        safeStateUpdate(
           isMountedRef.current,
           setRecentTransactions,
           normalizedRows,
@@ -246,8 +246,8 @@ export default function AdminDashboard() {
 
     const loadDashboardData = async () => {
       try {
-        safeSteateUpdate(isMountedRef.current, setIsLoadingMembers, true, "AdminDashboard");
-        safeSteateUpdate(isMountedRef.current, setDashboardError, null, "AdminDashboard");
+        safeStateUpdate(isMountedRef.current, setIsLoadingMembers, true, "AdminDashboard");
+        safeStateUpdate(isMountedRef.current, setDashboardError, null, "AdminDashboard");
 
         const stats = await executeWithRetry(
           fetchDashboardStats,
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
         );
 
         if (!stats && isMountedRef.current) {
-          safeSteateUpdate(
+          safeStateUpdate(
             isMountedRef.current,
             setDashboardError,
             "Failed to load dashboard statistics. Please try again.",
@@ -267,9 +267,9 @@ export default function AdminDashboard() {
 
         if (isMountedRef.current && stats) {
           const { totalMembers: membersCount, activePlans: activePlansCount } = stats;
-          safeSteateUpdate(isMountedRef.current, setTotalMembers, membersCount, "AdminDashboard");
-          safeSteateUpdate(isMountedRef.current, setActivePlans, activePlansCount, "AdminDashboard");
-          safeSteateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
+          safeStateUpdate(isMountedRef.current, setTotalMembers, membersCount, "AdminDashboard");
+          safeStateUpdate(isMountedRef.current, setActivePlans, activePlansCount, "AdminDashboard");
+          safeStateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
         }
 
         await Promise.all([fetchTodayWalkInCount(), fetchRecentTransactions()]);
@@ -277,13 +277,13 @@ export default function AdminDashboard() {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         console.error("Dashboard load error:", errorMsg);
         if (isMountedRef.current) {
-          safeSteateUpdate(
+          safeStateUpdate(
             isMountedRef.current,
             setDashboardError,
             errorMsg,
             "AdminDashboard"
           );
-          safeSteateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
+          safeStateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
         }
       }
     };
@@ -471,7 +471,7 @@ export default function AdminDashboard() {
       if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
-        safeSteateUpdate(
+        safeStateUpdate(
           isMountedRef.current,
           setPaymentStateContexts,
           newContexts,
@@ -480,7 +480,7 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error("Failed to confirm payment:", err);
-      safeSteateUpdate(
+      safeStateUpdate(
         isMountedRef.current,
         setDashboardError,
         `Payment confirmation failed: ${err instanceof Error ? err.message : "Unknown error"}`,
@@ -510,7 +510,7 @@ export default function AdminDashboard() {
       if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
-        safeSteateUpdate(
+        safeStateUpdate(
           isMountedRef.current,
           setPaymentStateContexts,
           newContexts,
@@ -519,7 +519,7 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error("Failed to decline payment:", error);
-      safeSteateUpdate(
+      safeStateUpdate(
         isMountedRef.current,
         setDashboardError,
         `Payment decline failed: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -550,7 +550,7 @@ export default function AdminDashboard() {
       if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
-        safeSteateUpdate(
+        safeStateUpdate(
           isMountedRef.current,
           setPaymentStateContexts,
           newContexts,
@@ -559,7 +559,7 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error("Failed to verify online payment:", error);
-      safeSteateUpdate(
+      safeStateUpdate(
         isMountedRef.current,
         setDashboardError,
         `Payment verification failed: ${error instanceof Error ? error.message : "Unknown error"}`,
@@ -590,7 +590,7 @@ export default function AdminDashboard() {
       if (isMountedRef.current) {
         const newContexts = new Map(paymentStateContexts);
         newContexts.set(transactionId, stateContext);
-        safeSteateUpdate(
+        safeStateUpdate(
           isMountedRef.current,
           setPaymentStateContexts,
           newContexts,
@@ -599,7 +599,7 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error("Failed to reject online payment:", error);
-      safeSteateUpdate(
+      safeStateUpdate(
         isMountedRef.current,
         setDashboardError,
         `Payment rejection failed: ${error instanceof Error ? error.message : "Unknown error"}`,
