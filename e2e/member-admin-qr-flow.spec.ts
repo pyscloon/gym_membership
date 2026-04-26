@@ -3,13 +3,14 @@ import { test, expect, chromium, type Page } from "@playwright/test";
 const memberPassword = "StoneClub123!";
 const adminEmail = process.env.TEST_ADMIN_EMAIL ?? process.env.VITE_ADMIN_EMAIL ?? "admin@gmail.com";
 const adminPassword = process.env.TEST_ADMIN_PASSWORD ?? "";
+const memberEmailDomain = process.env.TEST_MEMBER_EMAIL_DOMAIN ?? "gmail.com";
 
 function makeMemberSeed() {
   const stamp = Date.now();
   return {
     firstName: `Rock${stamp}`,
     lastName: "Runner",
-    email: `rock.runner.${stamp}@example.com`,
+    email: `rock.runner.${stamp}@${memberEmailDomain}`,
   };
 }
 
@@ -111,8 +112,9 @@ test.describe("member to admin full cave flow", () => {
           "base64"
         ),
       });
+      await expect(memberPage.getByAltText(/proof preview/i)).toBeVisible();
       await memberPage.getByRole("button", { name: /pay /i }).click();
-      await expect(memberPage.getByText(/awaiting payment verification/i)).toBeVisible();
+      await expect(memberPage.getByRole("heading", { name: /awaiting payment verification/i })).toBeVisible();
 
       await loginAdmin(adminPage);
 

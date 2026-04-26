@@ -8,6 +8,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.resolve(__dirname, '.env'), quiet: true });
 dotenv.config({ path: path.resolve(__dirname, '.env.test'), override: true, quiet: true });
+process.env.PLAYWRIGHT_USE_TEST_SUPABASE = 'true';
 
 /**
  * Read environment variables from file.

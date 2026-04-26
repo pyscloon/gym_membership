@@ -4,7 +4,11 @@ import express from "express";
 import { fileURLToPath } from "url";
 import path from "path";
 
-dotenv.config();
+const envFile = process.env.NODE_ENV === "test" ? ".env.test" : ".env";
+
+dotenv.config({
+  path: envFile,
+});
 
 const app = express();
 const port = process.env.PORT || 4000;
