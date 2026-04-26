@@ -161,14 +161,14 @@ export default function FrozenMembersRequests() {
             key={member.id}
             className={`flex flex-col gap-3 rounded-xl p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
               member.status === "freeze-requested"
-                ? "border border-amber-200 bg-amber-50"
+                ? "border border-flexNavy/15 bg-flexWhite"
                 : "border border-blue-100 bg-white"
             }`}
           >
             <div>
               <p className="font-semibold text-gray-900">{member.user_name}</p>
               <p className="mt-0.5 text-xs capitalize text-gray-500">{member.tier} plan</p>
-              <p className={"mt-1 text-xs " + (member.status === "unfreeze-requested" ? "text-blue-600" : "text-amber-700")}>
+              <p className={"mt-1 text-xs " + (member.status === "unfreeze-requested" ? "text-blue-600" : "text-flexNavy")}>
                 {member.status === "unfreeze-requested"
                   ? "Requested unfreeze · Awaiting approval"
                   : "Requested freeze · Awaiting approval"}

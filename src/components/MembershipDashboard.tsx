@@ -65,13 +65,13 @@ function MembershipContent() {
         <div className={`rounded-2xl border p-12 shadow-sm ${
           isUnfreezeRequested
             ? "border-blue-200 bg-blue-50"
-            : "border-amber-200 bg-amber-50"
+            : "border-flexNavy/15 bg-flexWhite"
         }`}>
           <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            isUnfreezeRequested ? "bg-blue-100" : "bg-amber-100"
+            isUnfreezeRequested ? "bg-blue-100" : "bg-flexBlue/10"
           }`}>
             <svg
-              className={`w-8 h-8 ${isUnfreezeRequested ? "text-blue-500" : "text-amber-500"}`}
+              className={`w-8 h-8 ${isUnfreezeRequested ? "text-blue-500" : "text-flexBlue"}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -94,12 +94,12 @@ function MembershipContent() {
             </svg>
           </div>
           <h3 className={`text-2xl font-black ${
-            isUnfreezeRequested ? "text-blue-700" : "text-amber-700"
+            isUnfreezeRequested ? "text-blue-700" : "text-flexBlack"
           }`}>
             {isUnfreezeRequested ? "Unfreeze Request Submitted" : "Freeze Request Submitted"}
           </h3>
           <p className={`mt-2 text-sm max-w-xs mx-auto ${
-            isUnfreezeRequested ? "text-blue-600/80" : "text-amber-600/80"
+            isUnfreezeRequested ? "text-blue-600/80" : "text-flexNavy/80"
           }`}>
             {isUnfreezeRequested
               ? "Your unfreeze request is waiting for admin approval. You'll be notified once your membership is reactivated."
@@ -108,10 +108,10 @@ function MembershipContent() {
           <div className={`mt-6 inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-black uppercase tracking-widest ${
             isUnfreezeRequested
               ? "bg-blue-100 text-blue-600"
-              : "bg-amber-100 text-amber-600"
+              : "bg-flexBlue/10 text-flexNavy"
           }`}>
             <span className={`h-2 w-2 rounded-full animate-pulse ${
-              isUnfreezeRequested ? "bg-blue-400" : "bg-amber-400"
+              isUnfreezeRequested ? "bg-blue-400" : "bg-flexBlue"
             }`} />
             Pending Admin Confirmation
           </div>
