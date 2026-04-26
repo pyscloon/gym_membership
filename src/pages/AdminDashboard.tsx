@@ -29,11 +29,13 @@ type DashboardSection = Exclude<AdminActionKey, "scanQr"> | "frozenMembers";
 
 export default function AdminDashboard() {
   const isMountedRef = useRef(true);
+  const freezeCountIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const [showScanner, setShowScanner] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("pendingPayment");
   const [customerTier, setCustomerTier] = useState<MembershipTier>("monthly");
   const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
+  const [pendingFreezeCount, setPendingFreezeCount] = useState(0);
   const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
   const [dashboardError, setDashboardError] = useState<string | null>(null);
 
@@ -128,6 +130,7 @@ export default function AdminDashboard() {
       {
         key: "frozenMembers" as const,
         label: "Freeze",
+        badgeCount: pendingFreezeCount,
         icon: (
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0055A4] text-white shadow-md">
             <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -137,7 +140,7 @@ export default function AdminDashboard() {
         ),
       },
     ],
-    [pendingPaymentCount]
+    [pendingFreezeCount, pendingPaymentCount]
   );
 
   const customerTierOptions: MembershipTier[] = ["monthly", "semi-yearly", "yearly"];
@@ -179,6 +182,33 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error("fetchTodayWalkInCount error:", err);
+    }
+  };
+
+  const fetchPendingFreezeCount = async () => {
+    if (!supabase) return;
+
+    try {
+      const { count, error } = await supabase
+        .from("memberships")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["freeze-requested", "unfreeze-requested"]);
+
+      if (error) {
+        console.error("Error fetching pending freeze count:", error);
+        return;
+      }
+
+      if (isMountedRef.current) {
+        safeStateUpdate(
+          isMountedRef.current,
+          setPendingFreezeCount,
+          count ?? 0,
+          "fetchPendingFreezeCount"
+        );
+      }
+    } catch (err) {
+      console.error("fetchPendingFreezeCount error:", err);
     }
   };
 
@@ -273,7 +303,7 @@ export default function AdminDashboard() {
           safeStateUpdate(isMountedRef.current, setIsLoadingMembers, false, "AdminDashboard");
         }
 
-        await Promise.all([fetchTodayWalkInCount(), fetchRecentTransactions()]);
+        await Promise.all([fetchTodayWalkInCount(), fetchRecentTransactions(), fetchPendingFreezeCount()]);
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Unknown error";
         console.error("Dashboard load error:", errorMsg);
@@ -290,9 +320,14 @@ export default function AdminDashboard() {
     };
 
     loadDashboardData();
+    void fetchPendingFreezeCount();
+    freezeCountIntervalRef.current = setInterval(() => {
+      void fetchPendingFreezeCount();
+    }, 2000);
 
     return () => {
       isMountedRef.current = false;
+      if (freezeCountIntervalRef.current) clearInterval(freezeCountIntervalRef.current);
     };
   }, []);
 
@@ -428,7 +463,7 @@ export default function AdminDashboard() {
       return (
         <div className="mt-4 grid gap-6 lg:grid-cols-2">
           <div>
-            <FrozenMembersRequests />
+            <FrozenMembersRequests onPendingCountChange={setPendingFreezeCount} />
           </div>
           <div>
             <FrozenMembersList />

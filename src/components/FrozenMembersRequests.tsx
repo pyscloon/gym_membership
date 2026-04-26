@@ -11,7 +11,11 @@ interface RequestItem {
   status: string;
 }
 
-export default function FrozenMembersRequests() {
+interface FrozenMembersRequestsProps {
+  onPendingCountChange?: (count: number) => void;
+}
+
+export default function FrozenMembersRequests({ onPendingCountChange }: FrozenMembersRequestsProps) {
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -85,6 +89,10 @@ export default function FrozenMembersRequests() {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    onPendingCountChange?.(requests.length);
+  }, [onPendingCountChange, requests.length]);
 
 
   const handleApprove = async (userId: string, status: string) => {
