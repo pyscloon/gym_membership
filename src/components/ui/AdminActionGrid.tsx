@@ -5,6 +5,7 @@ export type AdminActionKey =
   | "pendingPayment"
   | "customers"
   | "crowdStatus"
+  | "todayActivity"
   | "recentTransactions"
   | "analytics"
   | "frozenMembers";
@@ -28,7 +29,7 @@ export default function AdminActionGrid({
   onActionClick,
 }: AdminActionGridProps) {
   return (
-    <section className="mt-10 grid grid-cols-3 gap-x-2 gap-y-10 sm:gap-x-6">
+    <section className="mt-10 grid grid-cols-2 gap-x-3 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-4 sm:gap-x-5 lg:gap-x-6">
       {actions.map((action) => {
         const isActive = action.key !== "scanQr" && action.key === activeSection;
 

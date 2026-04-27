@@ -9,6 +9,7 @@ import CrowdEstimationPanel from "../components/CrowdEstimationPanel";
 import AnalyticsDashboard from "../components/AnalyticsDashboard";
 import FrozenMembersRequests from "../components/FrozenMembersRequests";
 import FrozenMembersList from "../components/FrozenMembersList";
+import TodayCheckActivityPanel from "../components/TodayCheckActivityPanel";
 import { usePayment } from "../hooks/usePayment";
 import { PaymentStateContext } from "../design-patterns";
 import TransactionHistory from "../components/TransactionHistory";
@@ -43,6 +44,7 @@ export default function AdminDashboard() {
   const [activePlans, setActivePlans] = useState(0);
   const [recentTransactions, setRecentTransactions] = useState<RecentTransactionRecord[]>([]);
   const [todayCheckInCount, setTodayCheckInCount] = useState(0);
+  const [activityRefreshTick, setActivityRefreshTick] = useState(0);
   const [isLoadingMembers, setIsLoadingMembers] = useState(true);
 
   const [paymentStateContexts, setPaymentStateContexts] = useState<Map<string, PaymentStateContext>>(new Map());
@@ -108,6 +110,17 @@ export default function AdminDashboard() {
         ),
       },
       {
+        key: "todayActivity" as const,
+        label: "Today Activity",
+        icon: (
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0070C9] text-white shadow-md">
+            <svg className="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 6h11M9 12h11M9 18h11M5 6h.01M5 12h.01M5 18h.01" />
+            </svg>
+          </div>
+        ),
+      },
+      {
         key: "recentTransactions" as const,
         label: "Transactions",
         icon: (
@@ -152,6 +165,7 @@ export default function AdminDashboard() {
     pendingPayment: "Pending Payment",
     customers: "Customers",
     crowdStatus: "Crowd Status",
+    todayActivity: "Today's Check Activity",
     recentTransactions: "Recent transactions",
     analytics: "Analytics",
     frozenMembers: "Freeze Requests & Frozen Members",
@@ -444,6 +458,10 @@ export default function AdminDashboard() {
       return <div className="mt-4"><CrowdEstimationPanel showAdminControls minimalView /></div>;
     }
 
+    if (activeSection === "todayActivity") {
+      return <TodayCheckActivityPanel refreshKey={activityRefreshTick} />;
+    }
+
     if (activeSection === "recentTransactions") {
       return (
         <section className="mt-2">
@@ -477,7 +495,10 @@ export default function AdminDashboard() {
 
   const handleScanSuccess = (result: CheckInResponse) => {
     setScanMessage({ text: result.message, type: "success" });
-    setTodayCheckInCount((prev) => prev + 1);
+    setActivityRefreshTick((prev) => prev + 1);
+    if (result.actionType !== "checkout") {
+      setTodayCheckInCount((prev) => prev + 1);
+    }
     setTimeout(() => {
       if (isMountedRef.current) {
         setScanMessage(null);
