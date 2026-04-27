@@ -17,6 +17,7 @@ export interface QRData {
 export interface CheckInResponse {
   success: boolean;
   message: string;
+  actionType?: QRData["type"];
   data?: {
     id: string;
     user_id: string;
@@ -26,6 +27,33 @@ export interface CheckInResponse {
   };
   error?: string;
 }
+
+export interface TodayActivityRecord {
+  id: string;
+  name: string;
+  membershipType: string;
+  actionType: "checkin" | "checkout" | "walk_in";
+  time: string;
+}
+
+type TodayWalkInRow = {
+  id: string;
+  user_id: string | null;
+  membership_id?: string | null;
+  walk_in_type: string;
+  walk_in_time: string;
+};
+
+type ActivityProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+};
+
+type ActivityMembershipRow = {
+  id: string;
+  tier: string | null;
+};
 
 /**
  * Validate and process QR code scan
@@ -114,6 +142,7 @@ export async function processQRCheckIn(
 
     return {
       success: true,
+      actionType: qrData.type,
       message: `${qrData.type === "checkin" ? "Check-in" : "Check-out"} successful for ${profile.full_name || profile.email || "user"}`,
       data: {
         id: checkIn.id,
@@ -175,6 +204,7 @@ async function handleWalkIn(qrData: QRData, adminId: string): Promise<CheckInRes
 
     return {
       success: true,
+      actionType: "walk_in",
       message: "Walk-in guest pass validated successfully",
       data: {
         id: checkIn.id,
@@ -224,6 +254,79 @@ export async function getRecentCheckIns(limit: number = 10) {
   }
 }
 
+export async function getTodayCheckActivities(): Promise<TodayActivityRecord[]> {
+  if (!supabase) {
+    return [];
+  }
+
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const { data: walkIns, error } = await supabase
+      .from("walk_ins")
+      .select("id, user_id, membership_id, walk_in_type, walk_in_time")
+      .gte("walk_in_time", today.toISOString())
+      .lt("walk_in_time", tomorrow.toISOString())
+      .order("walk_in_time", { ascending: false });
+
+    if (error || !walkIns) {
+      console.error("Error fetching today's check activities:", error);
+      return [];
+    }
+
+    const walkInRows = walkIns as TodayWalkInRow[];
+    const userIds = [...new Set(walkInRows.map((row: TodayWalkInRow) => row.user_id).filter(Boolean))] as string[];
+    const membershipIds = [...new Set(walkInRows.map((row: TodayWalkInRow) => row.membership_id).filter(Boolean))] as string[];
+
+    const [profilesResult, membershipsResult] = await Promise.all([
+      userIds.length > 0
+        ? supabase.from("profiles").select("id, full_name, email").in("id", userIds)
+        : Promise.resolve({ data: [], error: null }),
+      membershipIds.length > 0
+        ? supabase.from("memberships").select("id, tier").in("id", membershipIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (profilesResult.error) {
+      console.error("Error fetching activity profiles:", profilesResult.error);
+    }
+
+    if (membershipsResult.error) {
+      console.error("Error fetching activity memberships:", membershipsResult.error);
+    }
+
+    const profileMap = new Map(
+      ((profilesResult.data ?? []) as ActivityProfileRow[]).map((profile: ActivityProfileRow) => [
+        profile.id,
+        profile.full_name?.trim() || profile.email || "Unknown member",
+      ])
+    );
+
+    const membershipMap = new Map(
+      ((membershipsResult.data ?? []) as ActivityMembershipRow[]).map((membership: ActivityMembershipRow) => [membership.id, membership.tier || "Unknown"])
+    );
+
+    return walkInRows.map((row: TodayWalkInRow) => ({
+      id: row.id,
+      name: row.user_id ? profileMap.get(row.user_id) || "Unknown member" : "Walk-in Guest",
+      membershipType: row.membership_id ? membershipMap.get(row.membership_id) || "Unknown" : "Walk-in",
+      actionType:
+        row.walk_in_type === "checkout"
+          ? "checkout"
+          : row.walk_in_type === "walk_in" || row.walk_in_type === "walk-in" || row.walk_in_type === "walkin"
+            ? "walk_in"
+            : "checkin",
+      time: row.walk_in_time,
+    }));
+  } catch (err) {
+    console.error("Error in getTodayCheckActivities:", err);
+    return [];
+  }
+}
+
 /**
  * Record a walk-in entry after payment confirmation
  * @param adminId - Admin who confirmed the payment
@@ -256,6 +359,7 @@ export async function recordConfirmedWalkIn(
 
   return {
     success: true,
+    actionType: "walk_in",
     message: "Walk-in recorded successfully",
     data: {
       id: checkIn.id,
