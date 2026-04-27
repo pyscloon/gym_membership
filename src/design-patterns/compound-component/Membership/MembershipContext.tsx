@@ -18,6 +18,7 @@ import {
   calculateMembershipStats,
 } from '../../../types/membership';
 import { type PaymentTransaction, type UserType, MEMBERSHIP_PRICES } from '../../../types/payment';
+import { encodeQrPayload } from '../../../lib/qrPayload';
 import {
   MembershipStateContext,
   AttendanceSessionContext,
@@ -286,7 +287,7 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
       if (freezeTick && freezeTick > 0) setShowFreezeModal(true);
     }, [freezeTick]);
 
-    const qrValue = useMemo(() => JSON.stringify({
+    const qrValue = useMemo(() => encodeQrPayload({
       id: user?.id,
       type: qrActionType,
       tier: membership?.tier,

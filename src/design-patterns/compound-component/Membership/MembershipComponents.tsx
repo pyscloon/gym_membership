@@ -128,9 +128,9 @@ export const MembershipAccess: React.FC = () => {
           <p className="text-xs font-bold tracking-widest text-flexNavy uppercase">
             {qrActionType === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}
           </p>
-          <div className="bg-white p-3 rounded-xl border border-flexNavy/10 shadow-sm">
-            <QRCodeSVG value={qrValue} size={180} bgColor="#ffffff" fgColor="#0a0a2e" level="H" />
-          </div>
+            <div className="bg-white p-3 rounded-xl border border-flexNavy/10 shadow-sm">
+              <QRCodeSVG value={qrValue} size={220} bgColor="#ffffff" fgColor="#0a0a2e" level="M" />
+            </div>
           <button onClick={handleCloseQR} className="w-full rounded-xl bg-flexBlue px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-flexNavy">✓ Done — Approved</button>
         </div>
       ) : (

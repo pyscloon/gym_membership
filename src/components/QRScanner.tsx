@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import {
   processQRCheckIn,
-  type QRData,
   type CheckInResponse,
 } from "../lib/checkInService";
+import { decodeQrPayload } from "../lib/qrPayload";
 import { useAuth } from "../hooks";
 
 type ScanResult = {
@@ -24,23 +24,10 @@ type PlaywrightQrScannerDriver = {
   register: (handler: (decodedText: string) => void) => () => void;
 };
 
-function normalizeQrType(type: string): QRData["type"] | null {
-  const normalized = type.trim().toLowerCase();
-
-  if (normalized === "checkin" || normalized === "member-checkin") {
-    return "checkin";
-  }
-
-  if (normalized === "checkout" || normalized === "member-checkout") {
-    return "checkout";
-  }
-
-  if (normalized === "walk_in" || normalized === "walk-in" || normalized === "walkin") {
-    return "walk_in";
-  }
-
-  return null;
-}
+type CameraOption = {
+  id: string;
+  label: string;
+};
 
 export default function QRScanner({
   onScanSuccess,
@@ -51,6 +38,8 @@ export default function QRScanner({
   const [isScanning, setIsScanning] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<CameraOption[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string>("");
 
   const [lastScan, setLastScan] = useState<ScanResult | null>(null);
   const [scanResults, setScanResults] = useState<ScanResult[]>([]);
@@ -61,6 +50,66 @@ export default function QRScanner({
 
   const lastScannedRef = useRef<string>("");
   const scanTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const pickPreferredCamera = useCallback((cameras: CameraOption[]) => {
+    const labelRanks = [
+      /back|rear|environment/i,
+      /external|usb|hd|webcam/i,
+      /front|user|facetime/i,
+    ];
+
+    for (const pattern of labelRanks) {
+      const match = cameras.find((camera) => pattern.test(camera.label));
+      if (match) {
+        return match.id;
+      }
+    }
+
+    return cameras[0]?.id ?? "";
+  }, []);
+
+  const loadAvailableCameras = useCallback(async (showError = false) => {
+    try {
+      const cameras = await Html5Qrcode.getCameras();
+      const normalizedCameras = cameras.map((camera, index) => ({
+        id: camera.id,
+        label: camera.label?.trim() || `Camera ${index + 1}`,
+      }));
+
+      setAvailableCameras(normalizedCameras);
+      setSelectedCameraId((currentSelected) => {
+        if (
+          currentSelected &&
+          normalizedCameras.some((camera) => camera.id === currentSelected)
+        ) {
+          return currentSelected;
+        }
+
+        return pickPreferredCamera(normalizedCameras);
+      });
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Could not load camera list";
+      setAvailableCameras([]);
+      setSelectedCameraId("");
+      if (showError) {
+        setCameraError(msg);
+      }
+    }
+  }, [pickPreferredCamera]);
+
+  const buildScanRegion = useCallback(
+    (viewfinderWidth: number, viewfinderHeight: number) => {
+      const smallestSide = Math.min(viewfinderWidth, viewfinderHeight);
+      const boxSize = Math.max(180, Math.floor(smallestSide * 0.8));
+
+      return {
+        width: boxSize,
+        height: boxSize,
+      };
+    },
+    []
+  );
 
   const getPlaywrightDriver = useCallback((): PlaywrightQrScannerDriver | null => {
     if (typeof window === "undefined") {
@@ -77,17 +126,7 @@ export default function QRScanner({
   const handleQRCodeDetected = useCallback(
     async (decodedText: string) => {
       try {
-        const parsed = JSON.parse(decodedText) as Partial<QRData> & { type?: string };
-        const normalizedType = parsed.type ? normalizeQrType(parsed.type) : null;
-
-        if (!normalizedType) {
-          throw new Error("Invalid QR code format");
-        }
-
-        const qrData: QRData = {
-          ...parsed,
-          type: normalizedType,
-        };
+        const qrData = decodeQrPayload(decodedText);
 
         if (!user) {
           throw new Error("User not authenticated");
@@ -170,6 +209,14 @@ export default function QRScanner({
   }, []);
 
   useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    void loadAvailableCameras();
+  }, [loadAvailableCameras, user]);
+
+  useEffect(() => {
     const playwrightDriver = getPlaywrightDriver();
 
     if (playwrightDriver && isScanning && user) {
@@ -185,27 +232,71 @@ export default function QRScanner({
       if (!scannerRef.current || !isScanning || !user) return;
       if (isScannerRunningRef.current) return;
 
-      try {
-        setIsCameraLoading(true);
-        setCameraError(null);
+      setIsCameraLoading(true);
+      setCameraError(null);
 
-        await scannerRef.current.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 250, height: 250 } },
-          handleQRCodeDetected,
-          () => {}
-        );
+      const preferredCamera =
+        selectedCameraId || pickPreferredCamera(availableCameras);
 
-        isScannerRunningRef.current = true;
-        setIsCameraLoading(false);
-      } catch (err) {
-        const msg =
-          err instanceof Error ? err.message : "Failed to start camera";
+      const scanConfig = {
+        fps: 12,
+        qrbox: buildScanRegion,
+        aspectRatio: 4 / 3,
+      };
 
-        setCameraError(msg);
-        setIsCameraLoading(false);
-        setIsScanning(false);
+      const cameraAttempts: Array<string | MediaTrackConstraints> = [];
+
+      if (preferredCamera) {
+        cameraAttempts.push(preferredCamera);
       }
+
+      cameraAttempts.push(
+        {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        {
+          facingMode: { ideal: "user" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+        {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        }
+      );
+
+      let lastError: unknown = null;
+
+      for (const cameraAttempt of cameraAttempts) {
+        try {
+          await scannerRef.current.start(
+            cameraAttempt,
+            scanConfig,
+            handleQRCodeDetected,
+            () => {}
+          );
+
+          isScannerRunningRef.current = true;
+          setIsCameraLoading(false);
+          setCameraError(null);
+          void loadAvailableCameras();
+          return;
+        } catch (attemptError) {
+          lastError = attemptError;
+        }
+      }
+
+      const msg =
+        lastError instanceof Error
+          ? lastError.message
+          : "Failed to start camera. Check browser camera permission.";
+
+      void loadAvailableCameras(true);
+      setCameraError(msg);
+      setIsCameraLoading(false);
+      setIsScanning(false);
     };
 
     const stopScanner = async () => {
@@ -226,7 +317,16 @@ export default function QRScanner({
     } else {
       stopScanner();
     }
-  }, [getPlaywrightDriver, handleQRCodeDetected, isScanning, user]);
+  }, [
+    availableCameras,
+    getPlaywrightDriver,
+    handleQRCodeDetected,
+    isScanning,
+    loadAvailableCameras,
+    pickPreferredCamera,
+    selectedCameraId,
+    user,
+  ]);
 
   const toggleScanning = () => {
     setIsScanning((prev) => !prev);
@@ -246,8 +346,8 @@ export default function QRScanner({
           </p>
           <p className="mt-0.5 text-sm text-flexNavy/60">
             {isScanning
-              ? "Point camera at QR code"
-              : "Click Start Scanning"}
+              ? "Point camera at QR code. Big clear code works best."
+              : "Pick camera, then hit Start"}
           </p>
         </div>
 
@@ -262,6 +362,33 @@ export default function QRScanner({
           {isScanning ? "Stop" : "Start"}
         </button>
       </div>
+
+      {availableCameras.length > 0 && (
+        <div className="mb-4">
+          <label
+            htmlFor="qr-camera-select"
+            className="mb-1 block text-xs font-semibold uppercase tracking-[0.14em] text-flexNavy/70"
+          >
+            Camera
+          </label>
+          <select
+            id="qr-camera-select"
+            value={selectedCameraId}
+            onChange={(event) => setSelectedCameraId(event.target.value)}
+            disabled={isScanning}
+            className="w-full rounded-lg border border-flexNavy/15 bg-white px-3 py-2 text-sm text-flexNavy outline-none transition focus:border-flexBlue"
+          >
+            {availableCameras.map((camera) => (
+              <option key={camera.id} value={camera.id}>
+                {camera.label}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-flexNavy/55">
+            Laptop sad? Try other camera in list.
+          </p>
+        </div>
+      )}
 
       <div className="relative mb-6">
         <div

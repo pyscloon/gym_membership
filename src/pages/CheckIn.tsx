@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import QRScanner from "../components/QRScanner";
 import { DataCard, FadeInSection, PageHeader, StaggerContainer } from "../components/ui";
+import { encodeQrPayload } from "../lib/qrPayload";
 
 const sessionRows = [
   { id: "A-1001", date: "2026-04-08", type: "Check-In", status: "Completed" },
@@ -12,10 +13,10 @@ const sessionRows = [
 export default function CheckInPage() {
   const qrValue = useMemo(
     () =>
-      JSON.stringify({
+      encodeQrPayload({
         id: "member-user-1",
         type: "checkin",
-        createdAt: new Date().toISOString(),
+        timestamp: new Date().toISOString(),
       }),
     []
   );
@@ -33,7 +34,7 @@ export default function CheckInPage() {
       <StaggerContainer className="grid gap-6 lg:grid-cols-2">
         <DataCard title="Member QR">
           <div className="mt-4 flex items-center justify-center rounded-xl border border-[rgba(0,102,204,0.2)] bg-[rgba(0,102,204,0.04)] p-6">
-            <QRCodeSVG value={qrValue} size={180} bgColor="#ffffff" fgColor="#000033" level="H" />
+            <QRCodeSVG value={qrValue} size={220} bgColor="#ffffff" fgColor="#000033" level="M" />
           </div>
           <p className="mt-3 text-sm text-[#555555] [font-family:var(--font-body)]">
             Valid for one active session. Present this to front desk on arrival.
