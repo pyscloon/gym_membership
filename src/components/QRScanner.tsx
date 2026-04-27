@@ -53,7 +53,6 @@ export default function QRScanner({
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const [lastScan, setLastScan] = useState<ScanResult | null>(null);
-  const [scanResults, setScanResults] = useState<ScanResult[]>([]);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isScannerRunningRef = useRef(false);
@@ -119,7 +118,6 @@ export default function QRScanner({
         };
 
         setLastScan(scanResult);
-        setScanResults((prev) => [scanResult, ...prev].slice(0, 10));
 
         if (result.success) {
           onScanSuccess?.(result);
@@ -139,7 +137,6 @@ export default function QRScanner({
         };
 
         setLastScan(scanResult);
-        setScanResults((prev) => [scanResult, ...prev].slice(0, 10));
 
         onScanError?.(msg);
       }
@@ -232,11 +229,6 @@ export default function QRScanner({
     setIsScanning((prev) => !prev);
   };
 
-  const clearResults = () => {
-    setScanResults([]);
-    setLastScan(null);
-  };
-
   return (
     <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -315,52 +307,6 @@ export default function QRScanner({
         </div>
       )}
 
-      {scanResults.length > 0 && (
-        <div>
-          <div className="mb-3 flex justify-between">
-            <p className="text-xs font-semibold">
-              Scan History ({scanResults.length})
-            </p>
-            <button onClick={clearResults} className="text-xs">
-              Clear
-            </button>
-          </div>
-
-          <div className="max-h-64 space-y-2 overflow-y-auto">
-            {scanResults.map((r) => (
-              <div
-                key={r.id}
-                className={`rounded-lg border p-3 text-xs ${
-                  r.type === "success"
-                    ? "border-green-200 bg-green-50"
-                    : "border-red-200 bg-red-50"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  {r.actionType && (
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase ${
-                        r.actionType === "checkin"
-                          ? "bg-blue-100 text-blue-700"
-                          : r.actionType === "checkout"
-                            ? "bg-orange-100 text-orange-700"
-                            : "bg-purple-100 text-purple-700"
-                      }`}
-                    >
-                      {r.actionType === "checkin"
-                        ? "IN"
-                        : r.actionType === "checkout"
-                          ? "OUT"
-                          : "WALK"}
-                    </span>
-                  )}
-                  <span>{r.message}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
