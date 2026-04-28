@@ -10,11 +10,11 @@ import {
 import { type MemberTransaction } from "../components/MemberTransactionHistory";
 
 const PLAN_THEMES: Record<string, { gradient: string; serial: string; accent: string; colors: string[]; motto: string }> = {
-  "walk-in":     { gradient: "linear-gradient(135deg, #1d4ed8 0%, #001a4d 100%)", serial: "FLX-WKN", accent: "#60a5fa", colors: ["#1d4ed8", "#001a4d"], motto: "Daily Grind // Build the Foundation" },
-  monthly:        { gradient: "linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)", serial: "FLX-MTH", accent: "#3b82f6", colors: ["#1e40af", "#1e3a8a"], motto: "Monthly Warrior // No Excuses" },
+  "walk-in": { gradient: "linear-gradient(135deg, #1d4ed8 0%, #001a4d 100%)", serial: "FLX-WKN", accent: "#60a5fa", colors: ["#1d4ed8", "#001a4d"], motto: "Daily Grind // Build the Foundation" },
+  monthly: { gradient: "linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)", serial: "FLX-MTH", accent: "#3b82f6", colors: ["#1e40af", "#1e3a8a"], motto: "Monthly Warrior // No Excuses" },
   "semi-yearly": { gradient: "linear-gradient(135deg, #1e3a8a 0%, #172554 100%)", serial: "FLX-SMY", accent: "#2563eb", colors: ["#1e3a8a", "#172554"], motto: "Core Committed // Trust the Process" },
-  yearly:         { gradient: "linear-gradient(135deg, #172554 0%, #020617 100%)", serial: "FLX-YRL", accent: "#1d4ed8", colors: ["#172554", "#020617"], motto: "Elite Titan // Dedication is Forever" },
-  default:        { gradient: "linear-gradient(135deg, #0f172a 0%, #020617 100%)", serial: "FLX-GUEST", accent: "#94a3b8", colors: ["#0f172a", "#020617"], motto: "Guest Pass // Fuel Your Curiosity" },
+  yearly: { gradient: "linear-gradient(135deg, #172554 0%, #020617 100%)", serial: "FLX-YRL", accent: "#1d4ed8", colors: ["#172554", "#020617"], motto: "Elite Titan // Dedication is Forever" },
+  default: { gradient: "linear-gradient(135deg, #0f172a 0%, #020617 100%)", serial: "FLX-GUEST", accent: "#94a3b8", colors: ["#0f172a", "#020617"], motto: "Guest Pass // Fuel Your Curiosity" },
 };
 
 export default function Profile() {
@@ -48,7 +48,7 @@ export default function Profile() {
       if (!user) { navigate("/login"); return; }
 
       const [profileRes, membershipRes, transactionRes] = await Promise.all([
-        supabase.from("profiles").select("id, first_name, last_name, full_name, email, phone, avatar_url").eq("id", user.id).single(),
+        supabase.from("profiles").select("id, full_name, email").eq("id", user.id).single(),
         supabase.from("memberships").select("id, user_id, tier, status, start_date, renewal_date").eq("user_id", user.id).maybeSingle(),
         supabase.from("transactions").select("id, created_at, amount, status").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6),
       ]);
@@ -71,9 +71,12 @@ export default function Profile() {
         membershipStart: formatDate(membershipRes.data?.start_date),
         membershipEnd: formatDate(membershipRes.data?.renewal_date),
       };
+      if (profileRes.data?.full_name) {
+      }
       setProfile(data);
       setForm(data);
-      if (profileRes.data?.avatar_url) setAvatarUrl(profileRes.data.avatar_url);
+      // avatar_url is not in the schema
+      // if (profileRes.data?.avatar_url) setAvatarUrl(profileRes.data.avatar_url);
       setLoading(false);
     };
     fetchProfileAndData();
@@ -86,10 +89,7 @@ export default function Profile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
       const { error } = await supabase.from("profiles").update({
-        first_name: form.firstName,
-        last_name: form.lastName,
         full_name: `${form.firstName} ${form.lastName}`,
-        phone: form.phone,
       }).eq("id", user.id);
       if (error) throw error;
       setProfile(form);
@@ -108,7 +108,7 @@ export default function Profile() {
   };
 
   const handleFlip = () => { if (!isEditing) setIsFlipped(!isFlipped); };
-  
+
   const membershipStatus = calculateMembershipStatus(profile.membershipEnd);
   const theme = PLAN_THEMES[userTier] || PLAN_THEMES.default;
 
@@ -128,7 +128,9 @@ export default function Profile() {
     const { error: uploadError } = await supabase.storage.from('flex-republic-assets').upload(filePath, file, { upsert: true });
     if (uploadError) return;
     const { data: { publicUrl } } = supabase.storage.from('flex-republic-assets').getPublicUrl(filePath);
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+    // Since avatar_url is not in the schema, we skip updating the profiles table for now.
+    // To enable this, add the avatar_url column to the profiles table.
+    // await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
     setAvatarUrl(publicUrl);
   };
 
@@ -166,10 +168,10 @@ export default function Profile() {
       <div className="fixed inset-0 grid-bg pointer-events-none z-0" />
 
       <main className="relative z-10 mx-auto max-w-2xl px-4 pt-24 sm:pt-28 flex flex-col items-center">
-        
+
         {/* ── MEMBERSHIP CARD CONTAINER ── */}
-        <div 
-          className="id-card-container w-full select-none cursor-pointer transition-transform duration-300" 
+        <div
+          className="id-card-container w-full select-none cursor-pointer transition-transform duration-300"
           style={{ perspective: "2500px", height: "230px" }}
           onClick={handleFlip}
         >
@@ -193,51 +195,51 @@ export default function Profile() {
               }}
             >
               <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "16px 16px" }} />
-              
+
               <div className="relative z-10 h-full flex flex-col justify-between p-5 sm:p-6">
                 <div className="flex justify-between items-start">
                   <div className="flex items-start gap-3 sm:gap-4">
-                     <div 
-                        onClick={handleAvatarClick}
-                        className="avatar-container flex-shrink-0"
-                        style={{
-                          width: "55px", height: "65px", borderRadius: "10px",
-                          background: "rgba(15, 23, 42, 0.6)", border: "1px solid rgba(255,255,255,0.2)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          overflow: "hidden", position: "relative"
+                    <div
+                      onClick={handleAvatarClick}
+                      className="avatar-container flex-shrink-0"
+                      style={{
+                        width: "55px", height: "65px", borderRadius: "10px",
+                        background: "rgba(15, 23, 42, 0.6)", border: "1px solid rgba(255,255,255,0.2)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        overflow: "hidden", position: "relative"
                       }}>
-                        {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : 
-                          <span style={{fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: "8px", color: "rgba(255,255,255,0.4)", textTransform: "uppercase"}}>
-                             Upload
-                          </span>
-                        }
-                        <div className="upload-overlay absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 transition-opacity backdrop-blur-sm">
-                           <p className="text-[7px] uppercase font-mono text-white tracking-widest">{avatarUrl ? "Change" : "Select"}</p>
-                        </div>
+                      {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> :
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: "8px", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>
+                          Upload
+                        </span>
+                      }
+                      <div className="upload-overlay absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 transition-opacity backdrop-blur-sm">
+                        <p className="text-[7px] uppercase font-mono text-white tracking-widest">{avatarUrl ? "Change" : "Select"}</p>
                       </div>
-                      <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
-                      <div className="min-w-0">
-                        <p style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.2em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Flex Republic</p>
-                        {isEditing ? (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                             <input value={form.firstName} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({...form, firstName: e.target.value})} className="bg-[#1e293b] border border-white/20 rounded px-2 py-1 text-xs font-bold w-20 outline-none text-white" />
-                             <input value={form.lastName} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({...form, lastName: e.target.value})} className="bg-[#1e293b] border border-white/20 rounded px-2 py-1 text-xs font-bold w-20 outline-none" style={{ color: theme.accent }} />
-                          </div>
-                        ) : (
-                          <p className="truncate" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: "1.5rem", textTransform: "uppercase", color: "#fff", lineHeight: 1, marginTop: "2px" }}>
-                            {profile.firstName} <span style={{ color: theme.accent }}>{profile.lastName}</span>
-                          </p>
-                        )}
-                        <div className="mt-1 font-mono text-[8px] tracking-wider truncate">
-                           <p className="text-white/60 lowercase truncate max-w-[140px] sm:max-w-none">{profile.email}</p>
-                           {isEditing ? (
-                             <input value={form.phone} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({...form, phone: e.target.value})} className="bg-[#1e293b] border border-white/20 rounded px-2 py-0.5 text-[8px] w-28 mt-1.5 outline-none text-white" placeholder="Phone" />
-                           ) : (
-                             <p className="text-white/40 mt-0.5">{profile.phone || "No Contact"}</p>
-                           )}
+                    <div className="min-w-0">
+                      <p style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.2em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Flex Republic</p>
+                      {isEditing ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <input value={form.firstName} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="bg-[#1e293b] border border-white/20 rounded px-2 py-1 text-xs font-bold w-20 outline-none text-white" />
+                          <input value={form.lastName} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="bg-[#1e293b] border border-white/20 rounded px-2 py-1 text-xs font-bold w-20 outline-none" style={{ color: theme.accent }} />
                         </div>
+                      ) : (
+                        <p className="truncate" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: "1.5rem", textTransform: "uppercase", color: "#fff", lineHeight: 1, marginTop: "2px" }}>
+                          {profile.firstName} <span style={{ color: theme.accent }}>{profile.lastName}</span>
+                        </p>
+                      )}
+                      <div className="mt-1 font-mono text-[8px] tracking-wider truncate">
+                        <p className="text-white/60 lowercase truncate max-w-[140px] sm:max-w-none">{profile.email}</p>
+                        {isEditing ? (
+                          <input value={form.phone} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="bg-[#1e293b] border border-white/20 rounded px-2 py-0.5 text-[8px] w-28 mt-1.5 outline-none text-white" placeholder="Phone" />
+                        ) : (
+                          <p className="text-white/40 mt-0.5">{profile.phone || "No Contact"}</p>
+                        )}
                       </div>
+                    </div>
                   </div>
                   <div className="flex-shrink-0" style={{ width: "34px", height: "24px", borderRadius: "4px", background: "linear-gradient(135deg, #d4af37 0%, #f9e97f 40%, #c8941a 100%)", border: "1px solid rgba(0,0,0,0.18)" }} />
                 </div>
@@ -251,10 +253,10 @@ export default function Profile() {
                     <div>
                       <p className="font-mono text-[7px] uppercase opacity-40 tracking-widest">Status</p>
                       <div className="flex items-center gap-1.5 mt-0.5">
-                         <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: membershipStatus.isActive ? "#4ade80" : "#ef4444", boxShadow: membershipStatus.isActive ? "0 0 10px #4ade80" : "none" }} />
-                         <p className="font-['Barlow Condensed'] font-extrabold text-[0.85rem] uppercase tracking-tight" style={{ color: membershipStatus.isActive ? "#4ade80" : "#ef4444" }}>
-                            {membershipStatus.isActive ? "Active" : "Exp"}
-                         </p>
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: membershipStatus.isActive ? "#4ade80" : "#ef4444", boxShadow: membershipStatus.isActive ? "0 0 10px #4ade80" : "none" }} />
+                        <p className="font-['Barlow Condensed'] font-extrabold text-[0.85rem] uppercase tracking-tight" style={{ color: membershipStatus.isActive ? "#4ade80" : "#ef4444" }}>
+                          {membershipStatus.isActive ? "Active" : "Exp"}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -262,7 +264,7 @@ export default function Profile() {
                   <div className="flex gap-2 relative z-20">
                     {isEditing ? (
                       <>
-                        <button 
+                        <button
                           onClick={handleSave} disabled={saving}
                           className="font-['Barlow Condensed'] font-extrabold text-[9px] tracking-[0.1em] uppercase bg-[#0066CC] text-white rounded px-3 sm:px-4 py-1.5 transition-all border border-white/10"
                         >
@@ -291,16 +293,16 @@ export default function Profile() {
             <div
               className="absolute inset-0 rounded-[22px] overflow-hidden"
               style={{
-                backfaceVisibility: "hidden", transform: "rotateY(180deg)", 
+                backfaceVisibility: "hidden", transform: "rotateY(180deg)",
                 background: "linear-gradient(135deg, #001a33 0%, #004080 30%, #a3d1ff 50%, #004080 70%, #001a33 100%)",
                 border: "1px solid rgba(255,255,255,0.25)",
-                boxShadow: "0 32px 80px rgba(0,0,0,0.8)", 
+                boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
                 zIndex: isFlipped ? 2 : 0,
               }}
             >
               <div className="absolute top-8 left-0 right-0 h-10 bg-black/50 border-y border-white/10" />
               <div className="relative z-10 h-full flex flex-col justify-between p-7 sm:p-8 text-white">
-                 <p className="font-['Space Mono', monospace] text-[8px] text-white font-bold uppercase tracking-[0.2em]" style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>{theme.serial}</p>
+                <p className="font-['Space Mono', monospace] text-[8px] text-white font-bold uppercase tracking-[0.2em]" style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>{theme.serial}</p>
                 <div className="flex justify-between items-end">
                   <div>
                     <p className="font-mono text-[9px] text-white/70 font-bold uppercase tracking-wider" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>Since</p>
