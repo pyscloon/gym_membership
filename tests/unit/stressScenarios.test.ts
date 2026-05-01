@@ -3,9 +3,18 @@
  * Simulates realistic failure conditions to validate stability under stress
  */
 
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
 
 describe("Stress & Failure Scenarios", () => {
+  beforeEach(() => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
   describe("rapid repeated interactions", () => {
     it("should handle 100 rapid payment confirmations without crashing", async () => {
       const results: boolean[] = [];
@@ -141,38 +150,66 @@ describe("Stress & Failure Scenarios", () => {
   });
 
   describe("state consistency under failures", () => {
-    it("should not leave payment in partial state on failure", async () => {
-      type PaymentStage = "init" | "confirming" | "applying" | "completed";
+    it("should not leave payment in partial state on permanent failure", async () => {
+      type PaymentStage = "init" | "confirming" | "applying" | "completed" | "failed_rollback";
       
       let stage: PaymentStage = "init";
       let membershipApplied = false;
+      let rollbackExecuted = false;
+      let attempts = 0;
 
       const confirmPayment = async () => {
         stage = "confirming";
         await new Promise((r) => setTimeout(r, 10));
-        // Simulate confirmation success
         stage = "applying";
+        return true;
       };
 
       const applyMembership = async () => {
-        // Simulate failure
+        attempts++;
+        // Simulate permanent failure for this test
         throw new Error("Membership service unavailable");
       };
 
+      const rollbackWorkflow = async () => {
+        stage = "failed_rollback";
+        membershipApplied = false;
+        rollbackExecuted = true;
+        // In a real app, this might involve calling a 'fail_payment' API
+        await new Promise((r) => setTimeout(r, 10));
+        stage = "init";
+      };
+
+      // Professional workflow with retry logic
       try {
         await confirmPayment();
-        await applyMembership();
-        membershipApplied = true;
-        stage = "completed";
+        
+        // Use retry logic for the fragile membership service
+        let success = false;
+        for (let i = 0; i < 3; i++) {
+          try {
+            await applyMembership();
+            success = true;
+            break;
+          } catch (err) {
+            if (i === 2) throw err; // Permanent failure after 3 tries
+            await new Promise((r) => setTimeout(r, 10));
+          }
+        }
+        
+        if (success) {
+          membershipApplied = true;
+          stage = "completed";
+        }
       } catch (err) {
-        // Rollback on failure
-        stage = "init";
-        membershipApplied = false;
-        console.error("Payment workflow failed, rolled back:", err);
+        // Rollback on permanent failure
+        await rollbackWorkflow();
       }
 
       expect(stage).toBe("init");
       expect(membershipApplied).toBe(false);
+      expect(rollbackExecuted).toBe(true);
+      expect(attempts).toBe(3); // Verified retries happened
     });
 
     it("should handle race conditions in state updates", (done) => {

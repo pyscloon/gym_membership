@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { appFeatures, branchLocations, testimonials, whyChooseFeatures } from "../src/lib/landingContent";
+import { appFeatures, branchLocations, testimonials, whyChooseFeatures } from "../../src/lib/landingContent";
 
 describe("landingContent", () => {
   it("keeps four testimonial cards for the testimonials masonry section", () => {

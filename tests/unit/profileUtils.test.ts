@@ -6,7 +6,7 @@ import {
   getInitials,
   splitFullName,
   validateProfileForm,
-} from "../src/lib/profileUtils";
+} from "../../src/lib/profileUtils";
 
 describe("profileUtils unit tests", () => {
   it("returns initials for multi-word names", () => {

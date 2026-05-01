@@ -3,7 +3,7 @@
  * Tests for input validation, rate limiting, circuit breaker, and audit logging
  */
 
-import { describe, it, expect, beforeEach, jest } from "@jest/globals";
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, jest } from "@jest/globals";
 import {
   VALIDATORS,
   validateMembershipTier,
@@ -18,9 +18,27 @@ import {
   IdempotencyManager,
   CircuitBreaker,
   AuditLogger,
-} from "../src/lib/productionHardening";
+} from "../../src/lib/productionHardening";
 
 describe("Production Hardening", () => {
+  let logSpy: any;
+  let errorSpy: any;
+
+  beforeAll(() => {
+    logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterAll(() => {
+    logSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
+  beforeEach(() => {
+    logSpy.mockClear();
+    errorSpy.mockClear();
+  });
+
   describe("input validation", () => {
     it("should validate email correctly", () => {
       expect(VALIDATORS.email("test@example.com")).toBe(true);
@@ -177,6 +195,7 @@ describe("Production Hardening", () => {
 
       const results = await checker.runAll();
       expect(results.failing).toBe(false);
+      expect(errorSpy).toHaveBeenCalled();
     });
   });
 
@@ -239,6 +258,7 @@ describe("Production Hardening", () => {
       // Should now reject without calling operation
       await expect(breaker.execute(failingOp)).rejects.toThrow("Circuit breaker is open");
       expect(failingOp).toHaveBeenCalledTimes(2); // No new call
+      expect(errorSpy).toHaveBeenCalled();
     });
 
     it("should transition to half-open after timeout", async () => {
@@ -267,6 +287,7 @@ describe("Production Hardening", () => {
       }
 
       expect(breaker.getState().state).toBe("open");
+      expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("Transitioning to half-open"));
     });
 
     it("should close after successful operation in half-open", async () => {

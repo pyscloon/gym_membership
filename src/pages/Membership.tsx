@@ -179,8 +179,19 @@ export default function MembershipPage() {
     const transaction = paymentHook.state.currentTransaction ?? guestTransaction;
     if (!transaction) return;
     if (!user) { navigate("/subscription-tier"); return; }
-    await applyMembership(user.id, transaction.userType);
-    navigate("/dashboard");
+    
+    try {
+      const response = await applyMembership(user.id, transaction.userType);
+      if (response.success || response.error === "You already have an active membership") {
+        navigate("/dashboard");
+      } else {
+        console.error("Membership application failed:", response.error);
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      console.error("Unexpected error during membership application:", err);
+      navigate("/dashboard");
+    }
   };
 
   return (
