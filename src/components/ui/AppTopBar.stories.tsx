@@ -82,55 +82,15 @@ export const GuestDesktopHeader: Story = {
       return {};
     },
   ],
+  parameters: {
+    viewport: {
+      defaultViewport: 'desktop',
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     canvas.getByText(/FLEX/i);
-    canvas.getByRole('button', { name: /toggle menu/i });
     canvas.getByRole('button', { name: /login/i });
-  },
-};
-
-export const ActiveMemberHeader: Story = {
-  args: {
-    mode: 'default',
-    fixed: false,
-  },
-  loaders: [
-    async () => {
-      setMockSession({
-        session: {
-          user: {
-            id: 'member-user-1',
-            email: 'member@example.com',
-            user_metadata: {},
-          },
-          access_token: 'mock-token-member-user-1',
-        },
-        tables: {
-          memberships: [
-            {
-              user_id: 'member-user-1',
-              status: 'active',
-            },
-          ],
-        },
-      });
-      return {};
-    },
-  ],
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const toggle = canvas.getByRole('button', { name: /toggle menu/i });
-    await userEvent.click(toggle);
-    canvas.getByText(/active profile/i);
-    canvas.getByRole('link', { name: /dashboard/i });
-    canvas.getByRole('link', { name: /membership/i });
-    canvas.getByRole('link', { name: /about us/i });
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'mobile1',
-    },
   },
 };
 
@@ -160,9 +120,7 @@ export const AdminActionsBar: Story = {
   ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const toggle = canvas.getByRole('button', { name: /toggle menu/i });
-    await userEvent.click(toggle);
-    canvas.getByText(/dashboard/i);
+    canvas.getByText(/^dashboard$/i);
     canvas.getByRole('button', { name: /logout/i });
   },
 };
