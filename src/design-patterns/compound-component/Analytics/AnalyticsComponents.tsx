@@ -45,7 +45,7 @@ export const AnalyticsStatus: React.FC = () => {
 };
 
 export const AnalyticsHeader: React.FC = () => {
-  const { showBackButton, minimalView, timeRange, setTimeRange, navigate } = useAnalytics();
+  const { showBackButton, minimalView, navigate } = useAnalytics();
 
   return (
     <div className={minimalView ? "border-y border-flexNavy/15 py-4" : "rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6"}>
@@ -65,22 +65,6 @@ export const AnalyticsHeader: React.FC = () => {
         <div>
           <p className="text-xs uppercase tracking-[0.18em] text-flexNavy font-semibold">Analytics & Trends</p>
           <p className="text-sm text-flexNavy/60 mt-0.5">Walk-In vs Member Performance Metrics</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 md:justify-end">
-          {[30, 60, 90].map((range) => (
-            <button
-              key={range}
-              type="button"
-              onClick={() => setTimeRange(range as 30 | 60 | 90)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition ${
-                timeRange === range
-                  ? "bg-flexBlue text-white"
-                  : "bg-flexWhite border border-flexNavy/15 text-flexNavy hover:bg-flexNavy/5"
-              }`}
-            >
-              {range}d
-            </button>
-          ))}
         </div>
       </div>
     </div>
