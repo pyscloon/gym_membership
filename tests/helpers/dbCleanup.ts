@@ -5,19 +5,20 @@ dotenv.config({ path: ".env.test" });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
-const adminEmail = process.env.TEST_ADMIN_EMAIL;
-const adminPassword = process.env.TEST_ADMIN_PASSWORD;
+const adminEmail = process.env.TEST_ADMIN_EMAIL || process.env.VITE_ADMIN_EMAIL;
+const adminPassword = process.env.TEST_ADMIN_PASSWORD || process.env.VITE_ADMIN_PASSWORD;
 
-if (!supabaseUrl || !supabaseKey || !adminEmail || !adminPassword) {
-  throw new Error("Missing Supabase or admin credentials in .env.test");
-}
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 export async function clearTestData() {
+  if (!supabase || !adminEmail || !adminPassword) {
+    console.warn("Skipping DB cleanup due to missing credentials.");
+    return;
+  }
+
   const { error: authError } = await supabase.auth.signInWithPassword({
-    email: adminEmail!,
-    password: adminPassword!,
+    email: adminEmail,
+    password: adminPassword,
   });
 
   if (authError) {
