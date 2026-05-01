@@ -2,10 +2,11 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import { spawn } from "child_process";
 import * as dotenv from "dotenv";
+import { clearTestData } from "../helpers/dbCleanup";
 
 dotenv.config();
 
-const port = process.env.PORT || "4001";
+const port = process.env.PORT || "4002";
 const baseUrl = `http://127.0.0.1:${port}`;
 const clientOrigin = process.env.CLIENT_ORIGIN;
 
@@ -37,6 +38,7 @@ async function waitForServerReady(maxAttempts = 30) {
 
 describe("API Integration Tests", () => {
   beforeAll(async () => {
+    await clearTestData();
     serverProcess = spawn(process.execPath, ["server/index.js"], {
       cwd: process.cwd(),
       env: {
@@ -50,7 +52,8 @@ describe("API Integration Tests", () => {
     await waitForServerReady();
   }, 15000);
 
-  afterAll(() => {
+  afterAll(async () => {
+    await clearTestData();
     if (serverProcess && !serverProcess.killed) {
       serverProcess.kill();
     }

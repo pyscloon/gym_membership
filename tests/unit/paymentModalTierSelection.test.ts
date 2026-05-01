@@ -2,8 +2,8 @@ import { describe, it, expect } from "@jest/globals";
 import {
   PAYMENT_TIER_OPTIONS,
   resolveTierSelection,
-} from "../src/lib/paymentTierSelection";
-import type { UserType } from "../src/types/payment";
+} from "../../src/lib/paymentTierSelection";
+import type { UserType } from "../../src/types/payment";
 
 describe("Payment modal tier selection", () => {
   it("includes walk-in in selectable tier options", () => {

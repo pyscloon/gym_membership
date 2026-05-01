@@ -3,6 +3,7 @@ import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import { spawn } from "child_process";
 import { createClient } from "@supabase/supabase-js";
 import * as dotenv from "dotenv";
+import { clearTestData } from "../helpers/dbCleanup";
 
 dotenv.config();
 
@@ -18,7 +19,7 @@ for (const key of REQUIRED_ENV) {
   }
 }
 
-const port          = process.env.PORT || "4002";
+const port          = process.env.PORT || "4004";
 const baseUrl       = `http://127.0.0.1:${port}`;
 const clientOrigin  = process.env.CLIENT_ORIGIN!;
 const supabaseUrl   = process.env.VITE_SUPABASE_URL!;
@@ -48,6 +49,7 @@ async function waitForServerReady(maxAttempts = 30) {
 
 describe("Dashboard API Integration Tests", () => {
   beforeAll(async () => {
+    await clearTestData();
     serverProcess = spawn(process.execPath, ["server/index.js"], {
       cwd: process.cwd(),
       env: {
@@ -63,7 +65,8 @@ describe("Dashboard API Integration Tests", () => {
     await waitForServerReady();
   }, 15000);
 
-  afterAll(() => {
+  afterAll(async () => {
+    await clearTestData();
     if (serverProcess && !serverProcess.killed) {
       serverProcess.kill();
     }

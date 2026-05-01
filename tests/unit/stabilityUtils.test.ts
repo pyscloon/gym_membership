@@ -12,7 +12,7 @@ import {
   throttle,
   sleep,
   validateData,
-} from "../src/lib/stabilityUtils";
+} from "../../src/lib/stabilityUtils";
 
 describe("stabilityUtils", () => {
   beforeEach(() => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { shouldProcessInteraction } from "../src/lib/interaction";
+import { shouldProcessInteraction } from "../../src/lib/interaction";
 
 describe("shouldProcessInteraction", () => {
   it("allows the first interaction when enough time passed", () => {

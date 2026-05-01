@@ -1,12 +1,21 @@
-import { describe, expect, it } from "@jest/globals";
+import { describe, expect, it, beforeAll, afterAll } from "@jest/globals";
+import { clearTestData } from "../helpers/dbCleanup";
 import {
   calculateMembershipStatus,
   getFullName,
   type ProfileFormState,
   validateProfileForm,
-} from "../src/lib/profileUtils";
+} from "../../src/lib/profileUtils";
 
 describe("Profile feature integration tests", () => {
+  beforeAll(async () => {
+    await clearTestData();
+  });
+
+  afterAll(async () => {
+    await clearTestData();
+  });
+
   it("accepts a valid profile update flow", () => {
     const form: ProfileFormState = {
       firstName: "John",

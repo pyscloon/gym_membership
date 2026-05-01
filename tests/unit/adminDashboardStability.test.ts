@@ -220,6 +220,7 @@ describe("AdminDashboard Stability", () => {
     it("should not update state after unmount", (done) => {
       let isMounted = true;
       let stateUpdates = 0;
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
 
       const safeUpdate = (_value: any) => {
         if (!isMounted) {
@@ -242,6 +243,8 @@ describe("AdminDashboard Stability", () => {
 
       setTimeout(() => {
         expect(stateUpdates).toBe(0);
+        expect(warnSpy).toHaveBeenCalledWith("State update after unmount prevented");
+        warnSpy.mockRestore();
         done();
       }, 100);
     });
