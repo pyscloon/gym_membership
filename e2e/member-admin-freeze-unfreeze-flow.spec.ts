@@ -69,7 +69,7 @@ async function openFreezeSection(page: Page) {
 	const heading = page.getByRole("heading", { name: /freeze requests & frozen members/i });
 	const alreadyOpen = await heading.isVisible().catch(() => false);
 	if (!alreadyOpen) {
-		await page.getByRole("button", { name: /^freeze$/i }).click();
+		await page.getByRole("button", { name: /freeze/i }).click();
 		await expect(heading).toBeVisible({ timeout: 10_000 });
 	}
 }
@@ -85,47 +85,19 @@ async function openFreezeSection(page: Page) {
 async function waitForPendingCount(
 	page: Page,
 	queueType: "freeze" | "unfreeze",
-	expectedMemberName?: string,
-	{ maxAttempts = 10, intervalMs = 3_000 }: { maxAttempts?: number; intervalMs?: number } = {}
+	expectedMemberName?: string
 ) {
 	const testId = queueType === "freeze" ? "pending-freeze-count" : "pending-unfreeze-count";
 
-	for (let attempt = 0; attempt < maxAttempts; attempt++) {
-		logPhase(`polling admin queue (${queueType}) attempt ${attempt + 1}/${maxAttempts}`);
-		await page.reload();
-		await openFreezeSection(page);
+	logPhase(`waiting for admin queue (${queueType}) to update`);
+	await openFreezeSection(page);
 
-		// Allow a short grace window for the dashboard to fetch counts
-		await page.waitForTimeout(800);
-
-		// If we have an expected member name, prefer checking for the request card
-		if (expectedMemberName) {
-			// Try matching visible text first (member name as rendered), then
-			// fall back to the attribute-based card we added.
-			const byName = page.getByText(expectedMemberName, { exact: true }).first();
-			const visibleName = await byName.isVisible().catch(() => false);
-			if (visibleName) return;
-
-			const card = page.locator(`[data-member-name="${expectedMemberName}"]`);
-			const visible = await card.isVisible().catch(() => false);
-			if (visible) return;
-		}
-
-		// Fallback to reading the exposed count attribute
-		const el = page.locator(`[data-testid="${testId}"]`);
-		const countAttr = await el.getAttribute("data-count").catch(() => null);
-		if (countAttr !== null && parseInt(countAttr, 10) > 0) return;
-
-		if (attempt < maxAttempts - 1) await page.waitForTimeout(intervalMs);
-	}
-
-	// Final assertion to provide useful failure output
 	if (expectedMemberName) {
 		const card = page.locator(`[data-member-name="${expectedMemberName}"]`);
-		await expect(card).toBeVisible({ timeout: 10_000 });
+		await expect(card).toBeVisible({ timeout: 30_000 });
 	} else {
 		const el = page.locator(`[data-testid="${testId}"]`);
-		await expect(el).toHaveAttribute("data-count", /^[1-9]/, { timeout: 10_000 });
+		await expect(el).toHaveAttribute("data-count", /^[1-9]/, { timeout: 30_000 });
 	}
 }
 
