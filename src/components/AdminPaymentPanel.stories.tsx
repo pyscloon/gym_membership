@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { waitFor, within } from '@testing-library/dom';
+import userEvent from '@testing-library/user-event';
 import AdminPaymentPanel from './AdminPaymentPanel';
 import type { UserType, PaymentTransaction } from '../types/payment';
 import { MEMBERSHIP_PRICES } from '../types/payment';
-import { clearAllTransactions, saveTransaction, generateTransactionId, simulateAdminConfirmation, verifyOnlinePayment, rejectOnlinePayment, getStoredTransaction } from '../lib/paymentSimulator';
+import { simulateAdminConfirmation, verifyOnlinePayment, rejectOnlinePayment, getStoredTransaction } from '../lib/paymentSimulator';
 
 /**
  * Mock payment confirmation handler
@@ -48,13 +50,11 @@ const createTestTransaction = (
   userType: UserType = 'monthly',
   userId = '11111111-1111-4111-8111-111111111111'
 ): PaymentTransaction => {
-  // Get base price for tier and add some variance (platform fee, tax, etc)
   const basePrice = MEMBERSHIP_PRICES[userType];
-  const variance = basePrice * (0.05 + Math.random() * 0.1); // 5-15% variance
-  const amount = Math.round(basePrice + variance);
+  const amount = basePrice;
   
   return {
-    id: generateTransactionId(),
+    id: `${method}-${userType}-${userId}`,
     userId,
     userType,
     amount,
@@ -66,6 +66,70 @@ const createTestTransaction = (
     updatedAt: new Date().toISOString(),
   };
 };
+
+type MockSupabaseState = {
+  session: null;
+  tables: {
+    transactions: Array<Record<string, unknown>>;
+    profiles: Array<Record<string, unknown>>;
+    memberships: Array<Record<string, unknown>>;
+  };
+};
+
+function setMockState(state: MockSupabaseState) {
+  const globalState = globalThis as typeof globalThis & {
+    __PLAYWRIGHT_MOCK_SUPABASE_STATE__?: MockSupabaseState;
+  };
+
+  globalState.__PLAYWRIGHT_MOCK_SUPABASE_STATE__ = state;
+}
+
+const storyTimestamp = '2026-05-01T00:00:00.000Z';
+
+function buildSeedState(transactions: PaymentTransaction[]): MockSupabaseState {
+  const profiles = transactions.map((transaction) => ({
+    id: transaction.userId,
+    full_name: transaction.userId === 'user-alpha-1' ? 'Alpha Tester' : transaction.userId === 'user-beta-1' ? 'Beta Tester' : transaction.userId,
+    email: `${transaction.userId}@example.com`,
+  }));
+
+  const memberships = transactions.map((transaction) => ({
+    user_id: transaction.userId,
+    tier: transaction.userType,
+    status: 'active',
+    start_date: storyTimestamp,
+    renewal_date: '2026-06-01T00:00:00.000Z',
+  }));
+
+  return {
+    session: null,
+    tables: {
+      transactions: transactions.map((transaction) => ({
+        id: transaction.id,
+        user_id: transaction.userId,
+        user_type: transaction.userType,
+        amount: transaction.amount,
+        method: transaction.method,
+        status: transaction.status,
+        proof_of_payment_url: transaction.proofOfPaymentUrl ?? null,
+        discount_id_proof_url: transaction.discountIdProofUrl ?? null,
+        created_at: transaction.createdAt,
+      })),
+      profiles,
+      memberships,
+    },
+  };
+}
+
+function seedSingleCashPayment() {
+  const transaction = createTestTransaction('cash', 'monthly', 'user-alpha-1');
+  setMockState(buildSeedState([transaction]));
+}
+
+function seedSingleOnlinePayment() {
+  const transaction = createTestTransaction('online', 'yearly', 'user-beta-1');
+  setMockState(buildSeedState([transaction]));
+}
 
 /**
  * Helper to set up story with specific transactions
@@ -105,7 +169,14 @@ export const NoPendingPayments: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([]);
+      setMockState({
+        session: null,
+        tables: {
+          transactions: [],
+          profiles: [],
+          memberships: [],
+        },
+      });
       return { loaded: true };
     }
   ],
@@ -123,6 +194,12 @@ export const NoPendingPayments: Story = {
       },
     },
   },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    canvas.getByText(/no pending payments/i);
+    canvas.getByText(/all pending payments have been processed/i);
+  },
 };
 
 /**
@@ -138,9 +215,7 @@ export const SingleCashPayment: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
-    ]);
+      seedSingleCashPayment();
       return { loaded: true };
     }
   ],
@@ -173,12 +248,12 @@ export const MultipleCashPayments: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
-      createTestTransaction('cash', 'semi-yearly', '11111111-1111-4111-8111-111111111113'),
-      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111114'),
-      createTestTransaction('cash', 'walk-in', '11111111-1111-4111-8111-111111111115'),
-    ]);
+      setMockState(buildSeedState([
+        createTestTransaction('cash', 'monthly', 'user-alpha-1'),
+        createTestTransaction('cash', 'semi-yearly', 'user-beta-1'),
+        createTestTransaction('cash', 'yearly', 'user-gamma-1'),
+        createTestTransaction('cash', 'walk-in', 'user-delta-1'),
+      ]));
       return { loaded: true };
     }
   ],
@@ -211,9 +286,7 @@ export const SingleOnlinePayment: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([
-      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111116'),
-    ]);
+      seedSingleOnlinePayment();
       return { loaded: true };
     }
   ],
@@ -246,11 +319,11 @@ export const MultipleOnlinePayments: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([
-      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
-      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111117'),
-      createTestTransaction('online', 'monthly', '11111111-1111-4111-8111-111111111118'),
-    ]);
+      setMockState(buildSeedState([
+        createTestTransaction('online', 'semi-yearly', 'user-beta-1'),
+        createTestTransaction('online', 'yearly', 'user-gamma-1'),
+        createTestTransaction('online', 'monthly', 'user-alpha-1'),
+      ]));
       return { loaded: true };
     }
   ],
@@ -283,13 +356,13 @@ export const MixedPaymentTypes: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
-      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
-      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111113'),
-      createTestTransaction('online', 'walk-in', '11111111-1111-4111-8111-111111111117'),
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111114'),
-    ]);
+      setMockState(buildSeedState([
+        createTestTransaction('cash', 'monthly', 'user-alpha-1'),
+        createTestTransaction('online', 'semi-yearly', 'user-beta-1'),
+        createTestTransaction('cash', 'yearly', 'user-gamma-1'),
+        createTestTransaction('online', 'walk-in', 'user-delta-1'),
+        createTestTransaction('cash', 'monthly', 'user-epsilon-1'),
+      ]));
       return { loaded: true };
     }
   ],
@@ -323,16 +396,20 @@ export const HighVolumePayments: Story = {
   loaders: [
     async () => {
       const payments: PaymentTransaction[] = [];
-    const userIds = ['11111111-1111-4111-8111-111111111119', '11111111-1111-4111-8111-111111111120', '11111111-1111-4111-8111-111111111121', '11111111-1111-4111-8111-111111111122', '11111111-1111-4111-8111-111111111123', '11111111-1111-4111-8111-111111111124', '11111111-1111-4111-8111-111111111125', '11111111-1111-4111-8111-111111111126', '11111111-1111-4111-8111-111111111127', '11111111-1111-4111-8111-111111111128', '11111111-1111-4111-8111-111111111129', '11111111-1111-4111-8111-111111111130'];
-    const tiers: UserType[] = ['monthly', 'semi-yearly', 'yearly', 'walk-in'];
-    const methods: ('cash' | 'online')[] = ['cash', 'online'];
-    
-    for (let i = 0; i < 12; i++) {
-      const tier = tiers[i % 4];
-      const method = methods[i % 2];
-      payments.push(createTestTransaction(method, tier, userIds[i]));
-    }
-    await setupTransactions(payments);
+      const userIds = [
+        'user-alpha-1', 'user-beta-1', 'user-gamma-1', 'user-delta-1',
+        'user-epsilon-1', 'user-zeta-1', 'user-eta-1', 'user-theta-1',
+        'user-iota-1', 'user-kappa-1', 'user-lambda-1', 'user-mu-1'
+      ];
+      const tiers: UserType[] = ['monthly', 'semi-yearly', 'yearly', 'walk-in'];
+      const methods: ('cash' | 'online')[] = ['cash', 'online'];
+
+      for (let i = 0; i < 12; i++) {
+        const tier = tiers[i % 4];
+        const method = methods[i % 2];
+        payments.push(createTestTransaction(method, tier, userIds[i]));
+      }
+      setMockState(buildSeedState(payments));
       return { loaded: true };
     }
   ],
@@ -364,10 +441,10 @@ export const InteractiveCashDemo: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([
-      createTestTransaction('cash', 'monthly', '11111111-1111-4111-8111-111111111112'),
-      createTestTransaction('cash', 'yearly', '11111111-1111-4111-8111-111111111114'),
-    ]);
+      setMockState(buildSeedState([
+        createTestTransaction('cash', 'monthly', 'user-alpha-1'),
+        createTestTransaction('cash', 'yearly', 'user-gamma-1'),
+      ]));
       return { loaded: true };
     }
   ],
@@ -402,10 +479,10 @@ export const InteractiveOnlineDemo: Story = {
   },
   loaders: [
     async () => {
-      await setupTransactions([
-      createTestTransaction('online', 'semi-yearly', '11111111-1111-4111-8111-111111111116'),
-      createTestTransaction('online', 'yearly', '11111111-1111-4111-8111-111111111117'),
-    ]);
+      setMockState(buildSeedState([
+        createTestTransaction('online', 'semi-yearly', 'user-beta-1'),
+        createTestTransaction('online', 'yearly', 'user-gamma-1'),
+      ]));
       return { loaded: true };
     }
   ],
