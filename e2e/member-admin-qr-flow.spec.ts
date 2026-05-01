@@ -76,7 +76,7 @@ async function approveMemberQr(page: Page) {
   await page.getByRole("button", { name: /admin confirmed scan/i }).click();
 }
 
-test.describe("member to admin full cave flow", () => {
+test.describe("member to admin full QR code flow", () => {
   test.describe.configure({ mode: "serial" });
 
   test("register -> plan -> admin verify -> check in -> scan -> check out -> scan", async ({ baseURL }) => {

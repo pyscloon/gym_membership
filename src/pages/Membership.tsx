@@ -182,13 +182,15 @@ export default function MembershipPage() {
     
     try {
       const response = await applyMembership(user.id, transaction.userType);
-      if (response.success) {
+      if (response.success || response.error === "You already have an active membership") {
         navigate("/dashboard");
       } else {
         console.error("Membership application failed:", response.error);
+        navigate("/dashboard");
       }
     } catch (err) {
       console.error("Unexpected error during membership application:", err);
+      navigate("/dashboard");
     }
   };
 
