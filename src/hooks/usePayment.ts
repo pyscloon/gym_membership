@@ -175,6 +175,37 @@ export function usePayment(userId?: string) {
     refreshTransactions();
   }, [refreshTransactions, userId]);
 
+  // Subscribe to realtime transaction updates for this user so status
+  // changes propagate quickly in dev/test environments.
+  useEffect(() => {
+    if (!supabase || !userId) return;
+
+    try {
+      const channel = supabase
+        .channel(`payment-status-${userId}`)
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "transactions", filter: `user_id=eq.${userId}` },
+          () => {
+            void refreshTransactions();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        try {
+          // supabase.removeChannel is available on the client in v2
+          if (typeof supabase.removeChannel === "function") supabase.removeChannel(channel);
+        } catch (err) {
+          // ignore cleanup errors
+        }
+      };
+    } catch (err) {
+      // If realtime setup fails, fall back to the existing refresh polling triggered elsewhere
+      return undefined;
+    }
+  }, [userId, refreshTransactions]);
+
   const hydrateTransactionState = useCallback(
     async (transactionId: string) => {
       const transaction = await fetchTransaction(transactionId);

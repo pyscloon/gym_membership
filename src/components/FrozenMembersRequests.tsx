@@ -133,14 +133,14 @@ export default function FrozenMembersRequests({ onPendingCountChange }: FrozenMe
 
     if (requests.length === 0) {
     return (
-        <div className="flex items-center justify-between mb-2">
-        <p className="text-sm text-gray-500">No pending freeze requests.</p>
-        {lastUpdated && (
-            <p className="text-xs text-gray-400">
-            Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </p>
-        )}
-        </div>
+      <div className="flex items-center justify-between mb-2">
+      <p className="text-sm text-gray-500">No pending freeze requests.</p>
+      {lastUpdated && (
+        <p className="text-xs text-gray-400">
+        Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+        </p>
+      )}
+      </div>
     );
     }
 
@@ -153,9 +153,23 @@ export default function FrozenMembersRequests({ onPendingCountChange }: FrozenMe
       )}
 
         <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-bold uppercase tracking-wider text-[#003B8F]">
-            Pending Freeze Requests ({requests.length})
-        </p>
+        {/* Visible freeze/unfreeze counts exposed for e2e stability */}
+        <div>
+          <p
+            data-testid="pending-freeze-count"
+            data-count={requests.filter((r) => r.status === "freeze-requested").length}
+            className="text-xs font-bold uppercase tracking-wider text-[#003B8F]"
+          >
+            Pending Freeze Requests ({requests.filter((r) => r.status === "freeze-requested").length})
+          </p>
+          <p
+            data-testid="pending-unfreeze-count"
+            data-count={requests.filter((r) => r.status === "unfreeze-requested").length}
+            className="text-xs text-gray-500 mt-1"
+          >
+            Pending Unfreeze Requests ({requests.filter((r) => r.status === "unfreeze-requested").length})
+          </p>
+        </div>
         {lastUpdated && (
             <p className="text-xs text-gray-400">
             Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -167,6 +181,9 @@ export default function FrozenMembersRequests({ onPendingCountChange }: FrozenMe
         {requests.map((member: any) => (
           <div
             key={member.id}
+            data-testid={`freeze-request-${member.user_id}`}
+            data-member-id={member.user_id}
+            data-member-name={member.user_name}
             className={`flex flex-col gap-3 rounded-xl p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between ${
               member.status === "freeze-requested"
                 ? "border border-flexNavy/15 bg-flexWhite"
@@ -184,6 +201,7 @@ export default function FrozenMembersRequests({ onPendingCountChange }: FrozenMe
             </div>
             <div className="flex gap-2">
               <button
+                data-testid={`approve-${member.user_id}`}
                 onClick={() => handleApprove(member.user_id, member.status)}
                 disabled={actionLoading !== null}
                 className="rounded-xl bg-[#0066CC] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#003B8F] disabled:opacity-50"
