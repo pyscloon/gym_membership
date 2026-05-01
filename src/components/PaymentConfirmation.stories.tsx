@@ -1,4 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { useState } from 'react';
+import { waitFor, within } from '@testing-library/dom';
+import userEvent from '@testing-library/user-event';
 import PaymentConfirmation from './PaymentConfirmation';
 import type { PaymentTransaction } from '../types/payment';
 import { MEMBERSHIP_PRICES } from '../types/payment';
@@ -27,11 +30,11 @@ const createPaymentTransaction = (
   userId = 'user_demo_123'
 ): PaymentTransaction => {
   const basePrice = MEMBERSHIP_PRICES[userType];
-  const variance = basePrice * (0.05 + Math.random() * 0.1);
-  const amount = Math.round(basePrice + variance);
+  const amount = basePrice;
+  const timestamp = '2026-05-01T00:00:00.000Z';
 
   return {
-    id: `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `${status}-${userType}-${method}-${userId}`,
     userId,
     userType,
     amount,
@@ -39,12 +42,31 @@ const createPaymentTransaction = (
     status,
     paymentProofStatus: method === 'online' ? 'pending' : undefined,
     proofOfPaymentUrl: method === 'online' ? 'https://via.placeholder.com/200' : undefined,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    confirmedAt: status === 'paid' ? new Date().toISOString() : undefined,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    confirmedAt: status === 'paid' ? timestamp : undefined,
     failureReason: status === 'failed' ? 'Insufficient funds in account' : undefined,
   };
 };
+
+function PaymentConfirmationHarness({
+  initialTransaction,
+  onComplete,
+}: {
+  initialTransaction: PaymentTransaction;
+  onComplete?: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(true);
+
+  return (
+    <PaymentConfirmation
+      transaction={initialTransaction}
+      isOpen={isOpen}
+      onClose={() => setIsOpen(false)}
+      onComplete={onComplete}
+    />
+  );
+}
 
 const meta = {
   title: 'Components/PaymentConfirmation',
@@ -100,6 +122,27 @@ export const PaymentSuccessful: Story = {
         story: 'Displays successful payment confirmation with green styling. Shows payment details and auto-closes after 5 seconds. Features a "Continue to Dashboard" button.',
       },
     },
+  },
+};
+
+export const InteractivePaidDismissal: Story = {
+  render: () => (
+    <PaymentConfirmationHarness
+      initialTransaction={createPaymentTransaction('paid', 'monthly', 'cash')}
+      onComplete={() => {}}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const user = userEvent.setup();
+
+    await user.click(canvas.getByRole('button', { name: /continue to dashboard/i }));
+
+    await waitFor(() => {
+      if (canvas.queryByRole('button', { name: /continue to dashboard/i })) {
+        throw new Error('confirmation modal still visible');
+      }
+    });
   },
 };
 
@@ -160,6 +203,26 @@ export const PaymentFailed: Story = {
         story: 'Displays payment failure with red styling. Shows failure reason and suggests trying a different payment method. Features a "Try Again" button.',
       },
     },
+  },
+};
+
+export const InteractiveFailedDismissal: Story = {
+  render: () => (
+    <PaymentConfirmationHarness
+      initialTransaction={createPaymentTransaction('failed', 'yearly', 'cash')}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const user = userEvent.setup();
+
+    await user.click(canvas.getByRole('button', { name: /try again/i }));
+
+    await waitFor(() => {
+      if (canvas.queryByRole('button', { name: /try again/i })) {
+        throw new Error('failure modal still visible');
+      }
+    });
   },
 };
 
