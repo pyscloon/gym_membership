@@ -160,13 +160,13 @@ export const AnalyticsRatioAnalysis: React.FC = () => {
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
       <div className={minimalView ? "border-y border-flexNavy/15 py-4" : "rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6"}>
         <ChartHeader title="Activity Ratio" subtitle="Proportion of members vs walk-ins" />
-        <ResponsiveContainer width="100%" height={250}>
+        <ResponsiveContainer width="100%" height={320}>
           <PieChart>
-            <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
+            <Pie data={pieData} cx="50%" cy="45%" innerRadius={60} outerRadius={100} paddingAngle={2} dataKey="value">
               {pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} />)}
             </Pie>
             <Tooltip formatter={(value) => `${value} visits`} contentStyle={{ backgroundColor: "#ffffff", border: "1px solid #cbd5e1", borderRadius: "0.5rem" }} />
-            <Legend />
+            <Legend wrapperStyle={{ paddingTop: "20px", fontSize: "12px" }} />
           </PieChart>
         </ResponsiveContainer>
       </div>
