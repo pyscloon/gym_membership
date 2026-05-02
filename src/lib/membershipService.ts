@@ -730,7 +730,15 @@ export async function approveUnfreezeRequest(
       .select()
       .single();
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("approveUnfreezeRequest error:", error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data) {
+      return { success: false, error: "No unfreeze-requested membership found" };
+    }
+
     return { success: true, data };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" };
@@ -791,7 +799,15 @@ export async function requestUnfreezeMembership(
       .select()
       .single();
 
-    if (error) return { success: false, error: error.message };
+    if (error) {
+      console.error("requestUnfreezeMembership error:", error);
+      return { success: false, error: error.message };
+    }
+
+    if (!data) {
+      return { success: false, error: "No frozen membership found" };
+    }
+
     return { success: true, data };
   } catch (err) {
     return { success: false, error: err instanceof Error ? err.message : "Unknown error" };

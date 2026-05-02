@@ -157,7 +157,11 @@ export default function PaymentConfirmation({
         </div>
 
         {/* Title */}
-        <h2 className={`text-center text-2xl font-bold ${config.textColor} mb-2`}>
+        <h2
+          className={`text-center text-2xl font-bold ${config.textColor} mb-2`}
+          data-testid="payment-status-heading"
+          data-status={transaction.status.replace(/-/g, "_")}
+        >
           {config.title}
         </h2>
 

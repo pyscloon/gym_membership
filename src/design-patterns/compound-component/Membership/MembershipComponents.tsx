@@ -210,7 +210,14 @@ export const MembershipFreezeModal: React.FC = () => {
         </div>
         <div className="flex gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/60">
           <button onClick={() => setShowFreezeModal(false)} className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold">Cancel</button>
-          <button onClick={handleRequestFreeze} disabled={actionLoading} className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white">{actionLoading ? "Submitting..." : isUnfreeze ? "Yes, Request Unfreeze" : "Yes, Request Freeze"}</button>
+          <button
+            onClick={handleRequestFreeze}
+            disabled={actionLoading}
+            data-testid={isUnfreeze ? "request-unfreeze-btn" : undefined}
+            className="flex-1 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+          >
+            {actionLoading ? "Submitting..." : isUnfreeze ? "Yes, Request Unfreeze" : "Yes, Request Freeze"}
+          </button>
         </div>
       </div>
     </div>

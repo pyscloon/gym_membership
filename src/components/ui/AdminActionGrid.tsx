@@ -47,7 +47,11 @@ export default function AdminActionGrid({
             >
               {action.icon}
               {typeof action.badgeCount === "number" && action.badgeCount > 0 && (
-                <span className="absolute -right-2 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ef4444] px-1.5 text-[10px] font-bold text-white">
+                <span
+                  data-testid={action.key === "frozenMembers" ? "pending-freeze-count" : undefined}
+                  data-count={action.badgeCount}
+                  className="absolute -right-2 -top-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-[#ef4444] px-1.5 text-[10px] font-bold text-white"
+                >
                   {action.badgeCount}
                 </span>
               )}
