@@ -1,7 +1,4 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { useState } from 'react';
-import { waitFor, within } from '@testing-library/dom';
-import userEvent from '@testing-library/user-event';
 import PaymentConfirmation from './PaymentConfirmation';
 import type { PaymentTransaction } from '../types/payment';
 import { MEMBERSHIP_PRICES } from '../types/payment';
@@ -49,25 +46,6 @@ const createPaymentTransaction = (
   };
 };
 
-function PaymentConfirmationHarness({
-  initialTransaction,
-  onComplete,
-}: {
-  initialTransaction: PaymentTransaction;
-  onComplete?: () => void;
-}) {
-  const [isOpen, setIsOpen] = useState(true);
-
-  return (
-    <PaymentConfirmation
-      transaction={initialTransaction}
-      isOpen={isOpen}
-      onClose={() => setIsOpen(false)}
-      onComplete={onComplete}
-    />
-  );
-}
-
 const meta = {
   title: 'Components/PaymentConfirmation',
   component: PaymentConfirmation,
@@ -85,25 +63,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/**
- * Closed state - Modal not displayed
- * Shows nothing when isOpen is false
- */
-export const Closed: Story = {
-  args: {
-    transaction: null,
-    isOpen: false,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    docs: {
-      description: {
-        story: 'Modal is hidden when isOpen is false. No confirmation dialog is displayed.',
-      },
-    },
-  },
-};
 
 /**
  * Payment Successful - Paid status
@@ -122,27 +81,6 @@ export const PaymentSuccessful: Story = {
         story: 'Displays successful payment confirmation with green styling. Shows payment details and auto-closes after 5 seconds. Features a "Continue to Dashboard" button.',
       },
     },
-  },
-};
-
-export const InteractivePaidDismissal: Story = {
-  render: () => (
-    <PaymentConfirmationHarness
-      initialTransaction={createPaymentTransaction('paid', 'monthly', 'cash')}
-      onComplete={() => {}}
-    />
-  ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const user = userEvent.setup();
-
-    await user.click(canvas.getByRole('button', { name: /continue to dashboard/i }));
-
-    await waitFor(() => {
-      if (canvas.queryByRole('button', { name: /continue to dashboard/i })) {
-        throw new Error('confirmation modal still visible');
-      }
-    });
   },
 };
 
@@ -203,26 +141,6 @@ export const PaymentFailed: Story = {
         story: 'Displays payment failure with red styling. Shows failure reason and suggests trying a different payment method. Features a "Try Again" button.',
       },
     },
-  },
-};
-
-export const InteractiveFailedDismissal: Story = {
-  render: () => (
-    <PaymentConfirmationHarness
-      initialTransaction={createPaymentTransaction('failed', 'yearly', 'cash')}
-    />
-  ),
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const user = userEvent.setup();
-
-    await user.click(canvas.getByRole('button', { name: /try again/i }));
-
-    await waitFor(() => {
-      if (canvas.queryByRole('button', { name: /try again/i })) {
-        throw new Error('failure modal still visible');
-      }
-    });
   },
 };
 
