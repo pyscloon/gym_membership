@@ -35,6 +35,7 @@ export default function AdminDashboard() {
   const [showScanner, setShowScanner] = useState(false);
   const [activeSection, setActiveSection] = useState<DashboardSection>("pendingPayment");
   const [customerTier, setCustomerTier] = useState<MembershipTier>("monthly");
+  const [customerCurrentPage, setCustomerCurrentPage] = useState(1);
   const [pendingPaymentCount, setPendingPaymentCount] = useState(0);
   const [pendingFreezeCount, setPendingFreezeCount] = useState(0);
   const [scanMessage, setScanMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -160,6 +161,17 @@ export default function AdminDashboard() {
   const customerTransactions = transactionHistory.filter(
     (transaction) => transaction.userType === customerTier
   );
+
+  const customersPerPage = 10;
+  const totalCustomerPages = Math.ceil(customerTransactions.length / customersPerPage);
+  const paginatedCustomerTransactions = customerTransactions.slice(
+    (customerCurrentPage - 1) * customersPerPage,
+    customerCurrentPage * customersPerPage
+  );
+
+  useEffect(() => {
+    setCustomerCurrentPage(1);
+  }, [customerTier]);
 
   const sectionTitleMap: Record<DashboardSection, string> = {
     pendingPayment: "Pending Payment",
@@ -449,7 +461,31 @@ export default function AdminDashboard() {
               </button>
             ))}
           </div>
-          <TransactionHistory transactions={customerTransactions} defaultExpanded minimalView />
+          <TransactionHistory transactions={paginatedCustomerTransactions} defaultExpanded minimalView />
+          
+          {totalCustomerPages > 1 && (
+            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4">
+              <p className="text-sm text-gray-500">
+                Showing {(customerCurrentPage - 1) * customersPerPage + 1} to {Math.min(customerCurrentPage * customersPerPage, customerTransactions.length)} of {customerTransactions.length} entries
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCustomerCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={customerCurrentPage === 1}
+                  className="rounded-md border border-[#0066CC]/20 bg-white px-3 py-1 text-sm font-medium text-[#003B8F] transition-colors hover:bg-[#EAF4FF] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  onClick={() => setCustomerCurrentPage((p) => Math.min(totalCustomerPages, p + 1))}
+                  disabled={customerCurrentPage === totalCustomerPages}
+                  className="rounded-md border border-[#0066CC]/20 bg-white px-3 py-1 text-sm font-medium text-[#003B8F] transition-colors hover:bg-[#EAF4FF] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </section>
       );
     }
