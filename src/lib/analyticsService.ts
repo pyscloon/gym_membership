@@ -40,14 +40,26 @@ const dateKeyFormatter = new Intl.DateTimeFormat("en-CA", {
 export interface DailyStats {
   date: string;
   members: number;
+  monthlyMembers: number;
+  semiYearlyMembers: number;
+  yearlyMembers: number;
   memberRevenue: number;
+  monthlyMemberRevenue: number;
+  semiYearlyMemberRevenue: number;
+  yearlyMemberRevenue: number;
   walkIns: number;
   walkInRevenue: number;
 }
 
 export interface AggregateStats {
   totalMembers: number;
+  monthlyMembers: number;
+  semiYearlyMembers: number;
+  yearlyMembers: number;
   totalMemberRevenue: number;
+  monthlyMemberRevenue: number;
+  semiYearlyMemberRevenue: number;
+  yearlyMemberRevenue: number;
   totalWalkIns: number;
   totalWalkInRevenue: number;
   memberRatio: number;
@@ -114,7 +126,13 @@ function buildAnalyticsData(transactions: PaymentTransaction[]): AnalyticsData {
       dailyMap.set(dateKey, {
         date: dateKey,
         members: 0,
+        monthlyMembers: 0,
+        semiYearlyMembers: 0,
+        yearlyMembers: 0,
         memberRevenue: 0,
+        monthlyMemberRevenue: 0,
+        semiYearlyMemberRevenue: 0,
+        yearlyMemberRevenue: 0,
         walkIns: 0,
         walkInRevenue: 0,
       });
@@ -128,6 +146,16 @@ function buildAnalyticsData(transactions: PaymentTransaction[]): AnalyticsData {
     } else {
       dayStats.members += 1;
       dayStats.memberRevenue += transaction.amount;
+      if (transaction.userType === "monthly") {
+        dayStats.monthlyMembers += 1;
+        dayStats.monthlyMemberRevenue += transaction.amount;
+      } else if (transaction.userType === "semi-yearly") {
+        dayStats.semiYearlyMembers += 1;
+        dayStats.semiYearlyMemberRevenue += transaction.amount;
+      } else if (transaction.userType === "yearly") {
+        dayStats.yearlyMembers += 1;
+        dayStats.yearlyMemberRevenue += transaction.amount;
+      }
     }
   });
 
@@ -138,6 +166,21 @@ function buildAnalyticsData(transactions: PaymentTransaction[]): AnalyticsData {
   const totalMembers = validTransactions.filter((t) => t.userType !== "walk-in").length;
   const totalMemberRevenue = validTransactions
     .filter((t) => t.userType !== "walk-in")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const monthlyMembers = validTransactions.filter((t) => t.userType === "monthly").length;
+  const monthlyMemberRevenue = validTransactions
+    .filter((t) => t.userType === "monthly")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const semiYearlyMembers = validTransactions.filter((t) => t.userType === "semi-yearly").length;
+  const semiYearlyMemberRevenue = validTransactions
+    .filter((t) => t.userType === "semi-yearly")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const yearlyMembers = validTransactions.filter((t) => t.userType === "yearly").length;
+  const yearlyMemberRevenue = validTransactions
+    .filter((t) => t.userType === "yearly")
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalWalkIns = validTransactions.filter((t) => t.userType === "walk-in").length;
@@ -153,7 +196,13 @@ function buildAnalyticsData(transactions: PaymentTransaction[]): AnalyticsData {
     dailyStats,
     aggregateStats: {
       totalMembers,
+      monthlyMembers,
+      semiYearlyMembers,
+      yearlyMembers,
       totalMemberRevenue,
+      monthlyMemberRevenue,
+      semiYearlyMemberRevenue,
+      yearlyMemberRevenue,
       totalWalkIns,
       totalWalkInRevenue,
       memberRatio,
@@ -178,13 +227,25 @@ export async function getWalkInVsMemberAnalyticsByDays(
   const filteredDailyStats = analytics.dailyStats.filter((stat) => stat.date >= cutoffKey);
 
   let totalMembers = 0;
+  let monthlyMembers = 0;
+  let semiYearlyMembers = 0;
+  let yearlyMembers = 0;
   let totalMemberRevenue = 0;
+  let monthlyMemberRevenue = 0;
+  let semiYearlyMemberRevenue = 0;
+  let yearlyMemberRevenue = 0;
   let totalWalkIns = 0;
   let totalWalkInRevenue = 0;
 
   filteredDailyStats.forEach((stat) => {
     totalMembers += stat.members;
+    monthlyMembers += stat.monthlyMembers;
+    semiYearlyMembers += stat.semiYearlyMembers;
+    yearlyMembers += stat.yearlyMembers;
     totalMemberRevenue += stat.memberRevenue;
+    monthlyMemberRevenue += stat.monthlyMemberRevenue;
+    semiYearlyMemberRevenue += stat.semiYearlyMemberRevenue;
+    yearlyMemberRevenue += stat.yearlyMemberRevenue;
     totalWalkIns += stat.walkIns;
     totalWalkInRevenue += stat.walkInRevenue;
   });
@@ -197,7 +258,13 @@ export async function getWalkInVsMemberAnalyticsByDays(
     dailyStats: filteredDailyStats,
     aggregateStats: {
       totalMembers,
+      monthlyMembers,
+      semiYearlyMembers,
+      yearlyMembers,
       totalMemberRevenue,
+      monthlyMemberRevenue,
+      semiYearlyMemberRevenue,
+      yearlyMemberRevenue,
       totalWalkIns,
       totalWalkInRevenue,
       memberRatio,

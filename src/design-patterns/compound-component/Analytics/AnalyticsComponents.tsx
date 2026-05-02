@@ -21,6 +21,10 @@ const WALKIN_COLOR = "#0f766e";
 const MEMBER_REVENUE_COLOR = "#3b82f6"; 
 const WALKIN_REVENUE_COLOR = "#14b8a6"; 
 
+const MONTHLY_MEMBER_COLOR = "#60a5fa";
+const SEMI_YEARLY_MEMBER_COLOR = "#3b82f6";
+const YEARLY_MEMBER_COLOR = "#1e3a8a";
+
 export const AnalyticsStatus: React.FC = () => {
   const { isLoading, error, data, minimalView } = useAnalytics();
 
@@ -144,9 +148,11 @@ export const AnalyticsRatioAnalysis: React.FC = () => {
   if (!data) return null;
 
   const pieData = [
-    { name: "Members", value: data.aggregateStats.totalMembers, color: MEMBER_COLOR },
+    { name: "Monthly Members", value: data.aggregateStats.monthlyMembers, color: MONTHLY_MEMBER_COLOR },
+    { name: "Semi-Yearly Members", value: data.aggregateStats.semiYearlyMembers, color: SEMI_YEARLY_MEMBER_COLOR },
+    { name: "Yearly Members", value: data.aggregateStats.yearlyMembers, color: YEARLY_MEMBER_COLOR },
     { name: "Walk-Ins", value: data.aggregateStats.totalWalkIns, color: WALKIN_COLOR },
-  ];
+  ].filter(item => item.value > 0);
 
   const totalRevenue = data.aggregateStats.totalMemberRevenue + data.aggregateStats.totalWalkInRevenue;
 
@@ -168,7 +174,9 @@ export const AnalyticsRatioAnalysis: React.FC = () => {
       <div className={minimalView ? "border-y border-flexNavy/15 py-4" : "rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6"}>
         <ChartHeader title="Revenue Distribution" subtitle="Total revenue breakdown" />
         <div className="space-y-4">
-          <RevenueProgress label="Member Revenue" amount={data.aggregateStats.totalMemberRevenue} total={totalRevenue} color={MEMBER_COLOR} barColor="bg-flexBlue" />
+          <RevenueProgress label="Monthly Member Revenue" amount={data.aggregateStats.monthlyMemberRevenue} total={totalRevenue} color={MONTHLY_MEMBER_COLOR} barColor="bg-blue-400" />
+          <RevenueProgress label="Semi-Yearly Member Revenue" amount={data.aggregateStats.semiYearlyMemberRevenue} total={totalRevenue} color={SEMI_YEARLY_MEMBER_COLOR} barColor="bg-blue-500" />
+          <RevenueProgress label="Yearly Member Revenue" amount={data.aggregateStats.yearlyMemberRevenue} total={totalRevenue} color={YEARLY_MEMBER_COLOR} barColor="bg-flexBlue" />
           <RevenueProgress label="Walk-In Revenue" amount={data.aggregateStats.totalWalkInRevenue} total={totalRevenue} color={WALKIN_COLOR} barColor="bg-teal-600" />
           <div className="pt-4 border-t border-flexNavy/10">
             <div className="flex items-center justify-between">
