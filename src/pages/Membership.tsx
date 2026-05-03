@@ -107,7 +107,7 @@ function PlanCard({
                 onClick={handleButtonClick}
                 className="relative cursor-pointer overflow-hidden rounded-xl border-none bg-black/90 py-3 px-6 text-[0.85rem] font-bold text-white transition-all duration-200 hover:scale-[1.05] hover:bg-black active:scale-[0.98] shadow-lg"
               >
-                <span className="relative z-10">SELECT PLAN</span>
+                <span className="relative z-10">{isBackendEnabled ? "SELECT PLAN" : "CONTACT COACH"}</span>
               </button>
             </div>
           </div>

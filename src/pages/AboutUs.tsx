@@ -51,10 +51,10 @@ export default function AboutUs() {
   const location = useLocation();
   const trainersRef = useRef<HTMLDivElement>(null);
   const trainers = [
-    { name: "Amiel Benedict Mirasol", role: "Elite Trainer", id: "A-001" },
-    { name: "Ilon Ziv Barcelona", role: "Strength Coach", id: "A-002" },
-    { name: "Gian Gamir Umadhay", role: "Fitness Coach", id: "A-003" },
-    { name: "Lance Jrzn Demonteverde", role: "Boxing Coach", id: "A-004" },
+    { name: "Amiel Benedict Mirasol", role: "Elite Trainer", id: "A-001", contact: "+63 912 345 6789", image: "/src/assets/coach_amiel.png" },
+    { name: "Ilon Ziv Barcelona", role: "Strength Coach", id: "A-002", contact: "+63 991 488c4373", image: "/src/assets/coach_ilon.png" },
+    { name: "Gian Gamir Umadhay", role: "Fitness Coach", id: "A-003", contact: "+63 934 567 8901", image: "/src/assets/coach_gian.png" },
+    { name: "Red Guilaran", role: "Boxing Coach", id: "A-004", contact: "+63 956 344 4371", image: "/src/assets/coach_red.png" },
   ];
 
   useEffect(() => {
@@ -314,13 +314,13 @@ export default function AboutUs() {
                 <article key={trainer.id} className="trainer-card" style={{ animationDelay: `${i * 150}ms`, opacity: 1 }}>
                   <div className="trainer-visual-box">
                     <img src="/src/assets/frame.png" className="trainer-frame-overlay" alt="frame" />
-                    <img src="/src/assets/placeholder.png" className="trainer-img" alt={trainer.name} />
+                    <img src={trainer.image} className="trainer-img" alt={trainer.name} />
                   </div>
                   <div className="p-6 text-center">
                     <span className="gold-tag">CERTIFIED COACH</span>
                     <h3 className="font-['Bebas_Neue'] text-3xl text-white">{trainer.name}</h3>
                     <p className="text-xs text-blue-400 uppercase tracking-widest">{trainer.role}</p>
-                    <p className="text-xs text-white/70 uppercase tracking-widest mt-2">contact [+63]</p>
+                    <p className="text-xs text-white/70 uppercase tracking-widest mt-2">contact [{trainer.contact}]</p>
                   </div>
                 </article>
               ))}

@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { motion, useInView, useSpring } from "framer-motion";
 import { Link } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
-import placeholderImage from "../assets/placeholder.png";
+import placeholderImage from "../assets/placeholder.jpg";
 import flexBackground from "../assets/flex-background.png";
 import location1 from "../assets/Location1.png";
 import location2 from "../assets/Location2.png";
