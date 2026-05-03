@@ -47,17 +47,27 @@ function PlanCard({
   theme,
   isBackendEnabled,
   onConfirm,
+  onWithCoachSelect,
 }: {
   plan: PlanData;
   theme: { gradient: string; serial: string };
   isBackendEnabled: boolean;
   onConfirm: (planId: PlanId) => void;
+  onWithCoachSelect?: () => void;
 }) {
   const [isFlipped, setIsFlipped] = useState(false);
 
   const handleFlip = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
     setIsFlipped(!isFlipped);
+  };
+
+  const handleButtonClick = () => {
+    if (!isBackendEnabled && onWithCoachSelect) {
+      onWithCoachSelect();
+    } else {
+      onConfirm(plan.id);
+    }
   };
 
   return (
@@ -94,10 +104,10 @@ function PlanCard({
                 <p className="text-[10px] text-white/60 uppercase">Flip for benefits • {theme.serial}</p>
               </div>
               <button
-                onClick={() => onConfirm(plan.id)}
+                onClick={handleButtonClick}
                 className="relative cursor-pointer overflow-hidden rounded-xl border-none bg-black/90 py-3 px-6 text-[0.85rem] font-bold text-white transition-all duration-200 hover:scale-[1.05] hover:bg-black active:scale-[0.98] shadow-lg"
               >
-                <span className="relative z-10">{isBackendEnabled ? "SELECT PLAN" : "COMING SOON"}</span>
+                <span className="relative z-10">SELECT PLAN</span>
               </button>
             </div>
           </div>
@@ -139,6 +149,10 @@ export default function MembershipPage() {
     setSelectedPlanTier(planId === "walk_in" ? "walk-in" : planId === "semi_yearly" ? "semi-yearly" : planId);
     clearError();
     setShowPaymentModal(true);
+  };
+
+  const handleWithCoachSelect = () => {
+    navigate("/about-us#professional-staff");
   };
 
   const handleInitiatePayment = async (
@@ -238,6 +252,7 @@ export default function MembershipPage() {
                     theme={PLAN_THEMES[plan.id]}
                     isBackendEnabled={activeTab === "self_training"}
                     onConfirm={handleSelectPlan}
+                    onWithCoachSelect={handleWithCoachSelect}
                   />
                 </div>
               );
