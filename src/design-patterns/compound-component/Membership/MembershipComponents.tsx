@@ -128,8 +128,8 @@ export const MembershipAccess: React.FC = () => {
           <p className="text-xs font-bold tracking-widest text-flexNavy uppercase">
             {qrActionType === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}
           </p>
-          <div className="bg-white p-3 rounded-xl border border-flexNavy/10 shadow-sm">
-            <QRCodeSVG value={qrValue} size={180} bgColor="#ffffff" fgColor="#0a0a2e" level="H" />
+          <div className="bg-white p-3 rounded-xl border border-flexNavy/10 shadow-sm max-w-full overflow-hidden">
+            <QRCodeSVG value={qrValue} size={180} className="w-full h-auto max-w-[180px]" bgColor="#ffffff" fgColor="#0a0a2e" level="H" />
           </div>
           <button onClick={handleCloseQR} className="w-full rounded-xl bg-flexBlue px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-flexNavy">✓ Done — Approved</button>
         </div>
@@ -292,11 +292,24 @@ export const MembershipSessionScanModal: React.FC = () => {
         <div className="mx-auto flex max-w-4xl flex-col items-center gap-5">
           <p className="text-xl font-black tracking-[0.2em] text-[#1b5fb3] uppercase">{sessionScanMode === "checkout" ? "CHECK-OUT QR" : "CHECK-IN QR"}</p>
           <div
-            className="rounded-3xl border border-[#c7d9ef] bg-[#f6f8fc] p-6 shadow-sm"
+            className="rounded-3xl border border-[#c7d9ef] bg-[#f6f8fc] p-4 sm:p-6 shadow-sm max-w-full overflow-hidden"
             data-testid="member-session-qr"
             data-qr-value={qrValue}
           >
-            {showQR ? <QRCodeSVG value={qrValue} size={360} bgColor="#ffffff" fgColor="#111244" level="H" /> : <div className="flex h-[360px] w-[360px] items-center justify-center text-[#6b90c0]">Generating...</div>}
+            {showQR ? (
+              <QRCodeSVG 
+                value={qrValue} 
+                size={360} 
+                className="w-full h-auto max-w-[240px] sm:max-w-[360px]" 
+                bgColor="#ffffff" 
+                fgColor="#111244" 
+                level="H" 
+              />
+            ) : (
+              <div className="flex aspect-square w-[240px] sm:w-[360px] max-w-full items-center justify-center text-[#6b90c0]">
+                Generating...
+              </div>
+            )}
           </div>
           <button onClick={() => { handleCloseQR(); handleCloseSessionScanModal(true); }} className="w-full rounded-3xl bg-gradient-to-r from-[#1891e8] to-[#2f94de] px-6 py-4 text-xl font-semibold text-white shadow-lg">Admin Confirmed Scan</button>
         </div>
