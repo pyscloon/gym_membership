@@ -286,6 +286,130 @@ app.get("/api/dashboard", (_request, response) => {
   });
 });
 
+// ── Streak ───────────────────────────────────────────────────────────────────
+
+/**
+ * Calculate the daily login streak for a user
+ * A streak increments if the user has at least one check-in per calendar day (UTC)
+ * The streak resets to 0 if a full calendar day is missed
+ * 
+ * @param {Array<string>} checkInDates - Array of ISO timestamps from check_ins table
+ * @returns {Object} { streak: number, last7Days: boolean[] }
+ */
+function calculateStreak(checkInDates) {
+  if (!checkInDates || checkInDates.length === 0) {
+    return { streak: 0, last7Days: Array(7).fill(false) };
+  }
+
+  // Convert timestamps to UTC dates (just the date part)
+  const dateSet = new Set();
+  checkInDates.forEach((timestamp) => {
+    const date = new Date(timestamp);
+    const utcDateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
+    dateSet.add(utcDateString);
+  });
+
+  // Get last 7 calendar days (UTC)
+  const today = new Date();
+  const last7Days = [];
+  const dateArray = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setUTCDate(date.getUTCDate() - i);
+    const dateString = date.toISOString().split("T")[0];
+    dateArray.push(dateString);
+    last7Days.push(dateSet.has(dateString));
+  }
+
+  // Calculate current streak (consecutive days from today backwards)
+  let streak = 0;
+  const todayString = today.toISOString().split("T")[0];
+  
+  for (let i = 0; i < 7; i++) {
+    const checkDate = dateArray[6 - i]; // Start from today and go backwards
+    if (dateSet.has(checkDate)) {
+      streak += 1;
+    } else {
+      break; // Streak breaks if a day is missed
+    }
+  }
+
+  return { streak, last7Days };
+}
+
+app.get("/api/streak", async (request, response) => {
+  try {
+    const { userId } = request.query;
+
+    if (!userId) {
+      return response.status(400).json({
+        status: "error",
+        message: "userId is required",
+      });
+    }
+
+    // ⚠️ SECURITY NOTE: In production, verify the user ID matches the authenticated user
+    // For now, we're accepting userId from query for development purposes.
+    // This endpoint should verify auth token and only allow users to fetch their own streak.
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return response.status(500).json({
+        status: "error",
+        message: "Supabase configuration missing",
+      });
+    }
+
+    // Use dynamic import for ES module
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Query check-ins for the last 30 days (for efficiency)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+
+    const { data: checkIns, error } = await supabase
+      .from("check_ins")
+      .select("check_in_time")
+      .eq("user_id", userId)
+      .gte("check_in_time", thirtyDaysAgo.toISOString())
+      .order("check_in_time", { ascending: false });
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return response.status(500).json({
+        status: "error",
+        message: "Failed to fetch check-in data",
+        error: error.message,
+      });
+    }
+
+    // Extract timestamps and calculate streak
+    const timestamps = checkIns.map((record) => record.check_in_time);
+    const { streak, last7Days } = calculateStreak(timestamps);
+
+    response.status(200).json({
+      status: "ok",
+      message: "Streak calculated successfully",
+      data: {
+        streak,
+        last7Days,
+        totalCheckIns: checkIns.length,
+      },
+    });
+  } catch (err) {
+    console.error("Streak endpoint error:", err);
+    response.status(500).json({
+      status: "error",
+      message: "Internal server error",
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+});
+
 // ── Crowd ─────────────────────────────────────────────────────────────────────
 
 app.get("/api/crowd/best-times", (request, response) => {
