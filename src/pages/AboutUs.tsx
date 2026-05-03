@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
 
 /**
@@ -48,12 +48,20 @@ const StatCard = ({ stat, value, delay }: { stat: string; value: string; delay: 
 };
 
 export default function AboutUs() {
+  const location = useLocation();
+  const trainersRef = useRef<HTMLDivElement>(null);
   const trainers = [
     { name: "Amiel Benedict Mirasol", role: "Elite Trainer", id: "A-001" },
     { name: "Ilon Ziv Barcelona", role: "Strength Coach", id: "A-002" },
     { name: "Gian Gamir Umadhay", role: "Fitness Coach", id: "A-003" },
     { name: "Lance Jrzn Demonteverde", role: "Boxing Coach", id: "A-004" },
   ];
+
+  useEffect(() => {
+    if (location.hash === "#professional-staff" && trainersRef.current) {
+      trainersRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [location.hash]);
 
   return (
     <div className="fr-page-wrapper">
@@ -295,7 +303,7 @@ export default function AboutUs() {
         </section>
 
         {/* 3. TRAINERS SECTION */}
-        <section className="px-12 py-24 bg-[#050510]">
+        <section className="px-12 py-24 bg-[#050510]" ref={trainersRef}>
           <div className="mx-auto max-w-7xl">
             <div className="text-center mb-16">
               <div className="fr-label justify-center" style={{ color: 'var(--fr-gold)' }}>PROFESSIONAL STAFF</div>
@@ -312,6 +320,7 @@ export default function AboutUs() {
                     <span className="gold-tag">CERTIFIED COACH</span>
                     <h3 className="font-['Bebas_Neue'] text-3xl text-white">{trainer.name}</h3>
                     <p className="text-xs text-blue-400 uppercase tracking-widest">{trainer.role}</p>
+                    <p className="text-xs text-white/70 uppercase tracking-widest mt-2">contact [+63]</p>
                   </div>
                 </article>
               ))}
