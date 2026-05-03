@@ -1,7 +1,4 @@
 import { createClient } from "@supabase/supabase-js";
-import * as dotenv from "dotenv";
-
-dotenv.config({ path: ".env.test" });
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -12,7 +9,6 @@ const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabase
 
 export async function clearTestData() {
   if (!supabase || !adminEmail || !adminPassword) {
-    console.warn("Skipping DB cleanup due to missing credentials.");
     return;
   }
 
@@ -22,7 +18,6 @@ export async function clearTestData() {
   });
 
   if (authError) {
-    console.error("Failed to authenticate as admin for DB cleanup:", authError);
     return;
   }
 

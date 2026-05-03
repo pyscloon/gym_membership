@@ -22,9 +22,6 @@ function makeMemberSeed() {
 	};
 }
 
-function logPhase(message: string) {
-	console.log(`[freeze-e2e] ${message}`);
-}
 
 async function loginAdmin(page: Page) {
   await page.goto("/admin/login");
@@ -89,7 +86,6 @@ async function waitForPendingCount(
 ) {
 	const testId = queueType === "freeze" ? "pending-freeze-count" : "pending-unfreeze-count";
 
-	logPhase(`waiting for admin queue (${queueType}) to update`);
 	await openFreezeSection(page);
 
 	if (expectedMemberName) {
@@ -163,12 +159,10 @@ test.describe("member to admin freeze/unfreeze flow", () => {
 				const adminPage = await adminBrowser.newPage({ baseURL });
 
 				// ── 1. Register + upload payment proof ────────────────────────
-				logPhase("registering yearly member and submitting payment proof");
 				const memberSeed = await createAndActivateYearlyMember(memberPage);
 				const memberFullName = `${memberSeed.firstName} ${memberSeed.lastName}`;
 
 				// ── 2. Admin approves the payment ──────────────────────────────
-				logPhase("admin login and payment approval");
 				await loginAdmin(adminPage);
 				await approvePaymentForMember(adminPage, memberFullName);
 								// Wait for member page to observe the paid status before continuing.
@@ -177,14 +171,12 @@ test.describe("member to admin freeze/unfreeze flow", () => {
 								).toBeVisible({ timeout: 40_000 });
 
 				// ── 3. Member lands on dashboard ───────────────────────────────
-				logPhase("waiting for member dashboard after payment approval");
 				await expect(memberPage).toHaveURL(/\/dashboard/, { timeout: 30_000 });
 				await expect(
 					memberPage.getByRole("button", { name: /request freeze/i })
 				).toBeVisible({ timeout: 20_000 });
 
 				// ── 4. Member requests freeze ──────────────────────────────────
-				logPhase("member requests freeze");
 				await memberPage
 					.getByRole("button", { name: /request freeze/i })
 					.click();
@@ -199,7 +191,6 @@ test.describe("member to admin freeze/unfreeze flow", () => {
 				).toBeVisible();
 
 				// ── 5. Admin approves the freeze request ───────────────────────
-				logPhase("admin approves freeze request");
 				// Use the poll-reload helper so we don't race the backend write.
 		await waitForPendingCount(adminPage, "freeze", memberFullName);
 				const freezeRequestCard = adminPage.locator(`[data-member-name="${memberFullName}"]`);
@@ -212,7 +203,6 @@ test.describe("member to admin freeze/unfreeze flow", () => {
 				await adminPage.waitForTimeout(1_500);
 
 				// ── 6. Member sees frozen state and requests unfreeze ──────────
-				logPhase("member reloads and requests unfreeze");
 				await memberPage.reload();
 				await expect(
 					memberPage.getByRole("button", { name: /request unfreeze/i })
@@ -231,7 +221,6 @@ test.describe("member to admin freeze/unfreeze flow", () => {
 				).toBeVisible();
 
 				// ── 7. Admin approves the unfreeze request ─────────────────────
-				logPhase("admin approves unfreeze request");
 				// The admin panel separates freeze and unfreeze queues.  The
 				// unfreeze queue label is distinct from the freeze queue label so
 				// we match both alternatives in one regex.
@@ -243,7 +232,6 @@ await waitForPendingCount(adminPage, "unfreeze", memberFullName);
 				await adminPage.waitForTimeout(1_500);
 
 				// ── 8. Member is back to active state ──────────────────────────
-				logPhase("waiting for member to return to active state");
 				await memberPage.reload();
 				await expect(
 					memberPage.getByRole("button", { name: /request freeze/i })

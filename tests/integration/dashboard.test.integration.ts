@@ -2,10 +2,7 @@ import request from "supertest";
 import { describe, it, expect, beforeAll, afterAll } from "@jest/globals";
 import { spawn } from "child_process";
 import { createClient } from "@supabase/supabase-js";
-import * as dotenv from "dotenv";
 import { clearTestData } from "../helpers/dbCleanup";
-
-dotenv.config();
 
 const REQUIRED_ENV = [
   "VITE_SUPABASE_URL",
