@@ -1,10 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { waitFor, within } from '@testing-library/dom';
-import userEvent from '@testing-library/user-event';
+import { within } from '@testing-library/dom';
 import AdminPaymentPanel from './AdminPaymentPanel';
 import type { UserType, PaymentTransaction } from '../types/payment';
 import { MEMBERSHIP_PRICES } from '../types/payment';
-import { simulateAdminConfirmation, verifyOnlinePayment, rejectOnlinePayment, getStoredTransaction } from '../lib/paymentSimulator';
+import {
+  simulateAdminConfirmation,
+  verifyOnlinePayment,
+  rejectOnlinePayment,
+  getStoredTransaction,
+  saveTransaction,
+} from '../lib/paymentSimulator';
 
 /**
  * Mock payment confirmation handler
@@ -130,14 +135,6 @@ function seedSingleOnlinePayment() {
   const transaction = createTestTransaction('online', 'yearly', 'user-beta-1');
   setMockState(buildSeedState([transaction]));
 }
-
-/**
- * Helper to set up story with specific transactions
- */
-const setupTransactions = async (transactions: PaymentTransaction[]) => {
-  await clearAllTransactions();
-  await Promise.all(transactions.map((t) => saveTransaction(t)));
-};
 
 const meta = {
   title: 'Components/AdminPaymentPanel',

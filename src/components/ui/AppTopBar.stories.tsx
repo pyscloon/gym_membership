@@ -1,6 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { within } from '@testing-library/dom';
-import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router-dom';
 import { AppUiProvider } from '../../context/AppUiContext';
 import AppTopBar from './AppTopBar';
