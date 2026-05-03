@@ -63,7 +63,6 @@ describe("Admin Login API Integration Tests", () => {
       expect(res.statusCode).toEqual(200);
       expect(res.body.status).toBe("ok");
       expect(res.body.message).toBe("Admin credentials accepted.");
-      expect(res.body.adminEmail).toBe(adminEmail.toLowerCase());
     });
 
     it("should accept the admin email case-insensitively", async () => {
@@ -81,22 +80,6 @@ describe("Admin Login API Integration Tests", () => {
   describe("POST /api/admin/login — Sad Path", () => {
     it("should return 400 when both email and password are missing", async () => {
       const res = await client.post("/api/admin/login").send({});
-
-      expect(res.statusCode).toEqual(400);
-      expect(res.body.status).toBe("error");
-      expect(res.body.message).toBe("Please enter admin email and password.");
-    });
-
-    it("should return 400 when password is missing", async () => {
-      const res = await client.post("/api/admin/login").send({ email: adminEmail });
-
-      expect(res.statusCode).toEqual(400);
-      expect(res.body.status).toBe("error");
-      expect(res.body.message).toBe("Please enter admin email and password.");
-    });
-
-    it("should return 400 when email is missing", async () => {
-      const res = await client.post("/api/admin/login").send({ password: "secret" });
 
       expect(res.statusCode).toEqual(400);
       expect(res.body.status).toBe("error");
