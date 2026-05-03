@@ -1,4 +1,4 @@
-import { test, expect, chromium, type Page } from "@playwright/test";
+import { test, expect, chromium, type Page, type Browser } from "@playwright/test";
 
 const memberPassword = "StoneClub123!";
 const adminEmail = process.env.TEST_ADMIN_EMAIL ?? process.env.VITE_ADMIN_EMAIL ?? "admin@gmail.com";
@@ -79,78 +79,96 @@ async function approveMemberQr(page: Page) {
 test.describe("member to admin full QR code flow", () => {
   test.describe.configure({ mode: "serial" });
 
-  test("register -> plan -> admin verify -> check in -> scan -> check out -> scan", async ({ baseURL }) => {
-    test.setTimeout(120000);
+  let memberBrowser: Browser;
+  let adminBrowser: Browser;
+  let memberPage: Page;
+  let adminPage: Page;
+  let memberSeed: ReturnType<typeof makeMemberSeed>;
+
+  test.beforeAll(async () => {
+    memberSeed = makeMemberSeed();
+    memberBrowser = await chromium.launch();
+    adminBrowser = await chromium.launch();
+  });
+
+  test.afterAll(async () => {
+    await memberBrowser?.close();
+    await adminBrowser?.close();
+  });
+
+  test("should register a new member and submit payment proof", async ({ baseURL }) => {
+    test.setTimeout(60000);
     test.skip(!adminPassword || adminPassword === "change-me", "Need real TEST_ADMIN_PASSWORD in .env.test for admin cave login.");
 
-    const memberSeed = makeMemberSeed();
-    const memberBrowser = await chromium.launch();
-    const adminBrowser = await chromium.launch();
+    memberPage = await memberBrowser.newPage({ baseURL });
+    adminPage = await adminBrowser.newPage({ baseURL });
 
-    try {
-      const memberPage = await memberBrowser.newPage({ baseURL });
-      const adminPage = await adminBrowser.newPage({ baseURL });
+    await installQrDriver(adminPage);
 
-      await installQrDriver(adminPage);
+    await memberPage.goto("/register");
+    await memberPage.getByLabel("First name").fill(memberSeed.firstName);
+    await memberPage.getByLabel("Last name").fill(memberSeed.lastName);
+    await memberPage.getByLabel("Email").fill(memberSeed.email);
+    await memberPage.getByLabel("Password").fill(memberPassword);
+    await memberPage.getByRole("button", { name: /create account/i }).click();
+    await expect(memberPage).toHaveURL(/\/subscription-tier/);
 
-      await memberPage.goto("/register");
-      await memberPage.getByLabel("First name").fill(memberSeed.firstName);
-      await memberPage.getByLabel("Last name").fill(memberSeed.lastName);
-      await memberPage.getByLabel("Email").fill(memberSeed.email);
-      await memberPage.getByLabel("Password").fill(memberPassword);
-      await memberPage.getByRole("button", { name: /create account/i }).click();
-      await expect(memberPage).toHaveURL(/\/subscription-tier/);
+    await memberPage.getByRole("button", { name: /select plan/i }).nth(1).click();
+    await expect(memberPage.getByRole("heading", { name: /payment details/i })).toBeVisible();
+    await memberPage.getByRole("button", { name: /online transfer/i }).click();
+    await memberPage.locator('input[type="file"]').setInputFiles({
+      name: "payment-proof.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s2xN9sAAAAASUVORK5CYII=",
+        "base64"
+      ),
+    });
+    await expect(memberPage.getByAltText(/proof preview/i)).toBeVisible();
+    await memberPage.getByRole("button", { name: /pay /i }).click();
+    await expect(memberPage.getByRole("heading", { name: /awaiting payment verification/i })).toBeVisible({ timeout: 15000 });
+  });
 
-      await memberPage.getByRole("button", { name: /select plan/i }).nth(1).click();
-      await expect(memberPage.getByRole("heading", { name: /payment details/i })).toBeVisible();
-      await memberPage.getByRole("button", { name: /online transfer/i }).click();
-      await memberPage.locator('input[type="file"]').setInputFiles({
-        name: "payment-proof.png",
-        mimeType: "image/png",
-        buffer: Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9s2xN9sAAAAASUVORK5CYII=",
-          "base64"
-        ),
-      });
-      await expect(memberPage.getByAltText(/proof preview/i)).toBeVisible();
-      await memberPage.getByRole("button", { name: /pay /i }).click();
-      await expect(memberPage.getByRole("heading", { name: /awaiting payment verification/i })).toBeVisible();
+  test("admin should verify and approve member payment", async () => {
+    test.setTimeout(60000);
+    await loginAdmin(adminPage);
 
-      await loginAdmin(adminPage);
+    const memberCard = adminPage.locator(
+      `[data-testid="admin-payment-card"][data-member-name="${memberSeed.firstName} ${memberSeed.lastName}"]`
+    );
+    await expect(memberCard).toBeVisible({ timeout: 60000 });
+    await memberCard.getByRole("button", { name: /^confirm$/i }).click();
 
-      const memberCard = adminPage.locator(
-        `[data-testid="admin-payment-card"][data-member-name="${memberSeed.firstName} ${memberSeed.lastName}"]`
-      );
-      await expect(memberCard).toBeVisible({ timeout: 60000 });
-      await memberCard.getByRole("button", { name: /^confirm$/i }).click();
+    await expect(memberPage.getByText(/payment successful/i)).toBeVisible({ timeout: 20000 });
+    await memberPage.getByRole("button", { name: /continue to dashboard/i }).click();
+    await expect(memberPage).toHaveURL(/\/dashboard/);
+  });
 
-      await expect(memberPage.getByText(/payment successful/i)).toBeVisible({ timeout: 20000 });
-      await memberPage.getByRole("button", { name: /continue to dashboard/i }).click();
-      await expect(memberPage).toHaveURL(/\/dashboard/);
+  test("should complete check-in flow via QR scan", async () => {
+    test.setTimeout(60000);
+    await openAdminScanner(adminPage);
 
-      await openAdminScanner(adminPage);
+    await memberPage.getByTestId("member-session-fab").click();
+    const checkInQr = await getMemberQrValue(memberPage);
+    await emitQr(adminPage, checkInQr);
+    await expect(
+      adminPage.getByText(new RegExp(`Check-in successful for ${memberSeed.firstName} ${memberSeed.lastName}`, "i")).first()
+    ).toBeVisible({ timeout: 15000 });
+    await memberPage.waitForTimeout(250);
+    await approveMemberQr(memberPage);
+    await expect(memberPage.getByTestId("member-session-fab")).toHaveAttribute("aria-label", /check-out/i);
+  });
 
-      await memberPage.getByTestId("member-session-fab").click();
-      const checkInQr = await getMemberQrValue(memberPage);
-      await emitQr(adminPage, checkInQr);
-      await expect(
-        adminPage.getByText(new RegExp(`Check-in successful for ${memberSeed.firstName} ${memberSeed.lastName}`, "i")).first()
-      ).toBeVisible({ timeout: 15000 });
-      await memberPage.waitForTimeout(250);
-      await approveMemberQr(memberPage);
-      await expect(memberPage.getByTestId("member-session-fab")).toHaveAttribute("aria-label", /check-out/i);
-
-      await memberPage.getByTestId("member-session-fab").click();
-      const checkOutQr = await getMemberQrValue(memberPage);
-      await emitQr(adminPage, checkOutQr);
-      await expect(
-        adminPage.getByText(new RegExp(`Check-out successful for ${memberSeed.firstName} ${memberSeed.lastName}`, "i")).first()
-      ).toBeVisible({ timeout: 15000 });
-      await memberPage.waitForTimeout(250);
-      await approveMemberQr(memberPage);
-      await expect(memberPage.getByTestId("member-session-fab")).toHaveAttribute("aria-label", /check-in/i);
-    } finally {
-      await Promise.all([memberBrowser.close(), adminBrowser.close()]);
-    }
+  test("should complete check-out flow via QR scan", async () => {
+    test.setTimeout(60000);
+    await memberPage.getByTestId("member-session-fab").click();
+    const checkOutQr = await getMemberQrValue(memberPage);
+    await emitQr(adminPage, checkOutQr);
+    await expect(
+      adminPage.getByText(new RegExp(`Check-out successful for ${memberSeed.firstName} ${memberSeed.lastName}`, "i")).first()
+    ).toBeVisible({ timeout: 15000 });
+    await memberPage.waitForTimeout(250);
+    await approveMemberQr(memberPage);
+    await expect(memberPage.getByTestId("member-session-fab")).toHaveAttribute("aria-label", /check-in/i);
   });
 });
