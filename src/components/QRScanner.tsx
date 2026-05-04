@@ -50,6 +50,7 @@ export default function QRScanner({
 
   const [isScanning, setIsScanning] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
   const [lastScan, setLastScan] = useState<ScanResult | null>(null);
@@ -57,6 +58,7 @@ export default function QRScanner({
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isScannerRunningRef = useRef(false);
+  const isProcessingRef = useRef(false);
   const containerId = "qr-scanner-container";
 
   const lastScannedRef = useRef<string>("");
@@ -76,6 +78,8 @@ export default function QRScanner({
 
   const handleQRCodeDetected = useCallback(
     async (decodedText: string) => {
+      if (isProcessingRef.current) return;
+
       try {
         const parsed = JSON.parse(decodedText) as Partial<QRData> & { type?: string };
         const normalizedType = parsed.type ? normalizeQrType(parsed.type) : null;
@@ -99,14 +103,20 @@ export default function QRScanner({
         //   allowed through immediately (different key → different action).
         const dedupKey = `${decodedText}::${qrData.type}`;
         if (lastScannedRef.current === dedupKey) return;
+        
+        setIsProcessing(true);
+        isProcessingRef.current = true;
         lastScannedRef.current = dedupKey;
 
         if (scanTimeoutRef.current) {
           clearTimeout(scanTimeoutRef.current);
         }
+        
+        // Keep the dedup key for 5 seconds to prevent accidental double scans
+        // even after processing is complete.
         scanTimeoutRef.current = setTimeout(() => {
           lastScannedRef.current = "";
-        }, 2000);
+        }, 5000);
 
         const result = await processQRCheckIn(qrData, user.id);
 
@@ -142,6 +152,9 @@ export default function QRScanner({
         setScanResults((prev) => [scanResult, ...prev].slice(0, 10));
 
         onScanError?.(msg);
+      } finally {
+        setIsProcessing(false);
+        isProcessingRef.current = false;
       }
     },
     [user, onScanSuccess, onScanError]
@@ -271,8 +284,23 @@ export default function QRScanner({
         />
 
         {isCameraLoading && (
-          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-gray-100/90">
-            Loading camera...
+          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-gray-100/90 z-10">
+            <div className="flex flex-col items-center gap-2">
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-flexBlue border-t-transparent" />
+              <span className="text-sm font-medium text-flexNavy">Loading camera...</span>
+            </div>
+          </div>
+        )}
+
+        {isProcessing && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-flexNavy/20 backdrop-blur-[2px] z-10">
+            <div className="flex flex-col items-center gap-3 rounded-2xl bg-white p-6 shadow-xl">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-flexBlue border-t-transparent" />
+              <div className="text-center">
+                <p className="font-bold text-flexNavy">Processing Scan</p>
+                <p className="text-xs text-flexNavy/60">Verifying membership...</p>
+              </div>
+            </div>
           </div>
         )}
 
