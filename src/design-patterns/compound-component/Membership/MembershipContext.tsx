@@ -24,6 +24,7 @@ import {
 } from '../../../design-patterns';
 import { generateTransactionId, saveTransaction } from '../../../lib/paymentSimulator';
 import { shouldProcessInteraction } from '../../../lib/interaction';
+import { canBuyMembershipFromSubscriptionTier } from '../../../lib/subscriptionTierAccess';
 
 export const PLANS = [
   {
@@ -512,6 +513,12 @@ export const MembershipProvider: React.FC<{ children: React.ReactNode; changeMem
   };
 
   const handleInitiatePayment = async (method: any, proof?: string, _dc?: string, discProof?: string, _vc?: string, fAmount?: number) => {
+    if (location.pathname === "/subscription-tier" && !canBuyMembershipFromSubscriptionTier(membership)) {
+      addToast("You already have a membership. New membership purchases are disabled.", "error");
+      setShowPaymentModal(false);
+      return;
+    }
+
     const amount = fAmount ?? MEMBERSHIP_PRICES[selectedPlanTier];
     if (!user) {
       const tid = generateTransactionId();

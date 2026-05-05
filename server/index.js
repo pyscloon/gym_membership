@@ -375,7 +375,7 @@ app.get("/api/streak", async (request, response) => {
       .from("walk_ins")
       .select("walk_in_time, walk_in_type")
       .eq("user_id", userId)
-      .in("walk_in_type", ["checkin", "checkout"])
+      .eq("walk_in_type", "checkout")
       .gte("walk_in_time", thirtyDaysAgo.toISOString())
       .order("walk_in_time", { ascending: false });
 

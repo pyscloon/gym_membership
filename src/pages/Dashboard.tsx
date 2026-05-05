@@ -9,6 +9,7 @@ import { fetchUserMembership } from "../lib/membershipService";
 import { supabase } from "../lib/supabaseClient";
 import { calculateMembershipStats, type Membership } from "../types/membership";
 import { AccessFactory } from "../design-patterns";
+import { buildCompletedSessionMetrics, dateKey } from "../lib/activityMetrics";
 
 // --- JSON Configuration Mapping ---
 const THEME = {
@@ -73,31 +74,6 @@ function ordinal(week: number): string {
 }
 function getWeekOfMonth(date: Date): number { return Math.max(1, Math.ceil(date.getDate() / 7)); }
 function getMonthLabel(date: Date): string { return date.toLocaleDateString("en-US", { month: "long" }).toUpperCase(); }
-function isCheckIn(type: string | null | undefined): boolean {
-  const normalized = String(type ?? "").toLowerCase();
-  return normalized === "checkin" || normalized === "walk_in" || normalized === "walkin" || normalized === "walk-in";
-}
-function dateKey(date: Date): string {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-function startOfWeek(date: Date): Date {
-  const d = new Date(date);
-  const mondayOffset = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - mondayOffset);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function computeStreak(daySet: Set<string>, today: Date): number {
-  let streak = 0;
-  const cursor = new Date(today);
-  cursor.setHours(0, 0, 0, 0);
-  while (streak <= 366) {
-    if (!daySet.has(dateKey(cursor))) break;
-    streak++;
-    cursor.setDate(cursor.getDate() - 1);
-  }
-  return streak;
-}
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -141,26 +117,27 @@ export default function Dashboard() {
   const currentWeekOfMonth = getWeekOfMonth(now);
   const weekLabel = `${ordinal(currentWeekOfMonth).toUpperCase()}-WEEK`;
 
-  const checkInDates = useMemo(() =>
-    walkIns.filter(r => isCheckIn(r.walk_in_type))
-           .map(r => new Date(r.walk_in_time))
-           .filter(d => !isNaN(d.getTime())), [walkIns]);
-
-  const checkInDaySet = useMemo(() => new Set(checkInDates.map(d => dateKey(d))), [checkInDates]);
-  const currentWeekStart = useMemo(() => startOfWeek(now), []);
-  const streakDays = useMemo(() => computeStreak(checkInDaySet, now), [checkInDaySet, now]);
-
-  const monthSessions = checkInDates.filter(d => d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()).length;
-  const weekSessions = checkInDates.filter(d => d >= currentWeekStart).length;
+  const completedSessionMetrics = useMemo(
+    () => buildCompletedSessionMetrics(walkIns, now),
+    [walkIns, now]
+  );
+  const {
+    completedDaySet,
+    currentWeekStart,
+    streakDays,
+    totalSessions,
+    monthSessions,
+    weekSessions,
+  } = completedSessionMetrics;
 
   const weeklyDays = useMemo<WeeklyDay[]>(() => {
     return WEEKDAY_LABELS.map((label, index) => {
       const d = new Date(currentWeekStart);
       d.setDate(currentWeekStart.getDate() + index);
       const key = dateKey(d);
-      return { label, status: checkInDaySet.has(key) ? "complete" : (key === dateKey(now) ? "today" : "empty") };
+      return { label, status: completedDaySet.has(key) ? "complete" : (key === dateKey(now) ? "today" : "empty") };
     });
-  }, [checkInDaySet, currentWeekStart]);
+  }, [completedDaySet, currentWeekStart, now]);
 
   const membershipStats = membership ? calculateMembershipStats(membership) : null;
   const crowdPercent = Math.min(100, Math.round((crowdActiveUsers / MAX_CROWD_CAPACITY) * 100));
@@ -240,7 +217,7 @@ export default function Dashboard() {
               <div className="rounded-2xl bg-[#000033]/45 p-3 shadow-xl ring-1 ring-[#0099FF]/45 backdrop-blur-md sm:p-5">
                 <div className="flex justify-between gap-2 sm:gap-4 sm:divide-x sm:divide-white/10">
                   {[
-                    { value: checkInDates.length, label: "Total" },
+                    { value: totalSessions, label: "Total" },
                     { value: monthSessions, label: getMonthLabel(now) },
                     { value: weekSessions, label: weekLabel },
                   ].map(({ value, label }) => (

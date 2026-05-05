@@ -1,10 +1,12 @@
 import { useLocation } from "react-router-dom";
 import { Membership } from "../design-patterns/compound-component/Membership";
 import { useMembership } from "../design-patterns/compound-component/Membership/MembershipContext";
+import type { Membership as MembershipRecord } from "../types/membership";
 import AdminPaymentPanel from "./AdminPaymentPanel";
 import PricingSection from "./PricingSection";
 import WalkInCard from "./WalkInCard";
 import { useWalkIn } from "../hooks/useWalkIn";
+import { canBuyMembershipFromSubscriptionTier } from "../lib/subscriptionTierAccess";
 
 interface MembershipDashboardProps {
   changeMembershipTick?: number;
@@ -184,6 +186,10 @@ function MembershipContent() {
 
 function PricingSectionWrapper() {
   const { actionLoading, membership, handleApply, plans } = useMembership();
+  if (membership && !canBuyMembershipFromSubscriptionTier(membership)) {
+    return <SubscriptionTierMemberBlocked membership={membership} />;
+  }
+
   return (
     <PricingSection
       plans={plans}
@@ -192,6 +198,33 @@ function PricingSectionWrapper() {
       currentTier={membership?.tier ?? null}
       onSelectPlan={(tier) => handleApply(tier as any)}
     />
+  );
+}
+
+function SubscriptionTierMemberBlocked({ membership }: { membership: MembershipRecord }) {
+  const statusLabel = membership.status.replace(/[-_]/g, " ");
+
+  return (
+    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-r from-[#040b1e] via-[#081f4a] to-[#0d3472] p-8 text-center shadow-2xl sm:p-12">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-300/30 bg-emerald-400/10 text-emerald-200">
+        <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <h3 className="mt-6 text-3xl font-black tracking-tight text-white sm:text-5xl">
+        You already have a membership
+      </h3>
+      <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
+        Your {membership.tier.replace("-", " ")} plan is currently {statusLabel}. New membership purchases are disabled for existing members.
+      </p>
+      <button
+        type="button"
+        onClick={() => (window.location.href = "/dashboard")}
+        className="mt-8 rounded-xl bg-white px-8 py-3 text-sm font-black uppercase tracking-widest text-[#071731] transition hover:-translate-y-0.5 hover:bg-blue-50"
+      >
+        Go to Dashboard
+      </button>
+    </section>
   );
 }
 
