@@ -1,7 +1,147 @@
 import type { ReactNode } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { waitFor, within } from '@testing-library/dom';
 import { MemoryRouter } from 'react-router-dom';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import { supabase } from '../lib/supabaseClient';
+
+type MockTransactionRow = {
+  id: string;
+  user_id: string;
+  user_type: 'monthly' | 'semi-yearly' | 'yearly' | 'walk-in';
+  amount: number;
+  method: 'cash' | 'online';
+  status: 'paid' | 'awaiting-confirmation' | 'awaiting-verification';
+  payment_proof_status: string | null;
+  proof_of_payment_url: string | null;
+  discount_id_proof_url: string | null;
+  rejection_reason: string | null;
+  failure_reason: string | null;
+  confirmed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type MockAnalyticsState = {
+  transactions: MockTransactionRow[];
+};
+
+const daysAgo = (days: number) => {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  return date.toISOString();
+};
+
+const createTransaction = (
+  id: string,
+  userType: MockTransactionRow['user_type'],
+  amount: number,
+  days: number,
+  status: MockTransactionRow['status'] = 'paid',
+): MockTransactionRow => ({
+  id,
+  user_id: `analytics-user-${id}`,
+  user_type: userType,
+  amount,
+  method: userType === 'walk-in' ? 'cash' : 'online',
+  status,
+  payment_proof_status: null,
+  proof_of_payment_url: null,
+  discount_id_proof_url: null,
+  rejection_reason: null,
+  failure_reason: null,
+  confirmed_at: daysAgo(days),
+  created_at: daysAgo(days),
+  updated_at: daysAgo(days),
+});
+
+const seedAnalyticsState = (): MockAnalyticsState => ({
+  transactions: [
+    createTransaction('monthly-1', 'monthly', 499, 2),
+    createTransaction('monthly-2', 'monthly', 499, 8),
+    createTransaction('semi-yearly-1', 'semi-yearly', 699, 14),
+    createTransaction('yearly-1', 'yearly', 3999, 21),
+    createTransaction('walk-in-1', 'walk-in', 60, 1),
+    createTransaction('walk-in-2', 'walk-in', 60, 4),
+    createTransaction('walk-in-3', 'walk-in', 60, 16),
+    createTransaction('pending-online-1', 'monthly', 499, 24, 'awaiting-verification'),
+  ],
+});
+
+function createMockQuery(state: MockAnalyticsState) {
+  const filters: Array<{ column: keyof MockTransactionRow; values: unknown[] }> = [];
+  let orderBy: { column: keyof MockTransactionRow; ascending: boolean } | null = null;
+
+  const readRows = () => {
+    let rows = state.transactions.map((transaction) => ({ ...transaction }));
+
+    for (const filter of filters) {
+      rows = rows.filter((row) => filter.values.includes(row[filter.column]));
+    }
+
+    const activeOrder = orderBy;
+    if (activeOrder) {
+      rows = rows.sort((a, b) => {
+        const left = String(a[activeOrder.column] ?? '');
+        const right = String(b[activeOrder.column] ?? '');
+        return activeOrder.ascending ? left.localeCompare(right) : right.localeCompare(left);
+      });
+    }
+
+    return { data: rows, error: null };
+  };
+
+  const query = {
+    select() {
+      return query;
+    },
+    in(column: keyof MockTransactionRow, values: unknown[]) {
+      filters.push({ column, values });
+      return query;
+    },
+    order(column: keyof MockTransactionRow, options?: { ascending?: boolean }) {
+      orderBy = { column, ascending: options?.ascending ?? true };
+      return query;
+    },
+    then<TResult1 = ReturnType<typeof readRows>, TResult2 = never>(
+      onfulfilled?: ((value: ReturnType<typeof readRows>) => TResult1 | PromiseLike<TResult1>) | null,
+      onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
+    ) {
+      return Promise.resolve(readRows()).then(onfulfilled, onrejected);
+    },
+  };
+
+  return query;
+}
+
+function installMockAnalyticsSupabase() {
+  if (!supabase) return;
+  const state = seedAnalyticsState();
+
+  Object.assign(supabase, {
+    from(tableName: string) {
+      if (tableName !== 'transactions') {
+        throw new Error(`Unexpected analytics story table: ${tableName}`);
+      }
+
+      return createMockQuery(state);
+    },
+  });
+}
+
+const assertDashboardLoaded = async (canvasElement: HTMLElement) => {
+  const canvas = within(canvasElement);
+
+  await waitFor(() => {
+    canvas.getByText(/analytics & trends/i);
+    canvas.getByText(/daily activity trends/i);
+    canvas.getByText(/daily revenue trends/i);
+    canvas.getByText(/activity ratio/i);
+    canvas.getByText(/revenue distribution/i);
+    canvas.getByText(/total members/i);
+    canvas.getByText(/total walk-ins/i);
+  });
+};
 
 const AnalyticsDashboardStoryShell = ({
   children,
@@ -14,11 +154,6 @@ const AnalyticsDashboardStoryShell = ({
     <div className="max-w-7xl mx-auto">{children}</div>
   </div>
 );
-
-const findRangeButton = (canvasElement: HTMLElement, label: string) =>
-  Array.from(canvasElement.querySelectorAll<HTMLButtonElement>('button')).find(
-    (button) => button.textContent?.includes(label),
-  );
 
 const meta = {
   title: 'Components/AnalyticsDashboard',
@@ -33,6 +168,12 @@ const meta = {
     },
   },
   tags: ['autodocs'],
+  loaders: [
+    async () => {
+      installMockAnalyticsSupabase();
+      return {};
+    },
+  ],
   decorators: [
     (Story) => (
       <MemoryRouter initialEntries={['/admin/analytics']}>
@@ -73,34 +214,8 @@ export const TabletView: Story = {
       },
     },
   },
-};
-
-/**
- * Embedded analytics - Compact layout for a dashboard section
- * Shows the component without the back button and with minimal chrome
- */
-export const EmbeddedMinimal: Story = {
-  args: {},
-  render: () => (
-    <div className="min-h-screen bg-flexBlack p-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 rounded-2xl border border-flexWhite/10 bg-flexWhite/5 p-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-flexWhite/70">Insights Module</p>
-          <h1 className="mt-2 text-3xl font-bold text-flexWhite">Analytics Snapshot</h1>
-          <p className="mt-2 text-sm text-flexWhite/65">
-            Embedded view for admin home pages and summary screens.
-          </p>
-        </div>
-        <AnalyticsDashboard minimalView={true} showBackButton={false} />
-      </div>
-    </div>
-  ),
-  parameters: {
-    docs: {
-      description: {
-        story: 'Shows AnalyticsDashboard embedded into another page with minimal styling and no back button.',
-      },
-    },
+  play: async ({ canvasElement }) => {
+    await assertDashboardLoaded(canvasElement);
   },
 };
 
@@ -135,93 +250,7 @@ export const DesktopFullWidth: Story = {
       },
     },
   },
-};
-
-/**
- * Desktop quarterly view - Focus on longer trend analysis
- * Switches to the 90-day range after the dashboard loads
- */
-export const DesktopQuarterly: Story = {
-  args: {},
-  render: () => (
-    <AnalyticsDashboardStoryShell className="min-h-screen bg-flexBlack p-8">
-      <>
-        <div className="mb-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-flexWhite">Quarterly Review</p>
-          <h1 className="mt-2 text-4xl font-bold text-flexWhite">90-Day Performance Trends</h1>
-          <p className="mt-2 text-flexWhite/70">
-            Extended range view for strategic planning and longer-term comparisons.
-          </p>
-        </div>
-        <AnalyticsDashboard />
-      </>
-    </AnalyticsDashboardStoryShell>
-  ),
   play: async ({ canvasElement }) => {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    const button90 = findRangeButton(canvasElement, '90d');
-    if (button90) {
-      button90.click();
-      await new Promise((resolve) => setTimeout(resolve, 800));
-    }
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Shows the dashboard after switching to the 90-day time range for quarterly analytics review.',
-      },
-    },
-  },
-};
-
-/**
- * Management shell - Analytics inside a broader admin layout
- * Demonstrates how the charts fit into a fuller dashboard page
- */
-export const AdminInsightsLayout: Story = {
-  args: {},
-  render: () => (
-    <div className="min-h-screen bg-flexBlack">
-      <div className="border-b border-flexWhite/10 bg-flexWhite/5 px-8 py-6">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-flexWhite/70">Admin Console</p>
-          <div className="mt-3 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-flexWhite">Performance Insights</h1>
-              <p className="mt-2 text-sm text-flexWhite/65">
-                Compare member retention, walk-in traffic, and revenue performance in one view.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm text-flexWhite lg:w-[360px]">
-              <div className="rounded-xl border border-flexWhite/10 bg-flexWhite/10 p-4">
-                <p className="text-flexWhite/60">Active Members</p>
-                <p className="mt-2 text-2xl font-bold">142</p>
-              </div>
-              <div className="rounded-xl border border-flexWhite/10 bg-flexWhite/10 p-4">
-                <p className="text-flexWhite/60">Revenue Goal</p>
-                <p className="mt-2 text-2xl font-bold">82%</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <AnalyticsDashboardStoryShell className="p-8">
-        <AnalyticsDashboard showBackButton={false} />
-      </AnalyticsDashboardStoryShell>
-    </div>
-  ),
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Shows AnalyticsDashboard integrated into a broader admin insights page with supporting summary cards.',
-      },
-    },
+    await assertDashboardLoaded(canvasElement);
   },
 };

@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { within } from '@testing-library/dom';
+import { waitFor, within } from '@testing-library/dom';
 import AdminPaymentPanel from './AdminPaymentPanel';
 import type { UserType, PaymentTransaction } from '../types/payment';
 import { MEMBERSHIP_PRICES } from '../types/payment';
+import { supabase } from '../lib/supabaseClient';
 import {
   simulateAdminConfirmation,
   verifyOnlinePayment,
@@ -81,20 +82,105 @@ type MockSupabaseState = {
   };
 };
 
+type MockTableName = keyof MockSupabaseState['tables'];
+
+const cloneRows = <T,>(rows: T[]): T[] =>
+  rows.map((row) => ({ ...(row as Record<string, unknown>) })) as T[];
+
+function createMockQuery(state: MockSupabaseState, tableName: MockTableName) {
+  const filters: Array<{ column: string; values: unknown[] }> = [];
+  let orderBy: { column: string; ascending: boolean } | null = null;
+
+  const readRows = () => {
+    let rows = cloneRows(state.tables[tableName]);
+
+    for (const filter of filters) {
+      rows = rows.filter((row) => filter.values.includes((row as Record<string, unknown>)[filter.column]));
+    }
+
+    const activeOrder = orderBy;
+    if (activeOrder) {
+      rows = rows.sort((a, b) => {
+        const left = String((a as Record<string, unknown>)[activeOrder.column] ?? '');
+        const right = String((b as Record<string, unknown>)[activeOrder.column] ?? '');
+        return activeOrder.ascending ? left.localeCompare(right) : right.localeCompare(left);
+      });
+    }
+
+    return { data: rows, error: null };
+  };
+
+  const query = {
+    select() {
+      return query;
+    },
+    in(column: string, values: unknown[]) {
+      filters.push({ column, values });
+      return query;
+    },
+    order(column: string, options?: { ascending?: boolean }) {
+      orderBy = { column, ascending: options?.ascending ?? true };
+      return query;
+    },
+    then<TResult1 = ReturnType<typeof readRows>, TResult2 = never>(
+      onfulfilled?: ((value: ReturnType<typeof readRows>) => TResult1 | PromiseLike<TResult1>) | null,
+      onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null
+    ) {
+      return Promise.resolve(readRows()).then(onfulfilled, onrejected);
+    },
+  };
+
+  return query;
+}
+
+function installMockSupabase(state: MockSupabaseState) {
+  if (!supabase) return;
+
+  Object.assign(supabase, {
+    from(tableName: MockTableName) {
+      return createMockQuery(state, tableName);
+    },
+    storage: {
+      from() {
+        return {
+          async createSignedUrl(path: string) {
+            return { data: { signedUrl: path }, error: null };
+          },
+          getPublicUrl(path: string) {
+            return { data: { publicUrl: path } };
+          },
+          async list() {
+            return { data: [], error: null };
+          },
+        };
+      },
+    },
+  });
+}
+
 function setMockState(state: MockSupabaseState) {
   const globalState = globalThis as typeof globalThis & {
     __PLAYWRIGHT_MOCK_SUPABASE_STATE__?: MockSupabaseState;
   };
 
   globalState.__PLAYWRIGHT_MOCK_SUPABASE_STATE__ = state;
+  installMockSupabase(state);
 }
 
 const storyTimestamp = '2026-05-01T00:00:00.000Z';
 
 function buildSeedState(transactions: PaymentTransaction[]): MockSupabaseState {
+  const displayNameByUserId: Record<string, string> = {
+    'user-alpha-1': 'Alpha Tester',
+    'user-beta-1': 'Beta Tester',
+    'user-gamma-1': 'Gamma Tester',
+    'user-delta-1': 'Delta Tester',
+    'user-epsilon-1': 'Epsilon Tester',
+  };
+
   const profiles = transactions.map((transaction) => ({
     id: transaction.userId,
-    full_name: transaction.userId === 'user-alpha-1' ? 'Alpha Tester' : transaction.userId === 'user-beta-1' ? 'Beta Tester' : transaction.userId,
+    full_name: displayNameByUserId[transaction.userId] ?? transaction.userId,
     email: `${transaction.userId}@example.com`,
   }));
 
@@ -194,8 +280,10 @@ export const NoPendingPayments: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
 
-    canvas.getByText(/no pending payments/i);
-    canvas.getByText(/all pending payments have been processed/i);
+    await waitFor(() => {
+      canvas.getByText(/no pending payments/i);
+      canvas.getByText(/all pending payments have been processed/i);
+    });
   },
 };
 
@@ -229,6 +317,17 @@ export const SingleCashPayment: Story = {
         story: 'Displays a single cash payment request for a monthly membership with amount and user details. Admin can confirm or decline the payment.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await waitFor(() => {
+      canvas.getByText(/alpha tester/i);
+      canvas.getByText(/monthly/i);
+      canvas.getByText(/receipt proof/i);
+      canvas.getByRole('button', { name: /confirm/i });
+      canvas.getByRole('button', { name: /decline/i });
+    });
   },
 };
 
@@ -300,6 +399,16 @@ export const SingleOnlinePayment: Story = {
         story: 'Displays a single online payment request for a yearly membership. Includes option to view payment proof photo and fields for rejection reason if needed.',
       },
     },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await waitFor(() => {
+      canvas.getByText(/beta tester/i);
+      canvas.getByText(/yearly/i);
+      canvas.getByText(/member upload here/i);
+      canvas.getByRole('button', { name: /open/i });
+    });
   },
 };
 
