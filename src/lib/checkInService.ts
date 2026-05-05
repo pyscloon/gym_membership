@@ -3,7 +3,7 @@
  * Handles check-in, check-out, and walk-in validations
  */
 
-import type { ActivityMetricRow, CompletedSessionMetrics } from "./activityMetrics";
+import type { ActivityMetricRow } from "./activityMetrics";
 import { buildCompletedSessionMetrics, dateKey } from "./activityMetrics";
 import { supabase } from "./supabaseClient";
 
@@ -134,26 +134,6 @@ export async function getCurrentUserStreakData(): Promise<StreakData> {
 
   const rows = await getMemberCompletedSessionRows(user.id);
   return buildStreakDataFromActivityRows(rows);
-}
-
-export async function getCurrentUserCompletedSessionMetrics(
-  today: Date = new Date()
-): Promise<CompletedSessionMetrics> {
-  if (!supabase) {
-    throw new Error("Supabase client not initialized");
-  }
-
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    throw new Error("User not authenticated");
-  }
-
-  const rows = await getMemberCompletedSessionRows(user.id);
-  return buildCompletedSessionMetrics(rows, today);
 }
 
 /**
