@@ -293,17 +293,17 @@ app.get("/api/dashboard", (_request, response) => {
  * A streak increments if the user has at least one check-in per calendar day (UTC)
  * The streak resets to 0 if a full calendar day is missed
  * 
- * @param {Array<string>} checkInDates - Array of ISO timestamps from check_ins table
+ * @param {Array<string>} sessionDates - Array of ISO timestamps from walk_ins table
  * @returns {Object} { streak: number, last7Days: boolean[] }
  */
-function calculateStreak(checkInDates) {
-  if (!checkInDates || checkInDates.length === 0) {
+function calculateStreak(sessionDates) {
+  if (!sessionDates || sessionDates.length === 0) {
     return { streak: 0, last7Days: Array(7).fill(false) };
   }
 
   // Convert timestamps to UTC dates (just the date part)
   const dateSet = new Set();
-  checkInDates.forEach((timestamp) => {
+  sessionDates.forEach((timestamp) => {
     const date = new Date(timestamp);
     const utcDateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
     dateSet.add(utcDateString);
@@ -367,16 +367,17 @@ app.get("/api/streak", async (request, response) => {
     const { createClient } = await import("@supabase/supabase-js");
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-    // Query check-ins for the last 30 days (for efficiency)
+    // Query sessions for the last 30 days (for efficiency)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
 
-    const { data: checkIns, error } = await supabase
-      .from("check_ins")
-      .select("check_in_time")
+    const { data: sessions, error } = await supabase
+      .from("walk_ins")
+      .select("walk_in_time, walk_in_type")
       .eq("user_id", userId)
-      .gte("check_in_time", thirtyDaysAgo.toISOString())
-      .order("check_in_time", { ascending: false });
+      .in("walk_in_type", ["checkin", "checkout"])
+      .gte("walk_in_time", thirtyDaysAgo.toISOString())
+      .order("walk_in_time", { ascending: false });
 
     if (error) {
       console.error("Supabase error:", error);
@@ -388,7 +389,7 @@ app.get("/api/streak", async (request, response) => {
     }
 
     // Extract timestamps and calculate streak
-    const timestamps = checkIns.map((record) => record.check_in_time);
+    const timestamps = (sessions ?? []).map((record) => record.walk_in_time);
     const { streak, last7Days } = calculateStreak(timestamps);
 
     response.status(200).json({
@@ -397,7 +398,7 @@ app.get("/api/streak", async (request, response) => {
       data: {
         streak,
         last7Days,
-        totalCheckIns: checkIns.length,
+        totalCheckIns: (sessions ?? []).length,
       },
     });
   } catch (err) {
