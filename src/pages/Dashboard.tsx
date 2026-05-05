@@ -4,12 +4,14 @@ import GoalProgressBar from "../components/GoalProgressBar";
 import { useNavigate } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
 import { useAuth } from "../hooks";
-import { getMemberCompletedSessionRows } from "../lib/checkInService";
+import {
+  getCurrentUserCompletedSessionMetrics,
+} from "../lib/checkInService";
 import { fetchBackendCrowdPanelData } from "../lib/crowdService";
 import { fetchUserMembership } from "../lib/membershipService";
 import { calculateMembershipStats, type Membership } from "../types/membership";
 import { AccessFactory } from "../design-patterns";
-import { buildCompletedSessionMetrics, dateKey } from "../lib/activityMetrics";
+import { dateKey, type CompletedSessionMetrics } from "../lib/activityMetrics";
 
 // --- JSON Configuration Mapping ---
 const THEME = {
@@ -46,7 +48,6 @@ const THEME = {
   },
 };
 
-type WalkInRow = { walk_in_time: string; walk_in_type: string | null };
 type WeeklyDayStatus = "complete" | "today" | "empty";
 type WeeklyDay = { label: string; status: WeeklyDayStatus };
 type LinearLightingLayer = { type: "linear-gradient"; direction: string; colors: string[]; height: string };
@@ -55,6 +56,23 @@ const MAX_CROWD_CAPACITY = 50;
 const DEFAULT_WEEKLY_GOAL = 4;
 const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 const DASHBOARD_REFRESH_INTERVAL_MS = 2000;
+
+function createEmptyCompletedSessionMetrics(today: Date): CompletedSessionMetrics {
+  const currentWeekStart = new Date(today);
+  const mondayOffset = (currentWeekStart.getDay() + 6) % 7;
+  currentWeekStart.setDate(currentWeekStart.getDate() - mondayOffset);
+  currentWeekStart.setHours(0, 0, 0, 0);
+
+  return {
+    completedSessionDates: [],
+    completedDaySet: new Set<string>(),
+    currentWeekStart,
+    streakDays: 0,
+    totalSessions: 0,
+    monthSessions: 0,
+    weekSessions: 0,
+  };
+}
 
 function getGoalStorageKey(userId: string): string { return `flex_weekly_goal_${userId}`; }
 function readGoal(userId: string): number {
@@ -80,7 +98,9 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [membership, setMembership] = useState<Membership | null>(null);
-  const [walkIns, setWalkIns] = useState<WalkInRow[]>([]);
+  const [sessionMetrics, setSessionMetrics] = useState<CompletedSessionMetrics>(() =>
+    createEmptyCompletedSessionMetrics(new Date())
+  );
   const [crowdActiveUsers, setCrowdActiveUsers] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [weeklyGoal, setWeeklyGoal] = useState(DEFAULT_WEEKLY_GOAL);
@@ -94,11 +114,11 @@ export default function Dashboard() {
     try {
       const [m, w, c] = await Promise.all([
         fetchUserMembership(user.id),
-        getMemberCompletedSessionRows(user.id),
+        getCurrentUserCompletedSessionMetrics(),
         fetchBackendCrowdPanelData({ days: 7 }).catch(() => null),
       ]);
       setMembership(m);
-      setWalkIns(w as WalkInRow[]);
+      setSessionMetrics(w);
       setCrowdActiveUsers(c?.stats.activeUsers ?? 0);
     } finally {
       setIsLoading(false);
@@ -143,10 +163,6 @@ export default function Dashboard() {
   const currentWeekOfMonth = getWeekOfMonth(now);
   const weekLabel = `${ordinal(currentWeekOfMonth).toUpperCase()}-WEEK`;
 
-  const completedSessionMetrics = useMemo(
-    () => buildCompletedSessionMetrics(walkIns, now),
-    [walkIns, now]
-  );
   const {
     completedDaySet,
     currentWeekStart,
@@ -154,7 +170,7 @@ export default function Dashboard() {
     totalSessions,
     monthSessions,
     weekSessions,
-  } = completedSessionMetrics;
+  } = sessionMetrics;
 
   const weeklyDays = useMemo<WeeklyDay[]>(() => {
     return WEEKDAY_LABELS.map((label, index) => {

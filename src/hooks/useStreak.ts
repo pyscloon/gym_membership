@@ -4,11 +4,10 @@
  * This hook handles:
  * - Fetching streak data from the shared walk_ins activity service
  * - Managing loading and error states
- * - Auto-refresh and realtime updates
+ * - Auto-refresh via normal fetch queries
  */
 
 import { useEffect, useState, useCallback } from "react";
-import { supabase } from "../lib/supabaseClient";
 import {
   getCurrentUserStreakData,
   type StreakData,
@@ -63,51 +62,10 @@ export function useStreak(): UseStreakResult {
     window.addEventListener("focus", handleFocus);
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    let isDisposed = false;
-    let streakChannel:
-      | ReturnType<typeof supabase.channel>
-      | null = null;
-
-    const subscribeToWalkIns = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user || isDisposed) {
-        return;
-      }
-
-      streakChannel = supabase
-        .channel(`streak-walk-ins-${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "walk_ins",
-            filter: `user_id=eq.${user.id}`,
-          },
-          () => {
-            void refetch();
-          }
-        )
-        .subscribe();
-
-      if (isDisposed) {
-        void supabase.removeChannel(streakChannel);
-      }
-    };
-
-    void subscribeToWalkIns();
-
     return () => {
-      isDisposed = true;
       window.clearInterval(intervalId);
       window.removeEventListener("focus", handleFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      if (streakChannel) {
-        void supabase.removeChannel(streakChannel);
-      }
     };
   }, [refetch]);
 
