@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks";
 import { useAppUi } from "../../context/AppUiContext";
 import { supabase } from "../../lib/supabaseClient";
+import flexLogo from "../../assets/FlexBackgroundNoBg.png";
 
 type AppTopBarProps = {
   onOpenMobileNav?: () => void;
@@ -17,7 +18,7 @@ export default function AppTopBar({
   onLogout,
 }: AppTopBarProps) {
   const { user } = useAuth();
-  const { avatarLabel } = useAppUi();
+  const { avatarLabel, avatarUrl } = useAppUi();
   const navigate = useNavigate();
   const location = useLocation();
   const [isActiveMember, setIsActiveMember] = useState<boolean | null>(null);
@@ -116,10 +117,13 @@ export default function AppTopBar({
     return (
       <header className={`${headerPosition} z-50 border-b border-[#0066CC]/25 bg-[#000033]/55 backdrop-blur-[12px]`}>
         <div className="mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-6 sm:px-10 lg:px-14">
-          <div className="flex items-center font-extrabold tracking-tight text-white [font-family:var(--font-headline)]">
-            <span className="text-2xl leading-none sm:text-[26px]">FLEX</span>
-            <span className="ml-1 text-xl leading-none text-[#0066CC] sm:text-[21px]">REPUBLIC</span>
-          </div>
+          <Link to="/" className="flex items-center gap-3 font-extrabold tracking-tight text-white [font-family:var(--font-headline)]">
+            <img src={flexLogo} alt="Flex Republic" className="h-10 w-10 object-contain sm:h-12 sm:w-12" />
+            <div className="flex items-center">
+              <span className="text-2xl leading-none sm:text-[26px]">FLEX</span>
+              <span className="text-xl leading-none text-[#0066CC] sm:text-[21px]">REPUBLIC</span>
+            </div>
+          </Link>
 
           <nav className="hidden items-center gap-8 xl:flex" aria-label="Main navigation">
             <Link to="/subscription-tier" className={`text-sm font-medium transition [font-family:var(--font-body)] ${isActive("/subscription-tier") ? "text-[#0099FF]" : "text-white/95 hover:text-[#0099FF]"}`}>Membership</Link>
@@ -134,8 +138,12 @@ export default function AppTopBar({
                   className="inline-flex items-center gap-3 rounded-full border border-[#0066CC]/30 bg-gradient-to-r from-[#000022]/80 to-[#001144]/80 p-1.5 pr-5 text-xs text-white shadow-[0_4px_10px_rgba(0,0,0,0.3)] backdrop-blur-md transition-shadow duration-300 hover:shadow-[0_0_20px_rgba(0,153,255,0.25)]"
                   onClick={() => navigate("/profile")}
                 >
-                  <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#0099FF] to-[#0055CC]">
-                    <span className="text-[12px] font-extrabold text-white">{avatarLabel}</span>
+                  <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0099FF] to-[#0055CC]">
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt="Active profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-[12px] font-extrabold text-white">{avatarLabel}</span>
+                    )}
                   </div>
                   <div className="hidden flex-col items-start sm:flex">
                     <span className="leading-tight text-[10px] font-bold uppercase tracking-[0.15em] text-[#66B2FF]">ACTIVE PROFILE</span>
@@ -184,10 +192,11 @@ export default function AppTopBar({
   return (
     <header className={`${headerPosition} z-50 border-b border-[rgba(0,102,204,0.25)] bg-[rgba(0,0,51,0.6)] backdrop-blur-[14px]`}>
       <div className="relative mx-auto flex h-20 w-full max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          <div className="fr-headline text-2xl text-white">
-            FLEX <span className="text-[#0066CC]">REPUBLIC</span>
-          </div>
+        <div className="flex items-center">
+          <Link to="/" className="fr-headline flex items-center text-2xl text-white">
+            <span className="leading-none">FLEX</span>
+            <span className="leading-none text-[#0066CC]">REPUBLIC</span>
+          </Link>
         </div>
 
         <nav className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-8 xl:flex">
@@ -203,8 +212,12 @@ export default function AppTopBar({
                 className="inline-flex items-center gap-3 rounded-full border border-[#0066CC]/30 bg-gradient-to-r from-[#000022]/80 to-[#001144]/80 p-1.5 pr-5 text-xs text-white shadow-[0_4px_10px_rgba(0,0,0,0.3)] backdrop-blur-md transition-shadow duration-300 hover:shadow-[0_0_20px_rgba(0,153,255,0.25)]"
                 onClick={() => navigate("/profile")}
               >
-                <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-[#0099FF] to-[#0055CC]">
-                  <span className="text-[12px] font-extrabold text-white">{avatarLabel}</span>
+                <div className="relative flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#0099FF] to-[#0055CC]">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Active profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-[12px] font-extrabold text-white">{avatarLabel}</span>
+                  )}
                 </div>
                 <div className="flex flex-col items-start">
                   <span className="leading-tight text-[10px] font-bold uppercase tracking-[0.15em] text-[#66B2FF]">ACTIVE PROFILE</span>

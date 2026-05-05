@@ -7,6 +7,8 @@ type AppUiContextValue = {
   setMembershipTier: (value: string) => void;
   avatarLabel: string;
   setAvatarLabel: (value: string) => void;
+  avatarUrl: string | null;
+  setAvatarUrl: (value: string | null) => void;
 };
 
 const AppUiContext = createContext<AppUiContextValue | null>(null);
@@ -19,6 +21,7 @@ export function AppUiProvider({ children }: AppUiProviderProps) {
   const [notificationCount, setNotificationCount] = useState(3);
   const [membershipTier, setMembershipTier] = useState("monthly");
   const [avatarLabel, setAvatarLabel] = useState("FR");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const value = useMemo(
     () => ({
@@ -28,8 +31,10 @@ export function AppUiProvider({ children }: AppUiProviderProps) {
       setMembershipTier,
       avatarLabel,
       setAvatarLabel,
+      avatarUrl,
+      setAvatarUrl,
     }),
-    [avatarLabel, membershipTier, notificationCount]
+    [avatarLabel, avatarUrl, membershipTier, notificationCount]
   );
 
   return <AppUiContext.Provider value={value}>{children}</AppUiContext.Provider>;
