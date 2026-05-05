@@ -1,300 +1,403 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import AppTopBar from "../components/ui/AppTopBar";
+import { useAppUi } from "../context/AppUiContext";
 import { supabase } from "../lib/supabaseClient";
-import Layout from "../components/Layout";
+import {
+  calculateMembershipStatus,
+  splitFullName,
+  type ProfileFormState,
+} from "../lib/profileUtils";
+import { type MemberTransaction } from "../components/MemberTransactionHistory";
 
-type Transaction = {
-  id: number;
-  date: string;
-  amount: number;
-  membershipType: string;
-};
-
-const transactions: Transaction[] = [
-  { id: 1, date: "2025-01-15", membershipType: "1 Year", amount: 5000 },
-  { id: 2, date: "2024-01-10", membershipType: "6 Months", amount: 2800 },
-  { id: 3, date: "2023-07-05", membershipType: "3 Months", amount: 1500 },
-  { id: 4, date: "2023-03-20", membershipType: "1 Month", amount: 600 },
-  { id: 5, date: "2023-02-14", membershipType: "Day Pass", amount: 150 },
-];
-
-const membershipColor: Record<string, string> = {
-  "Day Pass": "bg-gray-100 text-gray-600 border-gray-200",
-  "1 Month":  "bg-blue-50 text-blue-600 border-blue-200",
-  "3 Months": "bg-indigo-50 text-indigo-600 border-indigo-200",
-  "6 Months": "bg-violet-50 text-violet-600 border-violet-200",
-  "1 Year":   "bg-amber-50 text-amber-600 border-amber-200",
+const PLAN_THEMES: Record<string, { gradient: string; serial: string; accent: string; colors: string[]; motto: string }> = {
+  "walk-in": { gradient: "linear-gradient(135deg, #1d4ed8 0%, #001a4d 100%)", serial: "FLX-WKN", accent: "#60a5fa", colors: ["#1d4ed8", "#001a4d"], motto: "Daily Grind // Build the Foundation" },
+  monthly: { gradient: "linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%)", serial: "FLX-MTH", accent: "#3b82f6", colors: ["#1e40af", "#1e3a8a"], motto: "Monthly Warrior // No Excuses" },
+  "semi-yearly": { gradient: "linear-gradient(135deg, #1e3a8a 0%, #172554 100%)", serial: "FLX-SMY", accent: "#2563eb", colors: ["#1e3a8a", "#172554"], motto: "Core Committed // Trust the Process" },
+  yearly: { gradient: "linear-gradient(135deg, #172554 0%, #020617 100%)", serial: "FLX-YRL", accent: "#1d4ed8", colors: ["#172554", "#020617"], motto: "Elite Titan // Dedication is Forever" },
+  default: { gradient: "linear-gradient(135deg, #0f172a 0%, #020617 100%)", serial: "FLX-GUEST", accent: "#94a3b8", colors: ["#0f172a", "#020617"], motto: "Guest Pass // Fuel Your Curiosity" },
 };
 
 export default function Profile() {
   const navigate = useNavigate();
-  const [isEditing, setIsEditing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState({
-    name: "",
-    email: "",
-    membershipStart: "",
-    membershipEnd: "",
+  const [saving, setSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [userTier, setUserTier] = useState<string>("default");
+
+  const [profile, setProfile] = useState<ProfileFormState>({
+    firstName: "", lastName: "", email: "", phone: "", membershipStart: "", membershipEnd: "",
   });
+  const [form, setForm] = useState<ProfileFormState>(profile);
+  const [transactions, setTransactions] = useState<MemberTransaction[]>([]);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const { setAvatarUrl: setHeaderAvatarUrl } = useAppUi();
 
-  const [form, setForm] = useState({ ...profile });
-
-  useEffect(() => {
-    const fetchProfile = async () => {
-      setLoading(true);
-      if (!supabase) { navigate("/login"); return; }
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { navigate("/login"); return; }
-
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Error fetching profile:", profileError.message);
-        setLoading(false);
-        return;
-      }
-
-      const { data: membershipData } = await supabase
-        .from("memberships")
-        .select("*")
-        .eq("user_id", user.id)
-        .single();
-
-      if (profileData) {
-        const fetched = {
-          name: profileData.full_name ?? "",
-          email: user.email ?? "",
-          membershipStart: membershipData?.start_date ?? "",
-          membershipEnd: membershipData?.renewal_date ?? "",
-        };
-        setProfile(fetched);
-        setForm(fetched);
-      }
-
-      setLoading(false);
-    };
-
-    fetchProfile();
-  }, [navigate]);
-
-  const getInitials = (name: string) =>
-    name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-
-  const handleSave = async () => {
-    if (!supabase) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { error: profileError } = await supabase
-      .from("profiles")
-      .update({ full_name: form.name })
-      .eq("id", user.id);
-
-    if (profileError) { console.error("Error saving profile:", profileError.message); return; }
-
-    const { error: membershipError } = await supabase
-      .from("memberships")
-      .update({
-        start_date: form.membershipStart,
-        renewal_date: form.membershipEnd,
-      })
-      .eq("user_id", user.id);
-
-    if (membershipError) { console.error("Error saving membership:", membershipError.message); return; }
-
-    setProfile({ ...form });
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setForm({ ...profile });
-    setIsEditing(false);
-  };
-
-  const formatDate = (dateStr: string): string => {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      year: "numeric", month: "long", day: "numeric",
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString("en-GB", {
+      day: "2-digit", month: "short", year: "numeric",
     });
   };
 
-  const isActive = profile.membershipEnd
-    ? new Date(profile.membershipEnd) >= new Date()
-    : false;
+  useEffect(() => {
+    const fetchProfileAndData = async () => {
+      setLoading(true);
+      if (!supabase) { navigate("/login"); return; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { navigate("/login"); return; }
 
-  const daysLeft = () => {
-    if (!profile.membershipEnd) return 0;
-    const diff = new Date(profile.membershipEnd).getTime() - new Date().getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      const [profileRes, membershipRes, transactionRes] = await Promise.all([
+        supabase.from("profiles").select("id, full_name, email").eq("id", user.id).single(),
+        supabase.from("memberships").select("id, user_id, tier, status, start_date, renewal_date").eq("user_id", user.id).maybeSingle(),
+        supabase.from("transactions").select("id, created_at, amount, status").eq("user_id", user.id).order("created_at", { ascending: false }).limit(6),
+      ]);
+
+      if (membershipRes.data) setUserTier(membershipRes.data.tier || "monthly");
+
+      if (transactionRes.data) {
+        setTransactions(transactionRes.data.map((txn: any) => ({
+          id: txn.id.toString(), date: formatDate(txn.created_at), amount: txn.amount, status: txn.status,
+        })));
+      }
+
+      const userMetadata = user.user_metadata ?? {};
+      const splitName = splitFullName(profileRes.data?.full_name ?? userMetadata.full_name ?? "");
+      const data = {
+        firstName: profileRes.data?.first_name ?? userMetadata.first_name ?? splitName.firstName,
+        lastName: profileRes.data?.last_name ?? userMetadata.last_name ?? splitName.lastName,
+        email: user.email ?? profileRes.data?.email ?? "",
+        phone: profileRes.data?.phone ?? userMetadata.phone ?? user.phone ?? "",
+        membershipStart: formatDate(membershipRes.data?.start_date),
+        membershipEnd: formatDate(membershipRes.data?.renewal_date),
+      };
+      if (profileRes.data?.full_name) {
+      }
+      setProfile(data);
+      setForm(data);
+      // avatar_url is not in the schema
+      // if (profileRes.data?.avatar_url) setAvatarUrl(profileRes.data.avatar_url);
+      setLoading(false);
+    };
+    fetchProfileAndData();
+  }, [navigate]);
+
+  const handleSave = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+      const { error } = await supabase.from("profiles").update({
+        full_name: `${form.firstName} ${form.lastName}`,
+      }).eq("id", user.id);
+      if (error) throw error;
+      setProfile(form);
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Save failed:", err);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (loading) {
-    return (
-      <Layout>
-        <div className="flex items-center justify-center h-full">
-          <p className="text-flexNavy text-sm font-medium animate-pulse">Loading profile...</p>
-        </div>
-      </Layout>
-    );
-  }
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setForm(profile);
+    setIsEditing(false);
+  };
+
+  const handleFlip = (e?: React.MouseEvent) => {
+    // prevent flip when clicking inside avatar area or while editing
+    if (e) {
+      let element: Element | null = null;
+      if (e.target instanceof Element) {
+        element = e.target;
+      } else if (e.target instanceof Node) {
+        element = e.target.parentElement;
+      }
+      if (element && element.closest('.avatar-container')) return;
+    }
+    if (!isEditing) setIsFlipped(!isFlipped);
+  };
+
+  const membershipStatus = calculateMembershipStatus(profile.membershipEnd);
+  const theme = PLAN_THEMES[userTier] || PLAN_THEMES.default;
+
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // show a fast local preview while upload happens
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarUrl(objectUrl);
+      setHeaderAvatarUrl(objectUrl);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+      const { error: uploadError } = await supabase.storage.from('flex-republic-assets').upload(filePath, file, { upsert: true });
+      if (uploadError) {
+        console.error('Upload failed', uploadError);
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('flex-republic-assets').getPublicUrl(filePath);
+      // update preview to public url
+      setAvatarUrl(publicUrl);
+      setHeaderAvatarUrl(publicUrl);
+      // revoke local object url
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('Avatar upload error', err);
+    }
+  };
+
+  // determine subset of transactions to show
+  const displayedTransactions = showAllTransactions ? transactions : transactions.slice(0, 3);
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#00001a] flex items-center justify-center">
+      <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent animate-spin rounded-full" />
+    </div>
+  );
 
   return (
-    <Layout>
-      <div className="bg-white p-5 sm:p-7 md:p-8 lg:p-10 overflow-y-auto">
+    <div className="min-h-screen w-full bg-[#00001a] text-white pb-12 overflow-x-hidden">
+      <AppTopBar />
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;700;800&family=Barlow:wght@400;700;800&family=Space+Mono&display=swap');
+        .avatar-container:hover .upload-overlay { opacity: 1 !important; }
+        .grid-bg {
+          background-image: linear-gradient(rgba(0,102,204,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0,102,204,0.03) 1px, transparent 1px);
+          background-size: 40px 40px;
+        }
+        /* Mobile Scaling for the card */
+        @media (max-width: 480px) {
+          .id-card-container {
+            transform: scale(0.85);
+            margin-top: -20px;
+          }
+        }
+        @media (max-width: 380px) {
+          .id-card-container {
+            transform: scale(0.75);
+            margin-top: -40px;
+          }
+        }
+      `}</style>
 
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <p className="text-sm uppercase tracking-[0.2em] text-flexNavy">My Account</p>
-            <h2 className="mt-1 text-2xl font-semibold text-flexBlack sm:text-3xl">Profile</h2>
-          </div>
-          {!isEditing && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="hidden sm:flex items-center gap-2 border border-flexNavy/20 hover:border-flexBlue text-flexNavy hover:text-flexBlue text-sm font-semibold px-4 py-2 rounded-xl transition-colors"
+      <div className="fixed inset-0 grid-bg pointer-events-none z-0" />
+
+      <main className="relative z-10 mx-auto max-w-2xl px-4 pt-24 sm:pt-28 flex flex-col items-center">
+
+        {/* ── MEMBERSHIP CARD CONTAINER ── */}
+        <div
+          className="id-card-container w-full select-none cursor-pointer transition-transform duration-300"
+          style={{ perspective: "2500px", height: "230px" }}
+          onClick={handleFlip}
+        >
+          <div
+            className="relative w-full h-full"
+            style={{
+              transformStyle: "preserve-3d",
+              transition: "transform 0.85s cubic-bezier(0.34, 1.56, 0.64, 1)",
+              transform: isFlipped ? "rotateY(180deg)" : "rotateY(0deg)",
+            }}
+          >
+            {/* FRONT */}
+            <div
+              className="absolute inset-0 rounded-[22px] overflow-hidden"
+              style={{
+                backfaceVisibility: "hidden",
+                background: theme.gradient,
+                border: "1px solid rgba(255, 255, 255, 0.15)",
+                boxShadow: `0 32px 80px rgba(0,0,0,0.6), inset 0 0 20px rgba(255,255,255,0.05)`,
+                zIndex: isFlipped ? 0 : 2,
+              }}
             >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828A2 2 0 0110 16.414H8v-2a2 2 0 01.586-1.414z" />
-              </svg>
-              Edit Profile
-            </button>
-          )}
-        </div>
+              <div className="absolute inset-0" style={{ backgroundImage: "radial-gradient(rgba(255,255,255,0.08) 1px, transparent 1px)", backgroundSize: "16px 16px" }} />
 
-        <div className="flex items-center gap-5 rounded-2xl border border-flexNavy/15 bg-flexWhite/60 p-5 sm:p-6 mb-5">
-          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-flexBlue/10 border-2 border-flexBlue/30 flex items-center justify-center shrink-0">
-            <span className="text-xl sm:text-2xl font-black text-flexBlue">{getInitials(profile.name)}</span>
-          </div>
-          <div>
-            <h3 className="text-lg sm:text-xl font-bold text-flexBlack">{profile.name}</h3>
-            <p className="text-flexNavy text-sm mt-0.5">{profile.email}</p>
-            <span className={`inline-block mt-2 text-xs font-bold px-3 py-1 rounded-full border ${isActive ? "bg-green-50 text-green-600 border-green-200" : "bg-red-50 text-red-600 border-red-200"}`}>
-              {isActive ? "● Active" : "● Expired"}
-            </span>
-          </div>
-        </div>
+              <div className="relative z-10 h-full flex flex-col justify-between p-5 sm:p-6">
+                <div className="flex justify-between items-start">
+                  <div className="flex items-start gap-3 sm:gap-4">
+                    <div
+                      onClick={handleAvatarClick}
+                      className="avatar-container flex-shrink-0"
+                      style={{
+                        width: "55px", height: "65px", borderRadius: "10px",
+                        background: "rgba(15, 23, 42, 0.6)", border: "1px solid rgba(255,255,255,0.2)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        overflow: "hidden", position: "relative"
+                      }}>
+                      {avatarUrl ? <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> :
+                        <span style={{ fontFamily: "'Space Mono', monospace", fontWeight: 700, fontSize: "8px", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>
+                          Upload
+                        </span>
+                      }
+                      <div className="upload-overlay absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 transition-opacity backdrop-blur-sm">
+                        <p className="text-[7px] uppercase font-mono text-white tracking-widest">{avatarUrl ? "Change" : "Select"}</p>
+                      </div>
+                    </div>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept="image/*" />
 
-        <div className={`rounded-2xl px-5 py-4 mb-5 flex items-center justify-between border ${isActive ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
-          <div>
-            <p className={`text-sm font-bold ${isActive ? "text-green-700" : "text-red-700"}`}>
-              Membership {isActive ? "Active" : "Expired"}
-            </p>
-            <p className={`text-xs mt-0.5 ${isActive ? "text-green-600" : "text-red-500"}`}>
-              {isActive ? `${daysLeft()} days remaining` : "Your membership has ended"}
-            </p>
-          </div>
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${isActive ? "bg-green-100 text-green-700 border-green-300" : "bg-red-100 text-red-700 border-red-300"}`}>
-            {isActive ? "ACTIVE" : "EXPIRED"}
-          </span>
-        </div>
-
-        <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden mb-5">
-          <div className="px-5 py-3.5 border-b border-flexNavy/10">
-            <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Personal Info</p>
-          </div>
-          <div className="divide-y divide-flexNavy/10">
-            <div className="px-5 py-4">
-              <label className="text-xs font-bold tracking-widest text-flexNavy/60 uppercase block mb-1.5">Full Name</label>
-              {isEditing ? (
-                <input type="text" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full border border-flexNavy/20 focus:border-flexBlue rounded-xl px-4 py-2.5 text-sm text-flexBlack outline-none transition-colors bg-white" />
-              ) : (
-                <p className="text-flexBlack text-sm font-medium">{profile.name}</p>
-              )}
-            </div>
-            <div className="px-5 py-4">
-              <label className="text-xs font-bold tracking-widest text-flexNavy/60 uppercase block mb-1.5">Email Address</label>
-              {isEditing ? (
-                <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full border border-flexNavy/20 focus:border-flexBlue rounded-xl px-4 py-2.5 text-sm text-flexBlack outline-none transition-colors bg-white" />
-              ) : (
-                <p className="text-flexBlack text-sm font-medium">{profile.email}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden mb-5">
-          <div className="px-5 py-3.5 border-b border-flexNavy/10">
-            <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Membership Period</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-flexNavy/10">
-            <div className="px-5 py-5">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-4 h-4 text-flexBlue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <label className="text-xs font-bold tracking-widest text-flexNavy/60 uppercase">Start Date</label>
-              </div>
-              {isEditing ? (
-                <input type="date" value={form.membershipStart} onChange={(e) => setForm({ ...form, membershipStart: e.target.value })}
-                  className="w-full border border-flexNavy/20 focus:border-flexBlue rounded-xl px-4 py-2.5 text-sm text-flexBlack outline-none transition-colors bg-white" />
-              ) : (
-                <p className="text-flexBlack text-sm font-semibold">{formatDate(profile.membershipStart)}</p>
-              )}
-            </div>
-            <div className="px-5 py-5">
-              <div className="flex items-center gap-2 mb-2">
-                <svg className="w-4 h-4 text-flexBlue" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <label className="text-xs font-bold tracking-widest text-flexNavy/60 uppercase">End Date</label>
-              </div>
-              {isEditing ? (
-                <input type="date" value={form.membershipEnd} onChange={(e) => setForm({ ...form, membershipEnd: e.target.value })}
-                  className="w-full border border-flexNavy/20 focus:border-flexBlue rounded-xl px-4 py-2.5 text-sm text-flexBlack outline-none transition-colors bg-white" />
-              ) : (
-                <p className="text-flexBlack text-sm font-semibold">{formatDate(profile.membershipEnd)}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {isEditing ? (
-          <div className="flex flex-col sm:flex-row gap-3 mb-8">
-            <button onClick={handleSave} className="flex-1 bg-flexBlue hover:bg-flexBlue/90 text-white font-bold py-3 rounded-xl text-sm tracking-wide transition-colors">
-              Save Changes
-            </button>
-            <button onClick={handleCancel} className="flex-1 border border-flexNavy/20 hover:border-flexNavy/40 text-flexNavy font-semibold py-3 rounded-xl text-sm tracking-wide transition-colors">
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button onClick={() => setIsEditing(true)} className="w-full sm:hidden bg-flexBlue hover:bg-flexBlue/90 text-white font-bold py-3 rounded-xl text-sm tracking-wide transition-colors mb-8">
-            Edit Profile
-          </button>
-        )}
-
-        <div className="rounded-2xl border border-flexNavy/15 bg-flexWhite/60 overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-flexNavy/10 flex items-center justify-between">
-            <p className="text-xs font-bold tracking-[3px] text-flexNavy uppercase">Transaction History</p>
-            <span className="text-xs text-flexNavy/50 font-medium">{transactions.length} records</span>
-          </div>
-          <div className="hidden sm:grid grid-cols-3 px-5 py-2.5 bg-flexNavy/5 border-b border-flexNavy/10">
-            <p className="text-xs font-bold tracking-widest text-flexNavy/50 uppercase">Date</p>
-            <p className="text-xs font-bold tracking-widest text-flexNavy/50 uppercase">Membership Type</p>
-            <p className="text-xs font-bold tracking-widest text-flexNavy/50 uppercase text-right">Amount</p>
-          </div>
-          <div className="divide-y divide-flexNavy/10">
-            {transactions.map((txn) => (
-              <div key={txn.id} className="px-5 py-4 flex flex-col sm:grid sm:grid-cols-3 sm:items-center gap-1.5 sm:gap-0">
-                <p className="text-sm text-flexBlack font-medium">{formatDate(txn.date)}</p>
-                <div>
-                  <span className={`inline-block text-xs font-bold px-3 py-1 rounded-full border ${membershipColor[txn.membershipType]}`}>
-                    {txn.membershipType}
-                  </span>
+                    <div className="min-w-0">
+                      <p style={{ fontFamily: "'Space Mono', monospace", fontSize: "8px", letterSpacing: "0.2em", color: "rgba(255,255,255,0.4)", textTransform: "uppercase" }}>Flex Republic</p>
+                      {isEditing ? (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          <input value={form.firstName} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="bg-[#1e293b] border border-white/20 rounded px-2 py-1 text-xs font-bold w-20 outline-none text-white" />
+                          <input value={form.lastName} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({ ...form, lastName: e.target.value })} className="bg-[#1e293b] border border-white/20 rounded px-2 py-1 text-xs font-bold w-20 outline-none" style={{ color: theme.accent }} />
+                        </div>
+                      ) : (
+                        <p className="truncate" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: "1.5rem", textTransform: "uppercase", color: "#fff", lineHeight: 1, marginTop: "2px" }}>
+                          {profile.firstName} <span style={{ color: theme.accent }}>{profile.lastName}</span>
+                        </p>
+                      )}
+                      <div className="mt-1 font-mono text-[8px] tracking-wider truncate">
+                        <p className="text-white/60 lowercase truncate max-w-[140px] sm:max-w-none">{profile.email}</p>
+                        {isEditing ? (
+                          <input value={form.phone} onClick={(e) => e.stopPropagation()} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="bg-[#1e293b] border border-white/20 rounded px-2 py-0.5 text-[8px] w-28 mt-1.5 outline-none text-white" placeholder="Phone" />
+                        ) : (
+                          <p className="text-white/40 mt-0.5">{profile.phone || "No Contact"}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0" style={{ width: "34px", height: "24px", borderRadius: "4px", background: "linear-gradient(135deg, #d4af37 0%, #f9e97f 40%, #c8941a 100%)", border: "1px solid rgba(0,0,0,0.18)" }} />
                 </div>
-                <p className="text-sm font-bold text-flexBlack sm:text-right">₱{txn.amount.toLocaleString()}</p>
+
+                <div className="flex justify-between items-end">
+                  <div className="flex gap-4 sm:gap-8">
+                    <div>
+                      <p className="font-mono text-[7px] uppercase opacity-40 tracking-widest">Tier</p>
+                      <p className="font-['Barlow Condensed'] font-extrabold text-[0.85rem] uppercase tracking-tight" style={{ color: '#8cc7ff' }}>{userTier.replace("-", " ")}</p>
+                    </div>
+                    <div>
+                      <p className="font-mono text-[7px] uppercase opacity-40 tracking-widest">Status</p>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <div style={{ width: "6px", height: "6px", borderRadius: "50%", background: membershipStatus.isActive ? "#4ade80" : "#ef4444", boxShadow: membershipStatus.isActive ? "0 0 10px #4ade80" : "none" }} />
+                        <p className="font-['Barlow Condensed'] font-extrabold text-[0.85rem] uppercase tracking-tight" style={{ color: membershipStatus.isActive ? "#4ade80" : "#ef4444" }}>
+                          {membershipStatus.isActive ? "Active" : "Exp"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 relative z-20">
+                    {isEditing ? (
+                      <>
+                        <button
+                          onClick={handleSave} disabled={saving}
+                          className="font-['Barlow Condensed'] font-extrabold text-[9px] tracking-[0.1em] uppercase bg-[#0066CC] text-white rounded px-3 sm:px-4 py-1.5 transition-all border border-white/10"
+                        >
+                          {saving ? "..." : "Save"}
+                        </button>
+                        <button onClick={handleCancel} className="font-['Barlow Condensed'] font-extrabold text-[9px] tracking-[0.1em] uppercase bg-slate-800 text-white/80 rounded px-3 sm:px-4 py-1.5 border border-white/5">
+                          X
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button onClick={(e) => { e.stopPropagation(); setIsEditing(true); }} className="font-['Barlow Condensed'] font-extrabold text-[9px] tracking-[0.1em] uppercase bg-white/10 text-white rounded px-4 py-1.5 hover:bg-white/20 backdrop-blur-md border border-white/10">
+                          Edit
+                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); supabase.auth.signOut().then(() => navigate("/")); }} className="font-['Barlow Condensed'] font-extrabold text-[9px] tracking-[0.1em] uppercase bg-red-700 text-white rounded px-4 py-1.5">
+                          Logout
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
+            </div>
+
+            {/* BACK */}
+            <div
+              className="absolute inset-0 rounded-[22px] overflow-hidden"
+              style={{
+                backfaceVisibility: "hidden", transform: "rotateY(180deg)",
+                background: "linear-gradient(135deg, #001a33 0%, #004080 30%, #a3d1ff 50%, #004080 70%, #001a33 100%)",
+                border: "1px solid rgba(255,255,255,0.25)",
+                boxShadow: "0 32px 80px rgba(0,0,0,0.8)",
+                zIndex: isFlipped ? 2 : 0,
+              }}
+            >
+              <div className="absolute top-8 left-0 right-0 h-10 bg-black/50 border-y border-white/10" />
+              <div className="relative z-10 h-full flex flex-col justify-between p-7 sm:p-8 text-white">
+                <p className="font-['Space Mono', monospace] text-[8px] text-white font-bold uppercase tracking-[0.2em]" style={{ textShadow: "0 2px 4px rgba(0,0,0,0.8)" }}>{theme.serial}</p>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="font-mono text-[9px] text-white/70 font-bold uppercase tracking-wider" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>Since</p>
+                    <p className="font-['Barlow Condensed'] font-extrabold text-[1.2rem] tracking-tight text-white" style={{ textShadow: "0 2px 10px rgba(0,0,0,0.8)" }}>{profile.membershipStart || "—"}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-mono text-[9px] text-white/70 font-bold uppercase tracking-wider" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>Renewal</p>
+                    <p className="font-['Barlow Condensed'] font-extrabold text-[1.2rem] tracking-tight" style={{ color: "#fff", textShadow: "0 2px 10px rgba(0,0,0,0.8)" }}>{profile.membershipEnd || "—"}</p>
+                  </div>
+                </div>
+                <p className="font-mono text-[8px] sm:text-[9px] text-white font-bold uppercase tracking-[0.2em] text-center border-t border-white/20 pt-3 mt-3" style={{ textShadow: "0 1px 5px rgba(0,0,0,1)" }}>{theme.motto}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="font-mono text-[9px] tracking-[0.15em] text-white/20 uppercase mt-2 sm:mt-4 mb-2">
+          {isEditing ? "Complete Edit to Flip" : "Tap to Flip Card"}
+        </p>
+
+        {/* ── TRANSACTION E-RECEIPT ── */}
+        <div className="w-full mt-6 sm:mt-10 relative">
+          <div className="absolute -top-3 left-0 right-0 h-4 flex overflow-hidden z-20">
+            {[...Array(20)].map((_, i) => (
+              <div key={i} className="min-w-[32px] h-[32px] bg-[#f8f9fa] rotate-45 transform origin-top-left -translate-y-4" />
             ))}
           </div>
-        </div>
+          <div className="relative bg-[#f8f9fa] text-slate-900 rounded-b-sm shadow-2xl p-4 sm:p-6 pt-10 border-x border-slate-200">
+            <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: `url("https://www.transparenttextures.com/patterns/p6-dark.png")` }} />
+            <div className="relative z-10">
+              <div className="text-center border-b-2 border-dashed border-slate-300 pb-5 mb-5">
+                <h3 className="font-['Barlow Condensed'] font-extrabold text-xl sm:text-2xl uppercase tracking-tighter">Flex Republic</h3>
+                <p className="font-mono text-[9px] uppercase opacity-60">Digital Billing Statement</p>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-[1fr,80px] font-mono text-[9px] font-bold uppercase border-b border-slate-200 pb-2">
+                  <span>Description</span><span className="text-right">Amount</span>
+                </div>
+                {transactions.length > 0 ? displayedTransactions.map((tx) => (
+                  <div key={tx.id} className="grid grid-cols-[1fr,80px] items-start border-b border-slate-100 pb-3">
+                    <div className="pr-2">
+                      <p className="font-mono text-[10px] font-bold text-slate-800 uppercase leading-tight">{userTier.replace("-", " ")} Membership</p>
+                      <p className="font-mono text-[8px] text-slate-500 mt-0.5">{tx.date} • {tx.status}</p>
+                    </div>
+                    <div className="text-right font-['Barlow'] font-bold text-base sm:text-lg text-slate-900">₱{tx.amount.toLocaleString()}</div>
+                  </div>
+                )) : <p className="py-8 text-center font-mono text-[9px] uppercase opacity-40">No records found</p>}
 
-      </div>
-    </Layout>
+                {transactions.length > 3 && (
+                  <div className="text-center">
+                    <button onClick={(e) => { e.stopPropagation(); setShowAllTransactions((s) => !s); }} className="mt-3 inline-flex items-center gap-2 rounded px-3 py-1.5 bg-[#0066CC] text-white text-sm">
+                      {showAllTransactions ? 'Show less' : 'See more'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="mt-8 pt-6 border-t-2 border-dashed border-slate-300 text-center">
+                <p className="font-mono text-[9px] uppercase tracking-widest text-slate-400">Stay Strong. Stay Flex.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }

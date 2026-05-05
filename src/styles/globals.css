@@ -1,0 +1,96 @@
+@import url("https://fonts.googleapis.com/css2?family=Barlow:wght@700;800&family=Inter:wght@400;500&family=Space+Mono:wght@400&display=swap");
+
+:root {
+  --fr-navy: #000033;
+  --fr-royal: #0066cc;
+  --fr-sky: #0099ff;
+  --fr-offwhite: #eeeeee;
+  --fr-white: #ffffff;
+
+  --fr-glass-card: rgba(0, 0, 30, 0.75);
+  --fr-glass-border: rgba(0, 102, 204, 0.35);
+  --fr-glow-shadow: 0 0 40px rgba(0, 102, 204, 0.25);
+  --fr-accent-gradient: linear-gradient(90deg, #0066cc, #0099ff);
+
+  --font-headline: "Barlow", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Space Mono", monospace;
+}
+
+.fr-label {
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  color: #0099ff;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.fr-headline {
+  font-family: "Barlow", sans-serif;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.03em;
+}
+
+.fr-page-shell {
+  min-height: 100vh;
+  background: var(--fr-offwhite);
+  color: var(--fr-navy);
+}
+
+.fr-input {
+  border: 1px solid rgba(0, 0, 51, 0.15);
+  border-radius: 12px;
+  padding: 0.7rem 0.85rem;
+  font-family: var(--font-body);
+  color: var(--fr-navy);
+  background: var(--fr-white);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fr-input:focus {
+  border-color: var(--fr-royal);
+  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.15);
+}
+
+.fr-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid rgba(0, 0, 51, 0.08);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.fr-table thead {
+  background: rgba(0, 102, 204, 0.06);
+}
+
+.fr-table th {
+  font-family: var(--font-label);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--fr-royal);
+}
+
+.fr-table th,
+.fr-table td {
+  border-bottom: 1px solid rgba(0, 0, 51, 0.08);
+  padding: 0.9rem 1rem;
+}
+
+.fr-skeleton {
+  background: linear-gradient(90deg, #000033 0%, #001060 50%, #000033 100%);
+  background-size: 220% 100%;
+  animation: fr-shimmer 1.6s linear infinite;
+}
+
+@keyframes fr-shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}

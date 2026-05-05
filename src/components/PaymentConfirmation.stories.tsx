@@ -27,11 +27,11 @@ const createPaymentTransaction = (
   userId = 'user_demo_123'
 ): PaymentTransaction => {
   const basePrice = MEMBERSHIP_PRICES[userType];
-  const variance = basePrice * (0.05 + Math.random() * 0.1);
-  const amount = Math.round(basePrice + variance);
+  const amount = basePrice;
+  const timestamp = '2026-05-01T00:00:00.000Z';
 
   return {
-    id: `TXN-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: `${status}-${userType}-${method}-${userId}`,
     userId,
     userType,
     amount,
@@ -39,9 +39,9 @@ const createPaymentTransaction = (
     status,
     paymentProofStatus: method === 'online' ? 'pending' : undefined,
     proofOfPaymentUrl: method === 'online' ? 'https://via.placeholder.com/200' : undefined,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    confirmedAt: status === 'paid' ? new Date().toISOString() : undefined,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    confirmedAt: status === 'paid' ? timestamp : undefined,
     failureReason: status === 'failed' ? 'Insufficient funds in account' : undefined,
   };
 };
@@ -63,25 +63,6 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/**
- * Closed state - Modal not displayed
- * Shows nothing when isOpen is false
- */
-export const Closed: Story = {
-  args: {
-    transaction: null,
-    isOpen: false,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    docs: {
-      description: {
-        story: 'Modal is hidden when isOpen is false. No confirmation dialog is displayed.',
-      },
-    },
-  },
-};
 
 /**
  * Payment Successful - Paid status
@@ -278,213 +259,6 @@ export const SuccessfulWalkInPayment: Story = {
     docs: {
       description: {
         story: 'Displays successful payment confirmation for a walk-in payment tier (₱60) - the entry-level option.',
-      },
-    },
-  },
-};
-
-/**
- * Mobile view - Small screen layout
- * Shows payment confirmation modal on mobile device
- */
-export const MobileViewSuccessful: Story = {
-  args: {
-    transaction: createPaymentTransaction('paid', 'monthly', 'cash'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'iphone14',
-    },
-    docs: {
-      description: {
-        story: 'Shows payment confirmation modal optimized for mobile viewport. Modal scales appropriately and remains readable on small screens.',
-      },
-    },
-  },
-};
-
-/**
- * Mobile view - Awaiting confirmation on small screen
- * Shows pending payment confirmation on mobile
- */
-export const MobileViewAwaitingConfirmation: Story = {
-  args: {
-    transaction: createPaymentTransaction('awaiting-confirmation', 'semi-yearly', 'cash'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'iphone14',
-    },
-    docs: {
-      description: {
-        story: 'Shows awaiting confirmation state on mobile. Responsive layout with clear messaging and loading indicator.',
-      },
-    },
-  },
-};
-
-/**
- * Tablet view - Medium screen layout
- * Shows payment confirmation modal on tablet
- */
-export const TabletViewSuccessful: Story = {
-  args: {
-    transaction: createPaymentTransaction('paid', 'yearly', 'online'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'ipad',
-    },
-    docs: {
-      description: {
-        story: 'Shows payment confirmation modal on tablet viewport. Modal maintains good proportions with optimal spacing.',
-      },
-    },
-  },
-};
-
-/**
- * Tablet view - Failed payment on medium screen
- * Shows payment failure on tablet
- */
-export const TabletViewFailed: Story = {
-  args: {
-    transaction: createPaymentTransaction('failed', 'monthly', 'online'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'ipad',
-    },
-    docs: {
-      description: {
-        story: 'Shows payment failure state on tablet. Displays error details and recovery options clearly.',
-      },
-    },
-  },
-};
-
-/**
- * Desktop view - Full screen layout
- * Shows payment confirmation modal on desktop
- */
-export const DesktopViewSuccessful: Story = {
-  args: {
-    transaction: createPaymentTransaction('paid', 'monthly', 'cash'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Shows payment confirmation modal on desktop with full-screen backdrop. Modal is centered and easy to interact with.',
-      },
-    },
-  },
-};
-
-/**
- * Desktop view - Verification pending on full screen
- * Shows online payment verification on desktop
- */
-export const DesktopViewAwaitingVerification: Story = {
-  args: {
-    transaction: createPaymentTransaction('awaiting-verification', 'yearly', 'online'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Shows awaiting payment verification state on desktop. Full modal with clear styling and informative messaging.',
-      },
-    },
-  },
-};
-
-/**
- * Interactive demo - Successful payment flow
- * Demonstrates the successful payment confirmation experience
- */
-export const InteractiveDemoSuccess: Story = {
-  args: {
-    transaction: createPaymentTransaction('paid', 'monthly', 'cash', 'user_demo_john'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Interactive demo of successful payment confirmation. Click "Continue to Dashboard" to see the onComplete handler in console logs.',
-      },
-    },
-  },
-};
-
-/**
- * Interactive demo - Failed payment flow
- * Demonstrates the payment failure recovery experience
- */
-export const InteractiveDemoFailure: Story = {
-  args: {
-    transaction: createPaymentTransaction('failed', 'semi-yearly', 'online', 'user_demo_jane'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Interactive demo of payment failure state. Click "Try Again" to close the modal and trigger retry. Watch console logs for handler calls.',
-      },
-    },
-  },
-};
-
-/**
- * Interactive demo - Verification pending flow
- * Demonstrates the online payment verification experience
- */
-export const InteractiveDemoVerification: Story = {
-  args: {
-    transaction: createPaymentTransaction('awaiting-verification', 'yearly', 'online', 'user_demo_alex'),
-    isOpen: true,
-    onClose: mockOnClose,
-    onComplete: mockOnComplete,
-  },
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
-    docs: {
-      description: {
-        story: 'Interactive demo of online payment awaiting verification. Shows loading spinner and helpful messaging. Click "Close" to test the close handler.',
       },
     },
   },

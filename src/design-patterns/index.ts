@@ -16,61 +16,9 @@
  * - Single Responsibility: each state class handles one state
  * - Open/Closed: easy to add new states without modifying existing ones
  * - Better IDE support and type safety
- * 
- * USAGE EXAMPLES:
- * ==============
- * 
- * // Membership States
- * import { MembershipStateContext } from './design-patterns/MembershipState';
- * 
- * const context = new MembershipStateContext(membership);
- * 
- * // Safe, type-safe transitions
- * if (context.canPerformAction('checkIn')) {
- *   context.checkIn(); // Only succeeds if state allows it
- * }
- * 
- * // Query state information
- * console.log(context.getStateName()); // 'active'
- * console.log(context.getDescription()); // User-friendly description
- * console.log(context.getAllowedActions()); // ['checkIn', 'renew', 'cancel']
- * 
- * // Invalid transitions throw descriptive errors
- * try {
- *   context.checkOut(); // Throws: "Must check in first"
- * } catch (e) {
- *   console.error(e.message);
- * }
- * 
- * // Attendance/Session States
- * import { AttendanceSessionContext } from './design-patterns/AttendanceState';
- * 
- * const session = new AttendanceSessionContext('regular');
- * session.checkIn();
- * session.checkOut();
- * 
- * const walkIn = new AttendanceSessionContext('walk-in');
- * walkIn.endWalkInSession(); // Valid transition
- * 
- * // Payment States
- * import { PaymentStateContext } from './design-patterns/PaymentState';
- * 
- * const payment = new PaymentStateContext();
- * payment.initiate();
- * 
- * if (payment.canPerformAction('confirm')) {
- *   payment.confirm();
- * } else if (payment.canPerformAction('retry')) {
- *   payment.retry();
- * }
- * 
- * // React Hooks (easier integration)
- * import { useMembershipState, useAttendanceSession, usePaymentState } from './design-patterns';
- * 
- * const { state, checkIn, cancel } = useMembershipState(membership);
  */
 
-export type { IMembershipState } from "./MembershipState";
+export type { IMembershipState } from "./state/MembershipState";
 export {
   // Membership states
   PendingPaymentState,
@@ -80,9 +28,9 @@ export {
   CanceledState,
   ExpiredState,
   MembershipStateContext,
-} from "./MembershipState";
+} from "./state/MembershipState";
 
-export type { IAttendanceState } from "./AttendanceState";
+export type { IAttendanceState } from "./state/AttendanceState";
 export {
   // Attendance/Session states
   IdleState,
@@ -91,9 +39,9 @@ export {
   WalkInActiveState,
   WalkInExpiredState,
   AttendanceSessionContext,
-} from "./AttendanceState";
+} from "./state/AttendanceState";
 
-export type { IPaymentState } from "./PaymentState";
+export type { IPaymentState } from "./state/PaymentState";
 export {
   // Payment states
   IdlePaymentState,
@@ -103,14 +51,14 @@ export {
   PaidPaymentState,
   FailedPaymentState,
   PaymentStateContext,
-} from "./PaymentState";
+} from "./state/PaymentState";
 
 export {
   // React hooks for state management
   useMembershipState,
   useAttendanceSession,
   usePaymentState,
-} from "./useStatePatterns";
+} from "./state/useStatePatterns";
 
 export {
   //factory pattern for subscription tier(monthly, semi-yearly, yearly)

@@ -9,10 +9,13 @@ declare const Deno: {
   env: {
     get(key: string): string | undefined;
   };
+  serve(
+    handler: () => Response | Promise<Response>,
+  ): void;
 };
 
 // @ts-expect-error - ESM import available at runtime in Deno environment
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";

@@ -2,8 +2,13 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { fileURLToPath } from "url";
+import path from "path";
 
-dotenv.config();
+const envFile = process.env.NODE_ENV === "test" ? ".env.test" : ".env";
+
+dotenv.config({
+  path: envFile,
+});
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -145,6 +150,8 @@ function buildBestTimeResponse({ days = 7, topCount = 3, totalEquipment = 50 }) 
   };
 }
 
+// ── Health ────────────────────────────────────────────────────────────────────
+
 app.get("/api/health", (_request, response) => {
   response.json({
     status: "ok",
@@ -152,6 +159,65 @@ app.get("/api/health", (_request, response) => {
     allowedOrigin,
   });
 });
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+app.post("/api/login", (request, response) => {
+  const { email, password } = request.body ?? {};
+
+  if (!email || !password) {
+    response.status(400).json({
+      status: "error",
+      message: "Please enter your email and password.",
+    });
+    return;
+  }
+
+  // Auth is handled by Supabase on the client — this endpoint is a passthrough
+  // that confirms the request shape is valid.
+  response.status(200).json({
+    status: "ok",
+    message: "Login request received.",
+  });
+});
+
+app.post("/api/register", (request, response) => {
+  const { email, password, name } = request.body ?? {};
+
+  if (!email || !password || !name) {
+    response.status(400).json({
+      status: "error",
+      message: "Please provide your name, email, and password.",
+    });
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    response.status(400).json({
+      status: "error",
+      message: "Please provide a valid email address.",
+    });
+    return;
+  }
+
+  if (String(password).length < 6) {
+    response.status(400).json({
+      status: "error",
+      message: "Password must be at least 6 characters.",
+    });
+    return;
+  }
+
+  // Registration is handled by Supabase on the client — this endpoint confirms
+  // the request shape is valid before the client calls Supabase directly.
+  response.status(201).json({
+    status: "ok",
+    message: "Registration request received.",
+  });
+});
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
 
 app.post("/api/admin/login", (request, response) => {
   const { email, password } = request.body ?? {};
@@ -193,6 +259,8 @@ app.post("/api/admin/login", (request, response) => {
   });
 });
 
+// ── Dashboard ─────────────────────────────────────────────────────────────────
+
 app.get("/api/dashboard", (_request, response) => {
   response.status(200).json({
     status: "ok",
@@ -218,6 +286,133 @@ app.get("/api/dashboard", (_request, response) => {
   });
 });
 
+// ── Streak ───────────────────────────────────────────────────────────────────
+
+/**
+ * Calculate the daily login streak for a user
+ * A streak increments if the user has at least one check-in per calendar day (UTC)
+ * The streak resets to 0 if a full calendar day is missed
+ * 
+ * @param {Array<string>} sessionDates - Array of ISO timestamps from walk_ins table
+ * @returns {Object} { streak: number, last7Days: boolean[] }
+ */
+function calculateStreak(sessionDates) {
+  if (!sessionDates || sessionDates.length === 0) {
+    return { streak: 0, last7Days: Array(7).fill(false) };
+  }
+
+  // Convert timestamps to UTC dates (just the date part)
+  const dateSet = new Set();
+  sessionDates.forEach((timestamp) => {
+    const date = new Date(timestamp);
+    const utcDateString = date.toISOString().split("T")[0]; // YYYY-MM-DD
+    dateSet.add(utcDateString);
+  });
+
+  // Get last 7 calendar days (UTC)
+  const today = new Date();
+  const last7Days = [];
+  const dateArray = [];
+
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setUTCDate(date.getUTCDate() - i);
+    const dateString = date.toISOString().split("T")[0];
+    dateArray.push(dateString);
+    last7Days.push(dateSet.has(dateString));
+  }
+
+  // Calculate current streak (consecutive days from today backwards)
+  let streak = 0;
+  const todayString = today.toISOString().split("T")[0];
+  
+  for (let i = 0; i < 7; i++) {
+    const checkDate = dateArray[6 - i]; // Start from today and go backwards
+    if (dateSet.has(checkDate)) {
+      streak += 1;
+    } else {
+      break; // Streak breaks if a day is missed
+    }
+  }
+
+  return { streak, last7Days };
+}
+
+app.get("/api/streak", async (request, response) => {
+  try {
+    const { userId } = request.query;
+
+    if (!userId) {
+      return response.status(400).json({
+        status: "error",
+        message: "userId is required",
+      });
+    }
+
+    // ⚠️ SECURITY NOTE: In production, verify the user ID matches the authenticated user
+    // For now, we're accepting userId from query for development purposes.
+    // This endpoint should verify auth token and only allow users to fetch their own streak.
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return response.status(500).json({
+        status: "error",
+        message: "Supabase configuration missing",
+      });
+    }
+
+    // Use dynamic import for ES module
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Query sessions for the last 30 days (for efficiency)
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 30);
+
+    const { data: sessions, error } = await supabase
+      .from("walk_ins")
+      .select("walk_in_time, walk_in_type")
+      .eq("user_id", userId)
+      .eq("walk_in_type", "checkout")
+      .gte("walk_in_time", thirtyDaysAgo.toISOString())
+      .order("walk_in_time", { ascending: false });
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return response.status(500).json({
+        status: "error",
+        message: "Failed to fetch check-in data",
+        error: error.message,
+      });
+    }
+
+    // Extract timestamps and calculate streak
+    const timestamps = (sessions ?? []).map((record) => record.walk_in_time);
+    const { streak, last7Days } = calculateStreak(timestamps);
+
+    response.status(200).json({
+      status: "ok",
+      message: "Streak calculated successfully",
+      data: {
+        streak,
+        last7Days,
+        totalCheckIns: (sessions ?? []).length,
+      },
+    });
+  } catch (err) {
+    console.error("Streak endpoint error:", err);
+    response.status(500).json({
+      status: "error",
+      message: "Internal server error",
+      error: err instanceof Error ? err.message : "Unknown error",
+    });
+  }
+});
+
+// ── Crowd ─────────────────────────────────────────────────────────────────────
+
 app.get("/api/crowd/best-times", (request, response) => {
   const parsedDays = Number.parseInt(String(request.query.days ?? "7"), 10);
   const parsedTopCount = Number.parseInt(String(request.query.topCount ?? "3"), 10);
@@ -232,6 +427,16 @@ app.get("/api/crowd/best-times", (request, response) => {
   });
 });
 
+// ── Frontend + catch-all ──────────────────────────────────────────────────────
+
+app.use(express.static(path.resolve("dist")));
+
+app.use((_req, res) => {
+  res.sendFile(path.resolve("dist/index.html"));
+});
+
+// ── Start ─────────────────────────────────────────────────────────────────────
+
 const currentFilePath = fileURLToPath(import.meta.url);
 const isDirectRun = process.argv[1] === currentFilePath;
 
@@ -239,18 +444,10 @@ if (isDirectRun) {
   app.listen(port, () => {
     console.log(`API server listening on http://localhost:${port}`);
   });
+} else {
+  app.listen(port, () => {
+    console.log(`Server running on port ${port}`);
+  });
 }
-import path from "path";
 
-
-// Serve frontend
-app.use(express.static(path.resolve("dist")));
-
-app.use((req, res) => {
-  res.sendFile(path.resolve("dist/index.html"));
-});
-
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-});
 export default app;

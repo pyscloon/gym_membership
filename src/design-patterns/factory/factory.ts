@@ -30,7 +30,7 @@ export class MonthlyAccess extends AccessType {
 
 export class SemiYearlyAccess extends AccessType {
   get_price(): number {
-    return 699;
+    return 2499;
   }
 
   get_duration(): number {
@@ -44,7 +44,7 @@ export class SemiYearlyAccess extends AccessType {
 
 export class YearlyAccess extends AccessType {
   get_price(): number {
-    return 1199;
+    return 3999;
   }
 
   get_duration(): number {

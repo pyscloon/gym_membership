@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Membership } from "../types/membership";
 import { createWalkInSession } from "../lib/membershipService";
-import { endCrowdSession, startCrowdSession } from "../lib/crowdService";
 
 const WALK_IN_STORAGE_KEY = "flex_republic_walk_in_session";
 
@@ -36,12 +35,7 @@ export function useWalkIn() {
    * Returns null if session expired
    */
   const clearSession = (sessionId?: string): void => {
-    const currentSessionId = sessionId ?? sessionRef.current?.id;
-
-    if (currentSessionId) {
-      endCrowdSession({ sessionId: currentSessionId });
-    }
-
+    void sessionId;
     localStorage.removeItem(WALK_IN_STORAGE_KEY);
     sessionRef.current = null;
     setSession(null);
@@ -53,11 +47,6 @@ export function useWalkIn() {
   const startSession = (): Membership => {
     const newSession = createWalkInSession();
     localStorage.setItem(WALK_IN_STORAGE_KEY, JSON.stringify(newSession));
-    startCrowdSession({
-      sessionId: newSession.id,
-      userId: null,
-      sessionType: "walk-in",
-    });
     sessionRef.current = newSession;
     setSession(newSession);
     return newSession;
@@ -106,15 +95,9 @@ export function useWalkIn() {
     const interval = setInterval(() => {
       const current = readStoredWalkInSession();
       if (!current) {
-        const currentSessionId = sessionRef.current?.id;
-
-        if (currentSessionId) {
-          endCrowdSession({ sessionId: currentSessionId });
-        }
-
         localStorage.removeItem(WALK_IN_STORAGE_KEY);
         sessionRef.current = null;
-        clearSession(currentSessionId);
+        clearSession();
         clearInterval(interval);
         return;
       }

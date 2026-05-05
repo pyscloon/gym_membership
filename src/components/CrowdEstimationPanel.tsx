@@ -1,197 +1,118 @@
 import { useEffect, useState } from "react";
 import {
-  captureCrowdSnapshot,
+  fetchBackendCrowdPanelData,
   getBestTimeSuggestions,
-  getCrowdStatusColor,
   getCurrentCrowdStats,
-  updateTotalEquipmentCount,
   type BestTimeSuggestions,
   type CrowdStats,
 } from "../lib/crowdService";
 
 interface CrowdEstimationPanelProps {
   showAdminControls?: boolean;
+  minimalView?: boolean;
 }
 
 function formatPercentage(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function formatPhilippineTime(value: Date): string {
+  return value.toLocaleTimeString("en-PH", {
+    timeZone: "Asia/Manila",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
 export default function CrowdEstimationPanel({
   showAdminControls = false,
+  minimalView = false,
 }: CrowdEstimationPanelProps) {
   const [stats, setStats] = useState<CrowdStats>(getCurrentCrowdStats());
-  const [suggestions, setSuggestions] = useState<BestTimeSuggestions>(
-    getBestTimeSuggestions({ days: 7, topCount: 3 })
-  );
-  const [equipmentInput, setEquipmentInput] = useState(String(stats.totalEquipment));
-  const [isSaving, setIsSaving] = useState(false);
-  const [isEditingEquipment, setIsEditingEquipment] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
+  const [suggestions, setSuggestions] = useState<BestTimeSuggestions>(getBestTimeSuggestions());
+  const [currentPhilippineTime, setCurrentPhilippineTime] = useState(new Date());
 
-  const refreshData = () => {
-    captureCrowdSnapshot();
-    const nextStats = getCurrentCrowdStats();
-    const nextSuggestions = getBestTimeSuggestions({ days: 7, topCount: 3 });
+  const refreshData = async () => {
+    const backendData = await fetchBackendCrowdPanelData({ days: 7 });
 
-    setStats(nextStats);
-    setSuggestions(nextSuggestions);
-    setEquipmentInput(String(nextStats.totalEquipment));
-    setLastUpdated(new Date());
+    setStats(backendData.stats);
+    setSuggestions(
+      backendData.suggestions.hourly_averages.length > 0
+        ? backendData.suggestions
+        : getBestTimeSuggestions()
+    );
   };
 
   useEffect(() => {
-    refreshData();
+    void refreshData();
 
-    const interval = window.setInterval(refreshData, 30_000);
-    const handleStorage = () => refreshData();
+    const refreshInterval = window.setInterval(() => {
+      void refreshData();
+    }, 30_000);
+    const clockInterval = window.setInterval(() => {
+      setCurrentPhilippineTime(new Date());
+    }, 1_000);
+    const handleStorage = () => {
+      void refreshData();
+    };
 
     window.addEventListener("storage", handleStorage);
 
     return () => {
-      window.clearInterval(interval);
+      window.clearInterval(refreshInterval);
+      window.clearInterval(clockInterval);
       window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
-  const handleSaveEquipment = async () => {
-    const nextValue = Number.parseInt(equipmentInput, 10);
-
-    if (!Number.isFinite(nextValue) || nextValue <= 0) {
-      setMessage("Enter a valid equipment count greater than zero.");
-      return;
-    }
-
-    setIsSaving(true);
-    setMessage(null);
-
-    try {
-      updateTotalEquipmentCount(nextValue);
-      refreshData();
-      setMessage("Equipment count updated.");
-      setIsEditingEquipment(false);
-    } catch (error) {
-      console.error("Failed to update equipment count:", error);
-      setMessage("Unable to update equipment count right now.");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const percentValue = formatPercentage(stats.crowdLevel);
 
-  const handleEditEquipment = () => {
-    setEquipmentInput(String(stats.totalEquipment));
-    setMessage(null);
-    setIsEditingEquipment(true);
-  };
-
-  const handleCancelEditEquipment = () => {
-    setEquipmentInput(String(stats.totalEquipment));
-    setMessage(null);
-    setIsEditingEquipment(false);
-  };
-
   return (
-    <section className="mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6 shadow-sm">
+    <section className={minimalView ? "mt-6" : "mt-6 rounded-2xl border border-flexNavy/15 bg-flexWhite/70 p-6 shadow-sm"}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-flexNavy font-semibold">
-            Peak Hours Estimation
-          </p>
+          {!minimalView && (
+            <p className="text-xs uppercase tracking-[0.18em] text-flexNavy font-semibold">
+              Peak Hours Estimation
+            </p>
+          )}
         </div>
-        <div className="rounded-full border border-flexNavy/10 bg-flexWhite px-3 py-1 text-xs font-semibold text-flexNavy">
-          Updated {lastUpdated.toLocaleTimeString()}
+        <div className={minimalView ? "px-1 py-1 text-xs font-semibold text-flexNavy" : "rounded-full border border-flexNavy/10 bg-flexWhite px-3 py-1 text-xs font-semibold text-flexNavy"}>
+          Time: {formatPhilippineTime(currentPhilippineTime)}
         </div>
       </div>
 
-      <div className="mt-5 grid gap-4 md:grid-cols-4">
-        <article className="rounded-xl border border-flexNavy/10 bg-flexWhite p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold">
-            Active Now
-          </p>
-          <p className="mt-2 text-3xl font-bold text-flexBlack">
+      <div className={minimalView ? "mt-5 grid grid-cols-2 gap-2 border-y border-flexNavy/15 py-3 sm:grid-cols-3" : "mt-5 grid gap-4 md:grid-cols-3"}>
+        <article className={minimalView ? "min-w-0 rounded-lg border border-flexNavy/10 bg-white/80 p-2" : "rounded-xl border border-flexNavy/10 bg-flexWhite p-4"}>
+          <div className={minimalView ? "mb-0.5 min-h-[20px]" : ""}>
+            <p className={minimalView ? "text-[9px] uppercase tracking-[0.06em] text-flexNavy font-semibold leading-tight" : "text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold"}>
+              Active Now
+            </p>
+          </div>
+          <p className={minimalView ? "mt-1 text-base font-bold text-flexBlack" : "mt-2 text-3xl font-bold text-flexBlack"}>
             {stats.activeUsers}
           </p>
         </article>
 
-        <article className="rounded-xl border border-flexNavy/10 bg-flexWhite p-4">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold">
-              Total Equipment
+        <article className={minimalView ? "min-w-0 rounded-lg border border-flexNavy/10 bg-white/80 p-2" : "rounded-xl border border-flexNavy/10 bg-flexWhite p-4"}>
+          <div className={minimalView ? "mb-0.5 min-h-[20px]" : ""}>
+            <p className={minimalView ? "text-[9px] uppercase tracking-[0.06em] text-flexNavy font-semibold leading-tight" : "text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold"}>
+              Crowd Level
             </p>
-            {showAdminControls && (
-              <button
-                type="button"
-                onClick={isEditingEquipment ? handleCancelEditEquipment : handleEditEquipment}
-                disabled={isSaving}
-                className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-flexNavy/20 bg-white text-flexNavy transition hover:bg-flexNavy/5 disabled:cursor-not-allowed disabled:opacity-70"
-                aria-label={isEditingEquipment ? "Cancel edit equipment count" : "Edit equipment count"}
-                title={isEditingEquipment ? "Cancel" : "Edit equipment count"}
-              >
-                {isEditingEquipment ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                    <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 0 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 1 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4">
-                    <path d="M13.5 6.75 17.25 3a2.121 2.121 0 1 1 3 3l-12 12a2.25 2.25 0 0 1-.954.56l-3.35.838a.75.75 0 0 1-.91-.91l.838-3.35a2.25 2.25 0 0 1 .56-.954l12-12Z" />
-                    <path d="M10.5 9.75 14.25 13.5" />
-                  </svg>
-                )}
-              </button>
-            )}
           </div>
-
-          {!showAdminControls || !isEditingEquipment ? (
-            <p className="mt-2 text-3xl font-bold text-flexBlack">
-              {stats.totalEquipment}
-            </p>
-          ) : (
-            <div className="mt-2 space-y-2">
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={equipmentInput}
-                onChange={(event) => setEquipmentInput(event.target.value)}
-                className="w-full rounded-lg border border-flexNavy/20 bg-white px-3 py-2 text-flexBlack outline-none transition focus:border-flexBlue focus:ring-2 focus:ring-flexBlue/20"
-              />
-              <button
-                type="button"
-                onClick={handleSaveEquipment}
-                disabled={isSaving}
-                className="rounded-lg bg-flexBlue px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-flexNavy disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {isSaving ? "Saving..." : "Save"}
-              </button>
-            </div>
-          )}
-
-          {showAdminControls && message && (
-            <p className="mt-2 text-xs text-flexNavy/70">{message}</p>
-          )}
-        </article>
-
-        <article className="rounded-xl border border-flexNavy/10 bg-flexWhite p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold">
-            Crowd Level
-          </p>
-          <p className="mt-2 text-3xl font-bold text-flexBlack">
+          <p className={minimalView ? "mt-1 text-base font-bold text-flexBlack" : "mt-2 text-3xl font-bold text-flexBlack"}>
             {percentValue}
           </p>
         </article>
 
-        <article className="rounded-xl border border-flexNavy/10 bg-flexWhite p-4">
-          <p className="text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold">
-            Status
-          </p>
-          <div className="mt-2 inline-flex rounded-full px-3 py-1 text-sm font-semibold ring-1">
-            <span className={`rounded-full px-3 py-1 ring-1 ${getCrowdStatusColor(stats.crowdStatus)}`}>
-              {stats.crowdStatus}
-            </span>
+        <article className={minimalView ? "min-w-0 rounded-lg border border-flexNavy/10 bg-white/80 p-2" : "rounded-xl border border-flexNavy/10 bg-flexWhite p-4"}>
+          <div className={minimalView ? "mb-0.5 min-h-[20px]" : ""}>
+            <p className={minimalView ? "text-[9px] uppercase tracking-[0.06em] text-flexNavy font-semibold leading-tight" : "text-xs uppercase tracking-[0.16em] text-flexNavy font-semibold"}>
+              Status
+            </p>
           </div>
+          <p className={minimalView ? "mt-1 text-[13px] font-bold capitalize text-flexBlack leading-tight" : "mt-2 text-3xl font-bold capitalize text-flexBlack"}>{stats.crowdStatus}</p>
         </article>
       </div>
 

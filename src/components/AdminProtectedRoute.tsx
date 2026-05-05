@@ -2,12 +2,11 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { verifyAdminAccess } from "../lib/adminAuth";
 
 type AdminProtectedRouteProps = {
   children: ReactNode;
 };
-
-const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? "").toLowerCase();
 
 export default function AdminProtectedRoute({ children }: AdminProtectedRouteProps) {
   const [isChecking, setIsChecking] = useState(true);
@@ -17,7 +16,7 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
     let isMounted = true;
 
     const checkAdminSession = async () => {
-      if (!isSupabaseConfigured || !supabase || !ADMIN_EMAIL) {
+      if (!isSupabaseConfigured || !supabase) {
         if (isMounted) {
           setIsAdminAuthenticated(false);
           setIsChecking(false);
@@ -25,13 +24,10 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
         return;
       }
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { isAdmin } = await verifyAdminAccess();
 
       if (isMounted) {
-        const userEmail = user?.email?.toLowerCase() ?? "";
-        setIsAdminAuthenticated(userEmail === ADMIN_EMAIL);
+        setIsAdminAuthenticated(isAdmin);
         setIsChecking(false);
       }
     };
