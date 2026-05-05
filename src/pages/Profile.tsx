@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
+import { useAppUi } from "../context/AppUiContext";
 import { supabase } from "../lib/supabaseClient";
 import {
   calculateMembershipStatus,
@@ -32,6 +33,8 @@ export default function Profile() {
   const [form, setForm] = useState<ProfileFormState>(profile);
   const [transactions, setTransactions] = useState<MemberTransaction[]>([]);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
+  const { setAvatarUrl: setHeaderAvatarUrl } = useAppUi();
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "";
@@ -107,7 +110,19 @@ export default function Profile() {
     setIsEditing(false);
   };
 
-  const handleFlip = () => { if (!isEditing) setIsFlipped(!isFlipped); };
+  const handleFlip = (e?: React.MouseEvent) => {
+    // prevent flip when clicking inside avatar area or while editing
+    if (e) {
+      let element: Element | null = null;
+      if (e.target instanceof Element) {
+        element = e.target;
+      } else if (e.target instanceof Node) {
+        element = e.target.parentElement;
+      }
+      if (element && element.closest('.avatar-container')) return;
+    }
+    if (!isEditing) setIsFlipped(!isFlipped);
+  };
 
   const membershipStatus = calculateMembershipStatus(profile.membershipEnd);
   const theme = PLAN_THEMES[userTier] || PLAN_THEMES.default;
@@ -120,19 +135,36 @@ export default function Profile() {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${user.id}.${fileExt}`;
-    const filePath = `avatars/${fileName}`;
-    const { error: uploadError } = await supabase.storage.from('flex-republic-assets').upload(filePath, file, { upsert: true });
-    if (uploadError) return;
-    const { data: { publicUrl } } = supabase.storage.from('flex-republic-assets').getPublicUrl(filePath);
-    // Since avatar_url is not in the schema, we skip updating the profiles table for now.
-    // To enable this, add the avatar_url column to the profiles table.
-    // await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
-    setAvatarUrl(publicUrl);
+
+    // show a fast local preview while upload happens
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      setAvatarUrl(objectUrl);
+      setHeaderAvatarUrl(objectUrl);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+      const { error: uploadError } = await supabase.storage.from('flex-republic-assets').upload(filePath, file, { upsert: true });
+      if (uploadError) {
+        console.error('Upload failed', uploadError);
+        return;
+      }
+      const { data: { publicUrl } } = supabase.storage.from('flex-republic-assets').getPublicUrl(filePath);
+      // update preview to public url
+      setAvatarUrl(publicUrl);
+      setHeaderAvatarUrl(publicUrl);
+      // revoke local object url
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('Avatar upload error', err);
+    }
   };
+
+  // determine subset of transactions to show
+  const displayedTransactions = showAllTransactions ? transactions : transactions.slice(0, 3);
 
   if (loading) return (
     <div className="min-h-screen bg-[#00001a] flex items-center justify-center">
@@ -248,7 +280,7 @@ export default function Profile() {
                   <div className="flex gap-4 sm:gap-8">
                     <div>
                       <p className="font-mono text-[7px] uppercase opacity-40 tracking-widest">Tier</p>
-                      <p className="font-['Barlow Condensed'] font-extrabold text-[0.85rem] uppercase tracking-tight" style={{ color: theme.accent }}>{userTier.replace("-", " ")}</p>
+                      <p className="font-['Barlow Condensed'] font-extrabold text-[0.85rem] uppercase tracking-tight" style={{ color: '#8cc7ff' }}>{userTier.replace("-", " ")}</p>
                     </div>
                     <div>
                       <p className="font-mono text-[7px] uppercase opacity-40 tracking-widest">Status</p>
@@ -341,7 +373,7 @@ export default function Profile() {
                 <div className="grid grid-cols-[1fr,80px] font-mono text-[9px] font-bold uppercase border-b border-slate-200 pb-2">
                   <span>Description</span><span className="text-right">Amount</span>
                 </div>
-                {transactions.length > 0 ? transactions.map((tx) => (
+                {transactions.length > 0 ? displayedTransactions.map((tx) => (
                   <div key={tx.id} className="grid grid-cols-[1fr,80px] items-start border-b border-slate-100 pb-3">
                     <div className="pr-2">
                       <p className="font-mono text-[10px] font-bold text-slate-800 uppercase leading-tight">{userTier.replace("-", " ")} Membership</p>
@@ -350,6 +382,14 @@ export default function Profile() {
                     <div className="text-right font-['Barlow'] font-bold text-base sm:text-lg text-slate-900">₱{tx.amount.toLocaleString()}</div>
                   </div>
                 )) : <p className="py-8 text-center font-mono text-[9px] uppercase opacity-40">No records found</p>}
+
+                {transactions.length > 3 && (
+                  <div className="text-center">
+                    <button onClick={(e) => { e.stopPropagation(); setShowAllTransactions((s) => !s); }} className="mt-3 inline-flex items-center gap-2 rounded px-3 py-1.5 bg-[#0066CC] text-white text-sm">
+                      {showAllTransactions ? 'Show less' : 'See more'}
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="mt-8 pt-6 border-t-2 border-dashed border-slate-300 text-center">
                 <p className="font-mono text-[9px] uppercase tracking-widest text-slate-400">Stay Strong. Stay Flex.</p>
