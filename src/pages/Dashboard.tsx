@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import MembershipDashboard from "../components/MembershipDashboard";
+import GoalProgressBar from "../components/GoalProgressBar";
 import { useNavigate } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
 import { useAuth } from "../hooks";
@@ -7,6 +8,7 @@ import { fetchBackendCrowdPanelData } from "../lib/crowdService";
 import { fetchUserMembership } from "../lib/membershipService";
 import { supabase } from "../lib/supabaseClient";
 import { calculateMembershipStats, type Membership } from "../types/membership";
+import { AccessFactory } from "../design-patterns";
 
 // --- JSON Configuration Mapping ---
 const THEME = {
@@ -162,6 +164,23 @@ export default function Dashboard() {
 
   const membershipStats = membership ? calculateMembershipStats(membership) : null;
   const crowdPercent = Math.min(100, Math.round((crowdActiveUsers / MAX_CROWD_CAPACITY) * 100));
+  const membershipTotalDays = useMemo(() => {
+    if (!membership) return 0;
+    if (membership.tier === "walk-in") return 1;
+    try {
+      return AccessFactory.create_access(membership.tier).get_duration();
+    } catch {
+      return 30;
+    }
+  }, [membership]);
+  const membershipProgressPercent = useMemo(() => {
+    if (!membershipStats || membershipTotalDays <= 0) return 0;
+    const percent = (membershipStats.daysUntilRenewal / membershipTotalDays) * 100;
+    return Math.min(100, Math.max(0, percent));
+  }, [membershipStats, membershipTotalDays]);
+  const membershipMarkerPercent = Math.min(90, Math.max(10, membershipProgressPercent));
+  const isExpiryCritical =
+    membershipStats?.daysUntilRenewal !== undefined && membershipStats.daysUntilRenewal <= 5;
 
   const layer0 = THEME.background.lighting_layers[0] ?? {
     type: "radial-gradient",
@@ -310,12 +329,11 @@ export default function Dashboard() {
                   </button>
                 </div>
               )}
-              <div className="h-2.5 w-full bg-white p-0.5 rounded-full ring-1 ring-black/5 shadow-inner">
-                <div
-                  className="h-full bg-gradient-to-r from-[#0099FF] to-[#0066CC] rounded-full transition-all duration-1000"
-                  style={{ width: `${Math.min(100, (weekSessions / weeklyGoal) * 100)}%` }}
-                />
-              </div>
+              <GoalProgressBar
+                currentSessions={weekSessions}
+                weeklyGoal={weeklyGoal}
+                isLoading={isLoading}
+              />
             </div>
           </section>
 
@@ -385,14 +403,14 @@ export default function Dashboard() {
               <div className="h-1.5 w-full bg-gray-200/50 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-[#0099FF] to-[#0066CC] animate-dash-in"
-                  style={{ width: `${Math.min(100, ((membershipStats?.daysUntilRenewal ?? 0) / 30) * 100)}%` }}
+                  style={{ width: `${membershipProgressPercent}%` }}
                 />
               </div>
               <div
                 className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-700"
-                style={{ left: `${Math.min(90, Math.max(10, ((membershipStats?.daysUntilRenewal ?? 0) / 30) * 100))}%` }}
+                style={{ left: `${membershipMarkerPercent}%` }}
               >
-                <div className={`flex flex-col items-center justify-center rounded-full border-[3px] ${membershipStats?.daysUntilRenewal && membershipStats.daysUntilRenewal <= 7 ? "border-amber-400" : "border-[#0066CC]"} bg-white shadow-xl aspect-square w-16`}>
+                <div className={`flex flex-col items-center justify-center rounded-full border-[3px] ${isExpiryCritical ? "border-amber-400" : "border-[#0066CC]"} bg-white shadow-xl aspect-square w-16`}>
                   <p className="text-xl font-black text-[#000033] leading-none">{isLoading ? "—" : (membershipStats?.daysUntilRenewal ?? 0)}</p>
                   <p className="text-[7px] font-black uppercase text-[#000033]/50 tracking-tighter">days left</p>
                 </div>
