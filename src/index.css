@@ -1,6 +1,8 @@
+/* stylelint-disable at-rule-no-unknown */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
 
 :root {
   --color-navy: #000033;
@@ -226,4 +228,45 @@ body {
 
 .fr-breathe-glow {
   animation: fr-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes fr-hero-flicker {
+  0% {
+    opacity: 1;
+    text-shadow: 0 0 16px rgba(255, 255, 255, 0.35);
+  }
+  5% {
+    opacity: 0.3;
+  }
+  10% {
+    opacity: 1;
+  }
+  12% {
+    opacity: 0.15;
+  }
+  18% {
+    opacity: 0.9;
+  }
+  22% {
+    opacity: 0.2;
+  }
+  30% {
+    opacity: 1;
+    text-shadow: 0 0 22px rgba(0, 153, 255, 0.45);
+  }
+  100% {
+    opacity: 1;
+    text-shadow: 0 0 12px rgba(255, 255, 255, 0.2);
+  }
+}
+
+.fr-hero-flicker {
+  display: inline-block;
+  animation: fr-hero-flicker 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fr-hero-flicker {
+    animation: none;
+  }
 }
