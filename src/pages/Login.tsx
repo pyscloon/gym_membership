@@ -4,6 +4,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { syncProfile } from "../lib/profile";
 import { debounce } from "../lib/debounce";
+import patternImage from "../assets/Pattern.png";
+import spartanImage from "../assets/FlexBackgroundNoBg.png";
 
 const ADMIN_EMAIL = (import.meta.env.VITE_ADMIN_EMAIL ?? "").toLowerCase();
 
@@ -92,10 +94,28 @@ export default function Login() {
     };
 
     return (
-        <main className="min-h-screen bg-gradient-to-br from-flexBlack via-flexNavy to-flexBlue px-4 py-8 sm:px-6 lg:px-8">
-            <div className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
+        <main className="relative min-h-screen overflow-hidden bg-gradient-to-br from-flexBlack via-flexNavy to-flexBlue px-4 py-8 sm:px-6 lg:px-8">
+            <img
+                src={patternImage}
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute left-0 top-0 z-0 w-full max-w-none -translate-y-1/3 opacity-20"
+            />
+            <img
+                src={patternImage}
+                alt=""
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-0 left-0 z-0 w-full max-w-none translate-y-1/3 opacity-20"
+            />
+            <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center justify-center">
                 <section className="grid w-full overflow-hidden rounded-2xl bg-flexWhite/95 shadow-2xl ring-1 ring-flexBlack/15 md:grid-cols-2">
-                    <div className="hidden bg-flexBlack p-10 text-flexWhite md:flex md:flex-col md:justify-between">
+                    <div className="relative hidden overflow-hidden bg-flexBlack p-10 text-flexWhite md:flex md:flex-col md:justify-between">
+                        <img
+                            src={spartanImage}
+                            alt=""
+                            aria-hidden="true"
+                            className="pointer-events-none absolute left-[100%] top-1/2 h-4/5 w-4/5 -translate-x-1/2 -translate-y-1/2 object-contain opacity-8"
+                        />
                         <div>
                             <p className="text-sm uppercase tracking-[0.35em] text-flexBlue">Flex Republic</p>
                             <h1 className="mt-4 text-4xl font-semibold leading-tight">
