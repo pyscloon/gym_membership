@@ -3,6 +3,8 @@
  * Handles check-in, check-out, and walk-in validations
  */
 
+import type { ActivityMetricRow } from "./activityMetrics";
+import { buildCompletedSessionMetrics, dateKey } from "./activityMetrics";
 import { supabase } from "./supabaseClient";
 
 export interface QRData {
@@ -36,6 +38,12 @@ export interface TodayActivityRecord {
   time: string;
 }
 
+export interface StreakData {
+  streak: number;
+  last7Days: boolean[];
+  totalCheckIns?: number;
+}
+
 type TodayWalkInRow = {
   id: string;
   user_id: string | null;
@@ -54,6 +62,79 @@ type ActivityMembershipRow = {
   id: string;
   tier: string | null;
 };
+
+function buildLast7Days(daySet: Set<string>, today: Date): boolean[] {
+  const days: boolean[] = [];
+
+  for (let i = 6; i >= 0; i -= 1) {
+    const cursor = new Date(today);
+    cursor.setDate(today.getDate() - i);
+    cursor.setHours(0, 0, 0, 0);
+    days.push(daySet.has(dateKey(cursor)));
+  }
+
+  return days;
+}
+
+export function buildStreakDataFromActivityRows(
+  rows: ActivityMetricRow[],
+  today: Date = new Date()
+): StreakData {
+  const metrics = buildCompletedSessionMetrics(rows, today);
+
+  return {
+    streak: metrics.streakDays,
+    last7Days: buildLast7Days(metrics.completedDaySet, today),
+    totalCheckIns: metrics.totalSessions,
+  };
+}
+
+export async function getMemberCompletedSessionRows(
+  userId: string,
+  limit: number = 2000
+): Promise<ActivityMetricRow[]> {
+  if (!supabase || !userId) {
+    return [];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("walk_ins")
+      .select("walk_in_time, walk_in_type")
+      .eq("user_id", userId)
+      .eq("walk_in_type", "checkout")
+      .order("walk_in_time", { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error("Error fetching member completed session rows:", error);
+      return [];
+    }
+
+    return (data as ActivityMetricRow[] | null) ?? [];
+  } catch (err) {
+    console.error("Error in getMemberCompletedSessionRows:", err);
+    return [];
+  }
+}
+
+export async function getCurrentUserStreakData(): Promise<StreakData> {
+  if (!supabase) {
+    throw new Error("Supabase client not initialized");
+  }
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    throw new Error("User not authenticated");
+  }
+
+  const rows = await getMemberCompletedSessionRows(user.id);
+  return buildStreakDataFromActivityRows(rows);
+}
 
 /**
  * Validate and process QR code scan

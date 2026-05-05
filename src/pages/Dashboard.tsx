@@ -4,9 +4,9 @@ import GoalProgressBar from "../components/GoalProgressBar";
 import { useNavigate } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
 import { useAuth } from "../hooks";
+import { getMemberCompletedSessionRows } from "../lib/checkInService";
 import { fetchBackendCrowdPanelData } from "../lib/crowdService";
 import { fetchUserMembership } from "../lib/membershipService";
-import { supabase } from "../lib/supabaseClient";
 import { calculateMembershipStats, type Membership } from "../types/membership";
 import { AccessFactory } from "../design-patterns";
 import { buildCompletedSessionMetrics, dateKey } from "../lib/activityMetrics";
@@ -54,6 +54,7 @@ type LinearLightingLayer = { type: "linear-gradient"; direction: string; colors:
 const MAX_CROWD_CAPACITY = 50;
 const DEFAULT_WEEKLY_GOAL = 4;
 const WEEKDAY_LABELS = ["M", "T", "W", "T", "F", "S", "S"] as const;
+const DASHBOARD_REFRESH_INTERVAL_MS = 2000;
 
 function getGoalStorageKey(userId: string): string { return `flex_weekly_goal_${userId}`; }
 function readGoal(userId: string): number {
@@ -93,18 +94,43 @@ export default function Dashboard() {
     try {
       const [m, w, c] = await Promise.all([
         fetchUserMembership(user.id),
-        supabase.from("walk_ins").select("walk_in_time, walk_in_type").eq("user_id", user.id).order("walk_in_time", { ascending: false }).limit(2000),
+        getMemberCompletedSessionRows(user.id),
         fetchBackendCrowdPanelData({ days: 7 }).catch(() => null),
       ]);
       setMembership(m);
-      setWalkIns((w.data as WalkInRow[]) ?? []);
+      setWalkIns(w as WalkInRow[]);
       setCrowdActiveUsers(c?.stats.activeUsers ?? 0);
     } finally {
       setIsLoading(false);
     }
   }, [user]);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    void loadData();
+
+    const intervalId = window.setInterval(() => {
+      void loadData();
+    }, DASHBOARD_REFRESH_INTERVAL_MS);
+
+    const handleFocus = () => {
+      void loadData();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void loadData();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [loadData]);
   useEffect(() => {
     if (user) {
       const g = readGoal(user.id);
