@@ -178,7 +178,7 @@ export const PaymentVoucherSection: React.FC = () => {
         </div>
       ) : (
         <div className="flex gap-2">
-          <input type="text" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} placeholder="e.g. KENJI" className="flex-1 rounded-lg border px-3 py-2.5 text-sm" />
+          <input type="text" value={voucherInput} onChange={(e) => setVoucherInput(e.target.value)} placeholder="e.g. KENJI" className="flex-1 rounded-lg border px-3 py-2.5 text-sm text-flexNavy bg-white" />
           <button onClick={handleApply} disabled={isLoading || !voucherInput.trim()} className="rounded-lg bg-flexBlue px-4 py-2.5 text-sm text-white">Apply</button>
         </div>
       )}

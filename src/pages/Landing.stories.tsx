@@ -101,7 +101,7 @@ export const IntegrationLocationDistanceFlow: Story = {
         await user.click(canvas.getByRole('button', { name: /enter your location/i }));
 
       await waitFor(() => {
-        canvas.getByText(/location access approved\./i);
+        canvas.getByText(/done\./i);
       });
 
       await waitFor(() => {
