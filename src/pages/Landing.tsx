@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion, useInView, useSpring } from "framer-motion";
 import { Link } from "react-router-dom";
 import AppTopBar from "../components/ui/AppTopBar";
+import heroBackground from "../assets/backgroundimage1.png";
 import placeholderImage from "../assets/placeholder.jpg";
 import flexBackground from "../assets/flex-background.png";
 import location1 from "../assets/Location1.png";
@@ -141,7 +142,7 @@ export default function Landing() {
         
         <div className="absolute inset-0 z-0">
           <img 
-            src="src/assets/backgroundimage1.png" 
+            src={heroBackground}
             alt="Gym Background" 
             className="h-full w-full object-cover blur-[2px] scale-105" 
           />
